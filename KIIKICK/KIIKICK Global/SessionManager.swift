@@ -1,0 +1,105 @@
+//
+//  SessionManager.swift
+//  KIIKICK
+//
+//  Created by Seungjun Lee on 10/27/26.
+//
+
+import CoreLocation
+import WatchConnectivity
+
+@Observable
+final class SessionManager: NSObject {
+    
+    static let shared = SessionManager()
+    
+    var isReachable: Bool = false
+    
+    #if os(watchOS)
+    enum TransferStatus: Equatable {
+        case idle
+        case sending(pointCount: Int)
+        case success(pointCount: Int)
+        case failure(String)
+    }
+    var transferStatus: TransferStatus = .idle
+    private var pendingPointCount: Int = 0
+    
+    func beginTransfer(pointCount: Int) {
+        pendingPointCount = pointCount
+        DispatchQueue.main.async { self.transferStatus = .sending(pointCount: pointCount) }
+    }
+    #endif
+    
+    private override init() {
+        super.init()
+        guard WCSession.isSupported() else {
+            #if DEBUG
+            print("[SessionManager] WCSession is not supported on this device.")
+            #endif
+            return
+        }
+        WCSession.default.delegate = self
+        WCSession.default.activate()
+    }
+}
+
+extension SessionManager: WCSessionDelegate {
+    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {
+        DispatchQueue.main.async { self.isReachable = session.isReachable }
+        #if DEBUG
+        if let error {
+            print("[SessionManager] 활성화 실패 - \(error)")
+        } else {
+            print("[SessionManager] 활성화 완료 - state: \(activationState.rawValue)")
+            #if os(watchOS)
+            print("[SessionManager] isReachable: \(session.isReachable), 대기중인 큐: \(session.outstandingFileTransfers.count)개")
+            #endif
+        }
+        #endif
+    }
+    
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        DispatchQueue.main.async { self.isReachable = session.isReachable }
+    }
+    
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        #if os(iOS)
+        
+        #endif
+    }
+    
+    func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        #if os(iOS)
+        
+        #endif
+    }
+    
+    #if os(watchOS)
+    func session(_ session: WCSession,
+                 didFinish fileTransfer: WCSessionFileTransfer,
+                 error: Error?) {
+        DispatchQueue.main.async {
+            if let error {
+                self.transferStatus = .failure(error.localizedDescription)
+            } else {
+                self.transferStatus = .success(pointCount: self.pendingPointCount)
+            }
+        }
+    }
+    #endif
+    
+    #if os(iOS)
+    private func decodeLocation(_ value: Any?) -> CLLocation? {
+        guard let dict = value as? [String: Double],
+              let lat = dict["lat"], let lng = dict["lng"] else { return nil }
+        return CLLocation(latitude: lat, longitude: lng)
+    }
+    
+    func sessionDidBecomeInactive(_ session: WCSession) {}
+    
+    func sessionDidDeactivate(_ session: WCSession) {
+        WCSession.default.activate()
+    }
+    #endif
+}

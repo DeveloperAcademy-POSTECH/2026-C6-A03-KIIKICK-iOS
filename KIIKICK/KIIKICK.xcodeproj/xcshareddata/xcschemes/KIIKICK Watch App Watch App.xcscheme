@@ -17,6 +17,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "C0C941D1308F9F48006E6711"
                BuildableName = "KIIKICK Watch App Watch App.app"
+               BlueprintName = "KIIKICK Watch App Watch App"
                ReferencedContainer = "container:KIIKICK.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>

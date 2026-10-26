@@ -56,12 +56,12 @@
 			path = KIIKICK;
 			sourceTree = "<group>";
 		};
-		C0C941C0308F9DBC006E6711 /* KIIKICK watchOS Watch App */ = {
+		C0B15294308FB31A0039D0D3 /* KIIKICK Global */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "KIIKICK watchOS Watch App";
+			path = "KIIKICK Global";
 			sourceTree = "<group>";
 		};
-		C0C941D3308F9F48006E6711 /* KIIKICK Watch App Watch App */ = {
+		B2C48F1A3A964FD924B50857 /* KIIKICK Watch App Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "KIIKICK Watch App Watch App";
 			sourceTree = "<group>";
@@ -85,9 +85,9 @@
 		000000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				C0B15294308FB31A0039D0D3 /* KIIKICK Global */,
 				000000000000000000000010 /* KIIKICK */,
-				C0C941C0308F9DBC006E6711 /* KIIKICK watchOS Watch App */,
-				C0C941D3308F9F48006E6711 /* KIIKICK Watch App Watch App */,
+				B2C48F1A3A964FD924B50857 /* KIIKICK Watch App Watch App */,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -120,6 +120,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				000000000000000000000010 /* KIIKICK */,
+				C0B15294308FB31A0039D0D3 /* KIIKICK Global */,
 			);
 			name = KIIKICK;
 			productName = MyApp;
@@ -137,7 +138,8 @@
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
-				C0C941D3308F9F48006E6711 /* KIIKICK Watch App Watch App */,
+				B2C48F1A3A964FD924B50857 /* KIIKICK Watch App Watch App */,
+				C0B15294308FB31A0039D0D3 /* KIIKICK Global */,
 			);
 			name = "KIIKICK Watch App Watch App";
 			productName = "KIIKICK Watch App Watch App";

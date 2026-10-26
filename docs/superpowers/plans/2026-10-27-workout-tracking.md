@@ -495,10 +495,12 @@ final class WorkoutRecord {
 import SwiftData
 ```
 
-`#if os(iOS)` 블록 안, `decodeLocation` 함수를 삭제하고 그 자리에 추가 (더 이상 쓰이지 않는 죽은 코드이므로 제거):
+`decodeLocation` 함수(더 이상 쓰이지 않는 죽은 코드)를 삭제한다. 대신 `modelContext`는 extension이 아니라 클래스 본문에 둬야 한다 (extension에는 저장 프로퍼티를 둘 수 없다 — "extensions must not contain stored properties" 컴파일 에러) — `var isReachable: Bool = false` 바로 아래에 추가:
 
 ```swift
+    #if os(iOS)
     var modelContext: ModelContext?
+    #endif
 ```
 
 `session(_:didReceive:file:)` 함수 전체를 아래로 교체:

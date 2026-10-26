@@ -6,6 +6,7 @@
 //
 
 import CoreLocation
+import SwiftData
 import WatchConnectivity
 
 @Observable
@@ -14,7 +15,11 @@ final class SessionManager: NSObject {
     static let shared = SessionManager()
     
     var isReachable: Bool = false
-    
+
+    #if os(iOS)
+    var modelContext: ModelContext?
+    #endif
+
     #if os(watchOS)
     enum TransferStatus: Equatable {
         case idle
@@ -85,7 +90,18 @@ extension SessionManager: WCSessionDelegate {
     
     func session(_ session: WCSession, didReceive file: WCSessionFile) {
         #if os(iOS)
-        
+        guard let data = try? Data(contentsOf: file.fileURL),
+              let payload = try? JSONDecoder().decode(WorkoutPayload.self, from: data) else {
+            #if DEBUG
+            print("[SessionManager] 수신 파일 디코딩 실패")
+            #endif
+            return
+        }
+        let record = WorkoutRecord(payload: payload)
+        DispatchQueue.main.async {
+            self.modelContext?.insert(record)
+            try? self.modelContext?.save()
+        }
         #endif
     }
     
@@ -104,12 +120,6 @@ extension SessionManager: WCSessionDelegate {
     #endif
     
     #if os(iOS)
-    private func decodeLocation(_ value: Any?) -> CLLocation? {
-        guard let dict = value as? [String: Double],
-              let lat = dict["lat"], let lng = dict["lng"] else { return nil }
-        return CLLocation(latitude: lat, longitude: lng)
-    }
-    
     func sessionDidBecomeInactive(_ session: WCSession) {}
     
     func sessionDidDeactivate(_ session: WCSession) {

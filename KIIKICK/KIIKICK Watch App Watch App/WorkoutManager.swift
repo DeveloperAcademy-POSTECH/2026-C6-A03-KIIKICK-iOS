@@ -15,6 +15,7 @@ final class WorkoutManager: NSObject {
     private let healthStore = HKHealthStore()
     private var workoutSession: HKWorkoutSession?
     private var workoutBuilder: HKLiveWorkoutBuilder?
+    private var routeBuilder: HKWorkoutRouteBuilder?
     private let locationManager = CLLocationManager()
 
     var heartRate: Double = 0
@@ -48,6 +49,7 @@ final class WorkoutManager: NSObject {
 
             workoutSession = session
             workoutBuilder = builder
+            routeBuilder = builder.seriesBuilder(for: HKSeriesType.workoutRoute()) as? HKWorkoutRouteBuilder
             points = []
             heartRateSamples = []
 
@@ -163,6 +165,11 @@ extension WorkoutManager: CLLocationManagerDelegate {
         guard let location = locations.last else { return }
         let point = TrackPoint(location: location)
         DispatchQueue.main.async { self.points.append(point) }
+        routeBuilder?.insertRouteData(locations) { success, error in
+            if !success {
+                print("[WorkoutManager] 경로 데이터 저장 실패 - \(error?.localizedDescription ?? "unknown")")
+            }
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

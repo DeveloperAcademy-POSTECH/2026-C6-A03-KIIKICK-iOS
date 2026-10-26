@@ -21,15 +21,36 @@ struct WorkoutDetailView: View {
         max(0, record.duration - windowLength)
     }
 
+    private var windowAnchor: Date? {
+        record.points.first?.timestamp
+    }
+
     private var windowedPoints: [TrackPoint] {
-        guard let first = record.points.first else { return [] }
-        let windowStart = first.timestamp.addingTimeInterval(playbackOffset)
+        guard let anchor = windowAnchor else { return [] }
+        let windowStart = anchor.addingTimeInterval(playbackOffset)
         let windowEnd = windowStart.addingTimeInterval(windowLength)
         return record.points.filter { $0.timestamp >= windowStart && $0.timestamp < windowEnd }
     }
 
+    private var windowedHeartRateSamples: [HeartRateSample] {
+        guard let anchor = windowAnchor else { return [] }
+        let windowStart = anchor.addingTimeInterval(playbackOffset)
+        let windowEnd = windowStart.addingTimeInterval(windowLength)
+        return record.heartRateSamples.filter { $0.timestamp >= windowStart && $0.timestamp < windowEnd }
+    }
+
     private var displayedPoints: [TrackPoint] {
         showAllPoints ? record.points : windowedPoints
+    }
+
+    private var displayedHeartRateSamples: [HeartRateSample] {
+        showAllPoints ? record.heartRateSamples : windowedHeartRateSamples
+    }
+
+    private var heartRateDateRange: ClosedRange<Date> {
+        let start = record.date
+        let end = record.date.addingTimeInterval(max(record.duration, 1))
+        return start...end
     }
 
     private func play() {
@@ -125,12 +146,13 @@ struct WorkoutDetailView: View {
                 Text("심박수")
                     .font(.headline)
 
-                Chart(record.heartRateSamples, id: \.timestamp) { sample in
+                Chart(displayedHeartRateSamples, id: \.timestamp) { sample in
                     LineMark(
                         x: .value("시간", sample.timestamp),
                         y: .value("BPM", sample.bpm)
                     )
                 }
+                .chartXScale(domain: heartRateDateRange)
                 .frame(height: 160)
             }
             .padding()

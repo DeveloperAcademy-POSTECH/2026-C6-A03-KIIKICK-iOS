@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
 
     var body: some View {
@@ -26,6 +27,16 @@ struct ContentView: View {
                 WorkoutDetailView(record: record)
             }
             .navigationTitle("측정 기록")
+            #if DEBUG
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("테스트 데이터 추가") {
+                        modelContext.insert(WorkoutRecord(payload: .fake()))
+                        try? modelContext.save()
+                    }
+                }
+            }
+            #endif
         }
     }
 }

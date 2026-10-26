@@ -22,8 +22,8 @@ struct WorkoutDetailView: View {
         }
         let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLng + maxLng) / 2)
         let span = MKCoordinateSpan(
-            latitudeDelta: max(maxLat - minLat, 0.003) * 1.4,
-            longitudeDelta: max(maxLng - minLng, 0.003) * 1.4
+            latitudeDelta: max(maxLat - minLat, 0.0006) * 1.2,
+            longitudeDelta: max(maxLng - minLng, 0.0006) * 1.2
         )
         return MKCoordinateRegion(center: center, span: span)
     }
@@ -32,11 +32,12 @@ struct WorkoutDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Map(initialPosition: .region(region)) {
-                    ForEach(Array(record.points.enumerated()), id: \.offset) { index, point in
-                        Marker(
-                            "\(index + 1)",
-                            coordinate: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)
-                        )
+                    ForEach(record.points, id: \.timestamp) { point in
+                        Annotation("", coordinate: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                        }
                     }
                 }
                 .frame(height: 260)

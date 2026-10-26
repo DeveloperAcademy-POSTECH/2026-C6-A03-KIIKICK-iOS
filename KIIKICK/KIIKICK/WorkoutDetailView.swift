@@ -10,6 +10,41 @@ import Charts
 struct WorkoutDetailView: View {
     let record: WorkoutRecord
 
+    private let windowLength: TimeInterval = 10
+
+    @State private var playbackOffset: TimeInterval = 0
+    @State private var isPlaying = false
+    @State private var playbackTask: Task<Void, Never>?
+
+    private var maxOffset: TimeInterval {
+        max(0, record.duration - windowLength)
+    }
+
+    private var windowedPoints: [TrackPoint] {
+        guard let first = record.points.first else { return [] }
+        let windowStart = first.timestamp.addingTimeInterval(playbackOffset)
+        let windowEnd = windowStart.addingTimeInterval(windowLength)
+        return record.points.filter { $0.timestamp >= windowStart && $0.timestamp < windowEnd }
+    }
+
+    private func togglePlayback() {
+        if isPlaying {
+            playbackTask?.cancel()
+            isPlaying = false
+            return
+        }
+
+        isPlaying = true
+        playbackTask = Task {
+            while !Task.isCancelled && playbackOffset < maxOffset {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !Task.isCancelled else { break }
+                playbackOffset = min(maxOffset, playbackOffset + 0.1)
+            }
+            isPlaying = false
+        }
+    }
+
     private var region: MKCoordinateRegion {
         let lats = record.points.map(\.latitude)
         let lngs = record.points.map(\.longitude)
@@ -32,7 +67,7 @@ struct WorkoutDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Map(initialPosition: .region(region)) {
-                    ForEach(record.points, id: \.timestamp) { point in
+                    ForEach(windowedPoints, id: \.timestamp) { point in
                         Annotation("", coordinate: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)) {
                             Circle()
                                 .fill(Color.red)
@@ -42,6 +77,20 @@ struct WorkoutDetailView: View {
                 }
                 .frame(height: 260)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("구간 재생")
+                        .font(.headline)
+                    HStack {
+                        Button(action: togglePlayback) {
+                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        }
+                        .disabled(record.points.isEmpty)
+
+                        Slider(value: $playbackOffset, in: 0...max(maxOffset, 0.001))
+                            .disabled(record.points.isEmpty)
+                    }
+                }
 
                 HStack(spacing: 12) {
                     StatTile(title: "칼로리", value: "\(Int(record.totalCalories)) kcal")
@@ -63,6 +112,7 @@ struct WorkoutDetailView: View {
             .padding()
         }
         .navigationTitle(record.date.formatted(date: .abbreviated, time: .shortened))
+        .onDisappear { playbackTask?.cancel() }
     }
 }
 

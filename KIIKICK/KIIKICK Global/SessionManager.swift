@@ -29,6 +29,20 @@ final class SessionManager: NSObject {
         pendingPointCount = pointCount
         DispatchQueue.main.async { self.transferStatus = .sending(pointCount: pointCount) }
     }
+
+    func send(payload: WorkoutPayload) {
+        do {
+            let data = try JSONEncoder().encode(payload)
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension("json")
+            try data.write(to: url)
+            beginTransfer(pointCount: payload.points.count)
+            WCSession.default.transferFile(url, metadata: nil)
+        } catch {
+            DispatchQueue.main.async { self.transferStatus = .failure(error.localizedDescription) }
+        }
+    }
     #endif
     
     private override init() {

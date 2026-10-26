@@ -9,17 +9,6 @@ import HealthKit
 import CoreLocation
 import Foundation
 
-struct TrackPoint: Codable {
-    let latitude: Double
-    let longitude: Double
-    let timestamp: Date
-}
-
-struct HeartRateSample: Codable {
-    let timestamp: Date
-    let bpm: Double
-}
-
 @Observable
 final class WorkoutManager: NSObject {
 
@@ -92,6 +81,16 @@ final class WorkoutManager: NSObject {
         } catch {
             print("[WorkoutManager] 세션 종료 실패 - \(error)")
         }
+
+        let payload = WorkoutPayload(
+            startDate: startDate,
+            endDate: endDate,
+            points: points,
+            heartRateSamples: heartRateSamples,
+            totalCalories: activeEnergy,
+            totalDistance: distance
+        )
+        SessionManager.shared.send(payload: payload)
 
         isRunning = false
     }

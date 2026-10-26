@@ -15,6 +15,11 @@ struct TrackPoint: Codable {
     let timestamp: Date
 }
 
+struct HeartRateSample: Codable {
+    let timestamp: Date
+    let bpm: Double
+}
+
 @Observable
 final class WorkoutManager: NSObject {
 
@@ -30,6 +35,7 @@ final class WorkoutManager: NSObject {
 
     var isRunning: Bool = false
     private(set) var points: [TrackPoint] = []
+    private(set) var heartRateSamples: [HeartRateSample] = []
 
     func start() async {
         await requestAuthorization()
@@ -54,6 +60,7 @@ final class WorkoutManager: NSObject {
             workoutSession = session
             workoutBuilder = builder
             points = []
+            heartRateSamples = []
 
             let startDate = Date()
             session.startActivity(with: startDate)
@@ -75,6 +82,7 @@ final class WorkoutManager: NSObject {
         }
 
         let endDate = Date()
+        let startDate = builder.startDate ?? endDate
         session.stopActivity(with: endDate)
         session.end()
 
@@ -127,8 +135,12 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
             switch quantityType {
             case HKQuantityType(.heartRate):
                 let unit = HKUnit.count().unitDivided(by: .minute())
-                let value = workoutBuilder.statistics(for: quantityType)?.mostRecentQuantity()?.doubleValue(for: unit) ?? 0
-                DispatchQueue.main.async { self.heartRate = value }
+                guard let value = workoutBuilder.statistics(for: quantityType)?.mostRecentQuantity()?.doubleValue(for: unit) else { break }
+                let sample = HeartRateSample(timestamp: Date(), bpm: value)
+                DispatchQueue.main.async {
+                    self.heartRate = value
+                    self.heartRateSamples.append(sample)
+                }
             case HKQuantityType(.activeEnergyBurned):
                 let value = workoutBuilder.statistics(for: quantityType)?.sumQuantity()?.doubleValue(for: .kilocalorie()) ?? 0
                 DispatchQueue.main.async { self.activeEnergy = value }

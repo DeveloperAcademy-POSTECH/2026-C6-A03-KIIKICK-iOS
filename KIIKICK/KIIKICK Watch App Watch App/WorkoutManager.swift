@@ -161,11 +161,7 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
 extension WorkoutManager: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
-        let point = TrackPoint(
-            latitude: location.coordinate.latitude,
-            longitude: location.coordinate.longitude,
-            timestamp: location.timestamp
-        )
+        let point = TrackPoint(location: location)
         DispatchQueue.main.async { self.points.append(point) }
     }
 

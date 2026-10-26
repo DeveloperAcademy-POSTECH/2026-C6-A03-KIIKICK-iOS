@@ -451,6 +451,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "KIIKICK Watch App";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "운동 중 심박수, 거리, 속도 등 건강 데이터를 가져오기 위해 접근 권한이 필요합니다.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "완료된 운동 기록을 건강 앱에 저장하기 위해 접근 권한이 필요합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "운동 경로를 1m 단위로 기록하기 위해 위치 접근 권한이 필요합니다.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.seungjunlee.KIIKICK;
@@ -488,6 +489,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "KIIKICK Watch App";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "운동 중 심박수, 거리, 속도 등 건강 데이터를 가져오기 위해 접근 권한이 필요합니다.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "완료된 운동 기록을 건강 앱에 저장하기 위해 접근 권한이 필요합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "운동 경로를 1m 단위로 기록하기 위해 위치 접근 권한이 필요합니다.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.seungjunlee.KIIKICK;

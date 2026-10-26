@@ -9,20 +9,35 @@ import HealthKit
 import CoreLocation
 import Foundation
 
+struct TrackPoint: Codable {
+    let latitude: Double
+    let longitude: Double
+    let timestamp: Date
+}
+
 @Observable
 final class WorkoutManager: NSObject {
 
     private let healthStore = HKHealthStore()
     private var workoutSession: HKWorkoutSession?
     private var workoutBuilder: HKLiveWorkoutBuilder?
+    private let locationManager = CLLocationManager()
 
     var heartRate: Double = 0
     var activeEnergy: Double = 0
     var distance: Double = 0
     var speed: Double = 0
 
+    var isRunning: Bool = false
+    private(set) var points: [TrackPoint] = []
+
     func start() async {
         await requestAuthorization()
+
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.distanceFilter = 1
+        locationManager.requestWhenInUseAuthorization()
 
         let config = HKWorkoutConfiguration()
         config.activityType = .soccer
@@ -38,13 +53,39 @@ final class WorkoutManager: NSObject {
 
             workoutSession = session
             workoutBuilder = builder
+            points = []
 
             let startDate = Date()
             session.startActivity(with: startDate)
             try await builder.beginCollection(at: startDate)
+
+            isRunning = true
+            locationManager.startUpdatingLocation()
         } catch {
             print("[WorkoutManager] 세션 시작 실패 - \(error)")
         }
+    }
+
+    func stop() async {
+        locationManager.stopUpdatingLocation()
+
+        guard let session = workoutSession, let builder = workoutBuilder else {
+            isRunning = false
+            return
+        }
+
+        let endDate = Date()
+        session.stopActivity(with: endDate)
+        session.end()
+
+        do {
+            try await builder.endCollection(at: endDate)
+            _ = try await builder.finishWorkout()
+        } catch {
+            print("[WorkoutManager] 세션 종료 실패 - \(error)")
+        }
+
+        isRunning = false
     }
 
     // MARK: - Private Helpers
@@ -104,4 +145,30 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
     }
 
     func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {}
+}
+
+extension WorkoutManager: CLLocationManagerDelegate {
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+        let point = TrackPoint(
+            latitude: location.coordinate.latitude,
+            longitude: location.coordinate.longitude,
+            timestamp: location.timestamp
+        )
+        DispatchQueue.main.async { self.points.append(point) }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("[WorkoutManager] 위치 오류 - \(error)")
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        guard isRunning else { return }
+        switch manager.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            manager.startUpdatingLocation()
+        default:
+            break
+        }
+    }
 }

@@ -12,6 +12,7 @@ struct WorkoutDetailView: View {
 
     private let windowLength: TimeInterval = 10
 
+    @State private var showAllPoints = true
     @State private var playbackOffset: TimeInterval = 0
     @State private var isPlaying = false
     @State private var playbackTask: Task<Void, Never>?
@@ -27,12 +28,13 @@ struct WorkoutDetailView: View {
         return record.points.filter { $0.timestamp >= windowStart && $0.timestamp < windowEnd }
     }
 
-    private func togglePlayback() {
-        if isPlaying {
-            playbackTask?.cancel()
-            isPlaying = false
-            return
-        }
+    private var displayedPoints: [TrackPoint] {
+        showAllPoints ? record.points : windowedPoints
+    }
+
+    private func play() {
+        showAllPoints = false
+        guard !isPlaying else { return }
 
         isPlaying = true
         playbackTask = Task {
@@ -43,6 +45,18 @@ struct WorkoutDetailView: View {
             }
             isPlaying = false
         }
+    }
+
+    private func stop() {
+        playbackTask?.cancel()
+        isPlaying = false
+    }
+
+    private func resetToAllPoints() {
+        playbackTask?.cancel()
+        isPlaying = false
+        showAllPoints = true
+        playbackOffset = 0
     }
 
     private var region: MKCoordinateRegion {
@@ -67,7 +81,7 @@ struct WorkoutDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Map(initialPosition: .region(region)) {
-                    ForEach(windowedPoints, id: \.timestamp) { point in
+                    ForEach(displayedPoints, id: \.timestamp) { point in
                         Annotation("", coordinate: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)) {
                             Circle()
                                 .fill(Color.red)
@@ -82,10 +96,20 @@ struct WorkoutDetailView: View {
                     Text("구간 재생")
                         .font(.headline)
                     HStack {
-                        Button(action: togglePlayback) {
-                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        Button(action: play) {
+                            Image(systemName: "play.fill")
                         }
-                        .disabled(record.points.isEmpty)
+                        .disabled(record.points.isEmpty || isPlaying)
+
+                        Button(action: stop) {
+                            Image(systemName: "stop.fill")
+                        }
+                        .disabled(!isPlaying)
+
+                        Button(action: resetToAllPoints) {
+                            Image(systemName: "xmark")
+                        }
+                        .disabled(showAllPoints)
 
                         Slider(value: $playbackOffset, in: 0...max(maxOffset, 0.001))
                             .disabled(record.points.isEmpty)

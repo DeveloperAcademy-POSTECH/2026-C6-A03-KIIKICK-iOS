@@ -160,6 +160,10 @@ struct WorkoutDetailView: View {
                     Text("히트맵")
                         .font(.headline)
                     FieldHeatmapView(field: field, points: record.points)
+
+                    Text("스프린트")
+                        .font(.headline)
+                    SprintMapView(field: field, points: record.points)
                 }
 
                 Text("심박수")

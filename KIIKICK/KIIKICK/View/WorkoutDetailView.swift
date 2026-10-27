@@ -10,13 +10,13 @@ import SwiftData
 
 struct WorkoutDetailView: View {
     let record: WorkoutRecord
-
+    
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Field.name) private var fields: [Field]
     @State private var isPresentingFieldPicker = false
-
+    
     private let windowLength: TimeInterval = 10
-
+    
     @State private var showAllPoints = true
     @State private var playbackOffset: TimeInterval = 0
     @State private var isPlaying = false

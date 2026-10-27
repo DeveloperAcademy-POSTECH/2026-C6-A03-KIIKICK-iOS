@@ -12,8 +12,7 @@ import SwiftData
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(SessionManager.shared)
+            RootView()
         }
         .modelContainer(modelContainer)
     }

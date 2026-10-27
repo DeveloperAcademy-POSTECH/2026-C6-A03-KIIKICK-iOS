@@ -9,7 +9,7 @@ import SwiftData
 struct FieldListView: View {
     @Query(sort: \Field.name) private var fields: [Field]
     @State private var isPresentingRegistration = false
-
+    
     var body: some View {
         List(fields) { field in
             Text(field.name)

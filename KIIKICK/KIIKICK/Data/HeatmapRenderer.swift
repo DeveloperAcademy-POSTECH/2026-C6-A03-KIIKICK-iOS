@@ -17,15 +17,15 @@ protocol HeatmapRenderer {
 struct GridDensityHeatmapRenderer: HeatmapRenderer {
     let columns: Int
     let rows: Int
-
+    
     init(columns: Int = 20, rows: Int = 13) {
         self.columns = columns
         self.rows = rows
     }
-
+    
     func render(in context: GraphicsContext, size: CGSize, normalizedPoints: [CGPoint]) {
         guard !normalizedPoints.isEmpty else { return }
-
+        
         var counts = [Int](repeating: 0, count: columns * rows)
         for point in normalizedPoints {
             guard point.x >= 0, point.x <= 1, point.y >= 0, point.y <= 1 else { continue }
@@ -33,12 +33,12 @@ struct GridDensityHeatmapRenderer: HeatmapRenderer {
             let row = min(rows - 1, max(0, Int(point.y * CGFloat(rows))))
             counts[row * columns + col] += 1
         }
-
+        
         guard let maxCount = counts.max(), maxCount > 0 else { return }
-
+        
         let cellWidth = size.width / CGFloat(columns)
         let cellHeight = size.height / CGFloat(rows)
-
+        
         for row in 0..<rows {
             for col in 0..<columns {
                 let count = counts[row * columns + col]

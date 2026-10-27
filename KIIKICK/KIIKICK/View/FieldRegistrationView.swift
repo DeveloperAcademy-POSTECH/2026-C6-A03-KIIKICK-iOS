@@ -11,12 +11,12 @@ import CoreLocation
 struct FieldRegistrationView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-
+    
     @State private var pins: [CLLocationCoordinate2D] = []
     @State private var fieldName: String = ""
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var locationManager = CLLocationManager()
-
+    
     var body: some View {
         ZStack(alignment: .bottom) {
             MapReader { proxy in
@@ -37,28 +37,28 @@ struct FieldRegistrationView: View {
                 )
             }
             .ignoresSafeArea()
-
+            
             VStack(spacing: 12) {
                 Text("\(pins.count)/4 지점 선택됨")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-
+                
                 HStack {
                     Button("마지막 핀 취소") {
                         if !pins.isEmpty { pins.removeLast() }
                     }
                     .disabled(pins.isEmpty)
-
+                    
                     Spacer()
-
+                    
                     Button("초기화") { pins.removeAll() }
                         .disabled(pins.isEmpty)
                 }
-
+                
                 if pins.count == 4 {
                     TextField("운동장 이름", text: $fieldName)
                         .textFieldStyle(.roundedBorder)
-
+                    
                     Button("저장") { save() }
                         .disabled(fieldName.trimmingCharacters(in: .whitespaces).isEmpty)
                         .buttonStyle(.borderedProminent)
@@ -73,7 +73,7 @@ struct FieldRegistrationView: View {
             locationManager.requestWhenInUseAuthorization()
         }
     }
-
+    
     private func save() {
         guard pins.count == 4 else { return }
         let field = Field(

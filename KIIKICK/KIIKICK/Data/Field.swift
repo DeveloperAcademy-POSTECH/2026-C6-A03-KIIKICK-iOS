@@ -18,7 +18,7 @@ final class Field {
     var cornerB: FieldCorner
     var cornerC: FieldCorner
     var cornerD: FieldCorner
-
+    
     init(name: String, cornerA: FieldCorner, cornerB: FieldCorner, cornerC: FieldCorner, cornerD: FieldCorner) {
         self.name = name
         self.cornerA = cornerA

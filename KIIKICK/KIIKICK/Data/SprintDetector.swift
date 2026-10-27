@@ -15,19 +15,18 @@ struct Sprint {
 }
 
 struct SprintDetector {
-    /// m/s 기준 임계 속도.
-    let speedThreshold: Double
-
+    
+    let speedThreshold: Double // 임계 기준 속도
+    
     init(speedThresholdKmh: Double = 13) {
         self.speedThreshold = speedThresholdKmh * 1000 / 3600
     }
-
-    /// points는 시간순으로 정렬되어 있다고 가정한다.
+    
     func detect(in points: [TrackPoint]) -> [Sprint] {
         var sprints: [Sprint] = []
         var current: [TrackPoint] = []
-
-        for point in points {
+        
+        for point in points { // points는 시간 순으로 정렬되어 있다.
             if point.speed >= speedThreshold {
                 current.append(point)
             } else {
@@ -40,7 +39,7 @@ struct SprintDetector {
         if current.count >= 2 {
             sprints.append(Sprint(points: current))
         }
-
+        
         return sprints
     }
 }

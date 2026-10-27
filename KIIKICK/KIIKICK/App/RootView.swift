@@ -23,6 +23,12 @@ struct RootView: View {
             }
         }
         .animation(.default, value: router.flow)
+        .onAppear {
+            Task {
+                // sleep(1)
+                router.finishSplash(isLoggedIn: true)
+            }
+        }
     }
 }
 

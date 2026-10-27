@@ -6,12 +6,17 @@
 import SwiftUI
 import MapKit
 import Charts
+import SwiftData
 
 struct WorkoutDetailView: View {
     let record: WorkoutRecord
-    
+
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Field.name) private var fields: [Field]
+    @State private var isPresentingFieldPicker = false
+
     private let windowLength: TimeInterval = 10
-    
+
     @State private var showAllPoints = true
     @State private var playbackOffset: TimeInterval = 0
     @State private var isPlaying = false
@@ -142,7 +147,15 @@ struct WorkoutDetailView: View {
                     StatTile(title: "거리", value: "\(Int(record.totalDistance)) m")
                     StatTile(title: "시간", value: "\(Int(record.duration / 60)) 분")
                 }
-                
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("운동장")
+                        .font(.headline)
+                    Button(record.field?.name ?? "운동장을 선택해주세요") {
+                        isPresentingFieldPicker = true
+                    }
+                }
+
                 Text("심박수")
                     .font(.headline)
                 
@@ -159,6 +172,24 @@ struct WorkoutDetailView: View {
         }
         .navigationTitle(record.date.formatted(date: .abbreviated, time: .shortened))
         .onDisappear { playbackTask?.cancel() }
+        .sheet(isPresented: $isPresentingFieldPicker) {
+            NavigationStack {
+                List(fields) { field in
+                    Button(field.name) {
+                        record.field = field
+                        try? modelContext.save()
+                        isPresentingFieldPicker = false
+                    }
+                }
+                .overlay {
+                    if fields.isEmpty {
+                        Text("등록된 운동장이 없습니다")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .navigationTitle("운동장 선택")
+            }
+        }
     }
 }
 

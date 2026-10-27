@@ -6,6 +6,7 @@
 import SwiftUI
 import MapKit
 import SwiftData
+import CoreLocation
 
 struct FieldRegistrationView: View {
     @Environment(\.modelContext) private var modelContext
@@ -13,12 +14,14 @@ struct FieldRegistrationView: View {
 
     @State private var pins: [CLLocationCoordinate2D] = []
     @State private var fieldName: String = ""
-    @State private var cameraPosition: MapCameraPosition = .automatic
+    @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
+    @State private var locationManager = CLLocationManager()
 
     var body: some View {
-        VStack(spacing: 12) {
+        ZStack(alignment: .bottom) {
             MapReader { proxy in
                 Map(position: $cameraPosition) {
+                    UserAnnotation()
                     ForEach(Array(pins.enumerated()), id: \.offset) { index, coordinate in
                         Marker("\(index + 1)", coordinate: coordinate)
                     }
@@ -33,37 +36,42 @@ struct FieldRegistrationView: View {
                         }
                 )
             }
-            .frame(height: 360)
+            .ignoresSafeArea()
 
-            Text("\(pins.count)/4 지점 선택됨")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            VStack(spacing: 12) {
+                Text("\(pins.count)/4 지점 선택됨")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-            HStack {
-                Button("마지막 핀 취소") {
-                    if !pins.isEmpty { pins.removeLast() }
-                }
-                .disabled(pins.isEmpty)
-
-                Spacer()
-
-                Button("초기화") { pins.removeAll() }
+                HStack {
+                    Button("마지막 핀 취소") {
+                        if !pins.isEmpty { pins.removeLast() }
+                    }
                     .disabled(pins.isEmpty)
+
+                    Spacer()
+
+                    Button("초기화") { pins.removeAll() }
+                        .disabled(pins.isEmpty)
+                }
+
+                if pins.count == 4 {
+                    TextField("운동장 이름", text: $fieldName)
+                        .textFieldStyle(.roundedBorder)
+
+                    Button("저장") { save() }
+                        .disabled(fieldName.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .buttonStyle(.borderedProminent)
+                }
             }
-
-            if pins.count == 4 {
-                TextField("운동장 이름", text: $fieldName)
-                    .textFieldStyle(.roundedBorder)
-
-                Button("저장") { save() }
-                    .disabled(fieldName.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .buttonStyle(.borderedProminent)
-            }
-
-            Spacer()
+            .padding()
+            .background(.ultraThinMaterial)
         }
-        .padding()
         .navigationTitle("운동장 등록")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            locationManager.requestWhenInUseAuthorization()
+        }
     }
 
     private func save() {

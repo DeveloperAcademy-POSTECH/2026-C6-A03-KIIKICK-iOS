@@ -354,6 +354,7 @@
 		000000000000000111000000 /* Debug configuration for PBXNativeTarget "KIIKICK" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2QJX795Q3R;
@@ -364,6 +365,7 @@
 				INFOPLIST_FILE = KIIKICK/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = KIIKICK;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "운동장을 등록할 때 현재 위치에서 지도를 시작하기 위해 위치 접근 권한이 필요합니다.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -397,6 +399,7 @@
 		000000000000000112000000 /* Release configuration for PBXNativeTarget "KIIKICK" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2QJX795Q3R;
@@ -407,6 +410,7 @@
 				INFOPLIST_FILE = KIIKICK/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = KIIKICK;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "운동장을 등록할 때 현재 위치에서 지도를 시작하기 위해 위치 접근 권한이 필요합니다.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

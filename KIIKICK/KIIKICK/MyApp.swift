@@ -6,7 +6,7 @@ import SwiftData
     let modelContainer: ModelContainer
     
     init() {
-        modelContainer = try! ModelContainer(for: WorkoutRecord.self)
+        modelContainer = try! ModelContainer(for: WorkoutRecord.self, Field.self)
         SessionManager.shared.modelContext = modelContainer.mainContext
     }
     

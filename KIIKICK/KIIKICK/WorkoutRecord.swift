@@ -14,7 +14,8 @@ final class WorkoutRecord {
     var totalDistance: Double
     var points: [TrackPoint]
     var heartRateSamples: [HeartRateSample]
-    
+    var field: Field?
+
     init(payload: WorkoutPayload) {
         self.date = payload.startDate
         self.duration = payload.endDate.timeIntervalSince(payload.startDate)

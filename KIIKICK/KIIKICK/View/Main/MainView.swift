@@ -23,4 +23,5 @@ struct MainView: View {
 
 #Preview {
     MainView()
+        .environment(AppRouter())
 }

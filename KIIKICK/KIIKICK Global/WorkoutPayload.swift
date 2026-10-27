@@ -14,7 +14,7 @@ struct TrackPoint: Codable {
     let speed: Double
     let course: Double
     let timestamp: Date
-
+    
     init(latitude: Double, longitude: Double, altitude: Double, horizontalAccuracy: Double, speed: Double, course: Double, timestamp: Date) {
         self.latitude = latitude
         self.longitude = longitude
@@ -24,7 +24,7 @@ struct TrackPoint: Codable {
         self.course = course
         self.timestamp = timestamp
     }
-
+    
     init(location: CLLocation) {
         self.init(
             latitude: location.coordinate.latitude,

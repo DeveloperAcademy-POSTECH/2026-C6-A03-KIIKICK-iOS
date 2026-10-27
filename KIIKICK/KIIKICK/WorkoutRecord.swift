@@ -14,7 +14,7 @@ final class WorkoutRecord {
     var totalDistance: Double
     var points: [TrackPoint]
     var heartRateSamples: [HeartRateSample]
-
+    
     init(payload: WorkoutPayload) {
         self.date = payload.startDate
         self.duration = payload.endDate.timeIntervalSince(payload.startDate)
@@ -27,16 +27,15 @@ final class WorkoutRecord {
 
 #if DEBUG
 extension WorkoutPayload {
-    /// 운동장에 직접 가지 않고도 지도/타임라인/그래프 UI를 테스트할 수 있도록 만든 가짜 데이터.
     static func fake() -> WorkoutPayload {
         let baseLatitude = 37.5665
         let baseLongitude = 126.9780
         let start = Date().addingTimeInterval(-600)
         let sampleCount = 120
-
+        
         var points: [TrackPoint] = []
         var heartRateSamples: [HeartRateSample] = []
-
+        
         for i in 0..<sampleCount {
             let timestamp = start.addingTimeInterval(Double(i) * 5)
             let angle = Double(i) * 0.15
@@ -51,7 +50,7 @@ extension WorkoutPayload {
             ))
             heartRateSamples.append(HeartRateSample(timestamp: timestamp, bpm: Double.random(in: 90...170)))
         }
-
+        
         return WorkoutPayload(
             startDate: start,
             endDate: start.addingTimeInterval(Double(sampleCount) * 5),

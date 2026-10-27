@@ -156,6 +156,12 @@ struct WorkoutDetailView: View {
                     }
                 }
 
+                if let field = record.field {
+                    Text("히트맵")
+                        .font(.headline)
+                    FieldHeatmapView(field: field, points: record.points)
+                }
+
                 Text("심박수")
                     .font(.headline)
                 

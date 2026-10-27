@@ -6,9 +6,14 @@
 import SwiftUI
 import MapKit
 import Charts
+import SwiftData
 
 struct WorkoutDetailView: View {
     let record: WorkoutRecord
+    
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Field.name) private var fields: [Field]
+    @State private var isPresentingFieldPicker = false
     
     private let windowLength: TimeInterval = 10
     
@@ -103,11 +108,11 @@ struct WorkoutDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Map(initialPosition: .region(region)) {
                     ForEach(displayedPoints, id: \.timestamp) { point in
-                        Annotation("", coordinate: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)) {
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 8, height: 8)
-                        }
+                        MapCircle(
+                            center: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude),
+                            radius: max(point.horizontalAccuracy, 1)
+                        )
+                        .foregroundStyle(Color.red.opacity(0.15))
                     }
                 }
                 .frame(height: 260)
@@ -142,7 +147,25 @@ struct WorkoutDetailView: View {
                     StatTile(title: "거리", value: "\(Int(record.totalDistance)) m")
                     StatTile(title: "시간", value: "\(Int(record.duration / 60)) 분")
                 }
-                
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("운동장")
+                        .font(.headline)
+                    Button(record.field?.name ?? "운동장을 선택해주세요") {
+                        isPresentingFieldPicker = true
+                    }
+                }
+
+                if let field = record.field {
+                    Text("히트맵")
+                        .font(.headline)
+                    FieldHeatmapView(field: field, points: record.points)
+
+                    Text("스프린트")
+                        .font(.headline)
+                    SprintMapView(field: field, points: record.points)
+                }
+
                 Text("심박수")
                     .font(.headline)
                 
@@ -159,6 +182,24 @@ struct WorkoutDetailView: View {
         }
         .navigationTitle(record.date.formatted(date: .abbreviated, time: .shortened))
         .onDisappear { playbackTask?.cancel() }
+        .sheet(isPresented: $isPresentingFieldPicker) {
+            NavigationStack {
+                List(fields) { field in
+                    Button(field.name) {
+                        record.field = field
+                        try? modelContext.save()
+                        isPresentingFieldPicker = false
+                    }
+                }
+                .overlay {
+                    if fields.isEmpty {
+                        Text("등록된 운동장이 없습니다")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .navigationTitle("운동장 선택")
+            }
+        }
     }
 }
 

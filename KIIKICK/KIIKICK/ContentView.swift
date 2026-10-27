@@ -4,14 +4,14 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
-
+    
     var body: some View {
         NavigationStack {
             VStack(spacing: 8) {
                 Text(SessionManager.shared.isReachable ? "Connected" : "Lost")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-
+                
                 List(records) { record in
                     NavigationLink(value: record) {
                         VStack(alignment: .leading) {
@@ -27,6 +27,13 @@ struct ContentView: View {
                 WorkoutDetailView(record: record)
             }
             .navigationTitle("측정 기록")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink("운동장") {
+                        FieldListView()
+                    }
+                }
+            }
             #if DEBUG
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

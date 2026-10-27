@@ -103,11 +103,11 @@ struct WorkoutDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Map(initialPosition: .region(region)) {
                     ForEach(displayedPoints, id: \.timestamp) { point in
-                        Annotation("", coordinate: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)) {
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 8, height: 8)
-                        }
+                        MapCircle(
+                            center: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude),
+                            radius: max(point.horizontalAccuracy, 1)
+                        )
+                        .foregroundStyle(Color.red.opacity(0.15))
                     }
                 }
                 .frame(height: 260)

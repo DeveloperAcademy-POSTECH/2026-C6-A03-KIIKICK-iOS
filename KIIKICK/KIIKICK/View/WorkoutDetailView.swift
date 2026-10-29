@@ -15,65 +15,6 @@ struct WorkoutDetailView: View {
     @Query(sort: \Field.name) private var fields: [Field]
     @State private var isPresentingFieldPicker = false
     
-    private let windowLength: TimeInterval = 10
-    
-    @State private var playbackOffset: TimeInterval = 0
-    @State private var isPlaying = false
-    @State private var playbackTask: Task<Void, Never>?
-    
-    private var maxOffset: TimeInterval {
-        max(0, record.duration - windowLength)
-    }
-    
-    private var windowAnchor: Date? {
-        record.points.first?.timestamp
-    }
-    
-    private var windowedPoints: [TrackPoint] {
-        guard let anchor = windowAnchor else { return [] }
-        let windowStart = anchor.addingTimeInterval(playbackOffset)
-        let windowEnd = windowStart.addingTimeInterval(windowLength)
-        return record.points.filter { $0.timestamp >= windowStart && $0.timestamp < windowEnd }
-    }
-    
-    private var windowedHeartRateSamples: [HeartRateSample] {
-        guard let anchor = windowAnchor else { return [] }
-        let windowStart = anchor.addingTimeInterval(playbackOffset)
-        let windowEnd = windowStart.addingTimeInterval(windowLength)
-        return record.heartRateSamples.filter { $0.timestamp >= windowStart && $0.timestamp < windowEnd }
-    }
-    
-    private var heartRateDateRange: ClosedRange<Date> {
-        let start = record.date
-        let end = record.date.addingTimeInterval(max(record.duration, 1))
-        return start...end
-    }
-    
-    private func play() {
-        guard !isPlaying else { return }
-        
-        isPlaying = true
-        playbackTask = Task {
-            while !Task.isCancelled && playbackOffset < maxOffset {
-                try? await Task.sleep(for: .milliseconds(100))
-                guard !Task.isCancelled else { break }
-                playbackOffset = min(maxOffset, playbackOffset + 0.1)
-            }
-            isPlaying = false
-        }
-    }
-    
-    private func stop() {
-        playbackTask?.cancel()
-        isPlaying = false
-    }
-    
-    private func resetToAllPoints() {
-        playbackTask?.cancel()
-        isPlaying = false
-        playbackOffset = 0
-    }
-    
     private var region: MKCoordinateRegion {
         let lats = record.points.map(\.latitude)
         let lngs = record.points.map(\.longitude)
@@ -218,7 +159,6 @@ struct WorkoutDetailView: View {
             .padding([.horizontal], 24)
         }
         .navigationTitle(record.date.formatted(date: .abbreviated, time: .shortened))
-        .onDisappear { playbackTask?.cancel() }
         .sheet(isPresented: $isPresentingFieldPicker) {
             NavigationStack {
                 List(fields) { field in

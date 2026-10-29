@@ -23,6 +23,7 @@ final class AppRouter {
     
     enum Route: Hashable {
         case profile
+        case matchDetail(WorkoutRecord)
         case search
     }
     

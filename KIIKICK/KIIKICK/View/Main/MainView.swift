@@ -17,6 +17,9 @@ struct MainView: View {
             HomeView()
                 .tabItem { Label("Home", systemImage: "house") }
                 .tag(AppRouter.AppTab.home)
+            FieldCreationView()
+                .tabItem { Label("Field", systemImage: "sportscourt") }
+                .tag(AppRouter.AppTab.fieldRegister)
         }
     }
 }

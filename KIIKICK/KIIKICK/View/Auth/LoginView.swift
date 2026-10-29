@@ -13,7 +13,3 @@ struct LoginView: View {
             .font(.title)
     }
 }
-
-#Preview {
-    LoginView()
-}

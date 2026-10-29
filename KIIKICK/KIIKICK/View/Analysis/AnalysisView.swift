@@ -13,7 +13,3 @@ struct AnalysisView: View {
             .font(.title)
     }
 }
-
-#Preview {
-    AnalysisView()
-}

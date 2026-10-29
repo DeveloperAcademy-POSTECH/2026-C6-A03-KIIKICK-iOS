@@ -13,7 +13,3 @@ struct FriendsView: View {
             .font(.title)
     }
 }
-
-#Preview {
-    FriendsView()
-}

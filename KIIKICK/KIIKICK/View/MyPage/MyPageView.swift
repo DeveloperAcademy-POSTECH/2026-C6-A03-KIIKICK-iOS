@@ -13,7 +13,3 @@ struct MyPageView: View {
             .font(.title)
     }
 }
-
-#Preview {
-    MyPageView()
-}

@@ -17,7 +17,6 @@ struct WorkoutDetailView: View {
     
     private let windowLength: TimeInterval = 10
     
-    @State private var showAllPoints = true
     @State private var playbackOffset: TimeInterval = 0
     @State private var isPlaying = false
     @State private var playbackTask: Task<Void, Never>?
@@ -44,14 +43,6 @@ struct WorkoutDetailView: View {
         return record.heartRateSamples.filter { $0.timestamp >= windowStart && $0.timestamp < windowEnd }
     }
     
-    private var displayedPoints: [TrackPoint] {
-        showAllPoints ? record.points : windowedPoints
-    }
-    
-    private var displayedHeartRateSamples: [HeartRateSample] {
-        showAllPoints ? record.heartRateSamples : windowedHeartRateSamples
-    }
-    
     private var heartRateDateRange: ClosedRange<Date> {
         let start = record.date
         let end = record.date.addingTimeInterval(max(record.duration, 1))
@@ -59,7 +50,6 @@ struct WorkoutDetailView: View {
     }
     
     private func play() {
-        showAllPoints = false
         guard !isPlaying else { return }
         
         isPlaying = true
@@ -81,7 +71,6 @@ struct WorkoutDetailView: View {
     private func resetToAllPoints() {
         playbackTask?.cancel()
         isPlaying = false
-        showAllPoints = true
         playbackOffset = 0
     }
     
@@ -106,48 +95,33 @@ struct WorkoutDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Map(initialPosition: .region(region)) {
-                    ForEach(displayedPoints, id: \.timestamp) { point in
-                        MapCircle(
-                            center: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude),
-                            radius: max(point.horizontalAccuracy, 1)
-                        )
-                        .foregroundStyle(Color.red.opacity(0.15))
-                    }
-                }
-                .frame(height: 260)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
                 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("구간 재생")
-                        .font(.headline)
-                    HStack {
-                        Button(action: play) {
-                            Image(systemName: "play.fill")
+                // 경기장
+                if let field = record.field {
+                    TabView {
+                        GeometryReader { geo in
+                            VStack {
+                                Text("히트맵")
+                                    .font(.headline)
+                                FieldHeatmapView(field: field, points: record.points)
+                                    .frame(width: geo.size.width, height: geo.size.width * 68 / 105)
+                            }
                         }
-                        .disabled(record.points.isEmpty || isPlaying)
-                        
-                        Button(action: stop) {
-                            Image(systemName: "stop.fill")
+                        GeometryReader { geo in
+                            VStack {
+                                Text("스프린트")
+                                    .font(.headline)
+                                SprintMapView(field: field, points: record.points)
+                                    .frame(width: geo.size.width, height: geo.size.width * 68 / 105)
+                            }
                         }
-                        .disabled(!isPlaying)
-                        
-                        Button(action: resetToAllPoints) {
-                            Image(systemName: "xmark")
-                        }
-                        .disabled(showAllPoints)
-                        
-                        Slider(value: $playbackOffset, in: 0...max(maxOffset, 0.001))
-                            .disabled(record.points.isEmpty)
                     }
+                    .frame(height: 300)
+                    .tabViewStyle(.page)                         // 좌우 스와이프 페이징
+                    .indexViewStyle(.page(backgroundDisplayMode: .always)) // 하단 점 표시
                 }
                 
-                HStack(spacing: 12) {
-                    StatTile(title: "칼로리", value: "\(Int(record.totalCalories)) kcal")
-                    StatTile(title: "거리", value: "\(Int(record.totalDistance)) m")
-                    StatTile(title: "시간", value: "\(Int(record.duration / 60)) 분")
-                }
-
+                // 운동장 선택
                 VStack(alignment: .leading, spacing: 8) {
                     Text("운동장")
                         .font(.headline)
@@ -155,30 +129,93 @@ struct WorkoutDetailView: View {
                         isPresentingFieldPicker = true
                     }
                 }
-
-                if let field = record.field {
-                    Text("히트맵")
-                        .font(.headline)
-                    FieldHeatmapView(field: field, points: record.points)
-
-                    Text("스프린트")
-                        .font(.headline)
-                    SprintMapView(field: field, points: record.points)
-                }
-
-                Text("심박수")
-                    .font(.headline)
                 
-                Chart(displayedHeartRateSamples, id: \.timestamp) { sample in
-                    LineMark(
-                        x: .value("시간", sample.timestamp),
-                        y: .value("BPM", sample.bpm)
-                    )
+                // 주요 스탯
+                GeometryReader { geo in
+                    HStack(spacing: 24) {
+                        ZStack {
+                            VStack {
+                                Text("최고 속도")
+                            }
+                        }
+                        .frame(width: (geo.size.width - 48) / 3, height: (geo.size.width - 48) / 3)
+                        
+                        ZStack {
+                            VStack {
+                                Text("이동 거리")
+                            }
+                        }
+                        .frame(width: (geo.size.width - 48) / 3, height: (geo.size.width - 48) / 3)
+                        
+                        ZStack {
+                            VStack {
+                                Text("소모 칼로리")
+                            }
+                        }
+                        .frame(width: (geo.size.width - 48) / 3, height: (geo.size.width - 48) / 3)
+                    }
                 }
-                .chartXScale(domain: heartRateDateRange)
-                .frame(height: 160)
+                .frame(height: 110)
+                
+                // 움직임
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("움직임")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    HStack {
+                        Text("평균 속력")
+                        Text("")
+                    }
+                    HStack {
+                        Text("고강도 주행거리")
+                        Text("")
+                    }
+                    HStack {
+                        Text("방향 전환 횟수")
+                        Text("")
+                    }
+                    HStack {
+                        Text("가속 횟수")
+                        Text("")
+                        Text("감속 횟수")
+                        Text("")
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("신체 활동")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    
+                    HStack {
+                        Text("최대 심박수")
+                        Text("")
+                        Text("평균 심박수")
+                        Text("")
+                    }
+                }
+                .padding([.top], 60)
+                
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("훈련 부하지수")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    
+                    HStack {
+                        Text("TRIMP")
+                        Text("")
+                    }
+                    
+                    HStack {
+                        Text("Player Load")
+                        Text("")
+                    }
+                }
+                .padding([.top], 60)
+                
+                Divider()
             }
-            .padding()
+            .padding([.horizontal], 24)
         }
         .navigationTitle(record.date.formatted(date: .abbreviated, time: .shortened))
         .onDisappear { playbackTask?.cancel() }
@@ -219,4 +256,8 @@ private struct StatTile: View {
         .padding()
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
     }
+}
+
+#Preview {
+    WorkoutDetailView(record: WorkoutRecord(payload: .fake()))
 }

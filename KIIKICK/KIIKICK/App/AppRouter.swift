@@ -18,7 +18,7 @@ final class AppRouter {
     }
     
     enum AppTab: Hashable {
-        case home, fieldRegister, myPage
+        case home, friends, analysis, myPage
     }
     
     enum Route: Hashable {

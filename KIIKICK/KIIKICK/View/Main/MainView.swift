@@ -15,8 +15,17 @@ struct MainView: View {
         
         TabView(selection: $router.selection) {
             HomeView()
-                .tabItem { Label("Home", systemImage: "house") }
+                .tabItem { Label("홈", systemImage: "house") }
                 .tag(AppRouter.AppTab.home)
+            FriendsView()
+                .tabItem { Label("친구", systemImage: "figure.2.right.holdinghands") }
+                .tag(AppRouter.AppTab.friends)
+            AnalysisView()
+                .tabItem { Label("분석", systemImage: "document") }
+                .tag(AppRouter.AppTab.analysis)
+            MyPageView()
+                .tabItem { Label("마이페이지", systemImage: "person.fill") }
+                .tag(AppRouter.AppTab.myPage)
         }
     }
 }

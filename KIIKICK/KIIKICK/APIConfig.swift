@@ -2,8 +2,6 @@
 //  APIConfig.swift
 //  KIIKICK
 //
-//  BaseURL은 소스에 하드코딩하지 않고 Config.xcconfig -> Info.plist(BaseURL 키)를 통해 읽는다.
-//
 
 import Foundation
 

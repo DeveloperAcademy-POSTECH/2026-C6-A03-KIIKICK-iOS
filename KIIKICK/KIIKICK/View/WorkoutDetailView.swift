@@ -14,7 +14,47 @@ struct WorkoutDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Field.name) private var fields: [Field]
     @State private var isPresentingFieldPicker = false
+
+    enum SendState {
+        case idle
+        case sending
+        case success
+        case failure(String)
+    }
+    @State private var sendState: SendState = .idle
     
+    private var isSending: Bool {
+        if case .sending = sendState { return true }
+        return false
+    }
+
+    private func sendToServer() async {
+        guard let userId = UserSession.userId else {
+            sendState = .failure("로그인이 필요합니다.")
+            return
+        }
+
+        sendState = .sending
+
+        let payload = WorkoutPayload(
+            startDate: record.date,
+            endDate: record.date.addingTimeInterval(record.duration),
+            points: record.points,
+            heartRateSamples: record.heartRateSamples,
+            totalCalories: record.totalCalories,
+            totalDistance: record.totalDistance
+        )
+
+        do {
+            _ = try await WorkoutAPI.upload(userId: userId, payload: payload)
+            sendState = .success
+        } catch let APIError.serverError(_, message) {
+            sendState = .failure(message ?? "전송에 실패했습니다.")
+        } catch {
+            sendState = .failure("전송에 실패했습니다.")
+        }
+    }
+
     private var region: MKCoordinateRegion {
         let lats = record.points.map(\.latitude)
         let lngs = record.points.map(\.longitude)
@@ -71,6 +111,41 @@ struct WorkoutDetailView: View {
                     }
                 }
                 
+                // 경기 정보 전송
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("경기 정보 전송")
+                        .font(.headline)
+
+                    Button {
+                        Task { await sendToServer() }
+                    } label: {
+                        if case .sending = sendState {
+                            ProgressView()
+                        } else {
+                            Text("서버로 전송")
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isSending)
+
+                    switch sendState {
+                    case .idle, .sending:
+                        EmptyView()
+                    case .success:
+                        Label("전송 완료", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    case .failure(let message):
+                        Label(message, systemImage: "xmark.circle.fill")
+                            .foregroundStyle(.red)
+                    }
+
+                    if UserSession.userId == nil {
+                        Text("로그인 후 전송할 수 있어요.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 // 주요 스탯
                 GeometryReader { geo in
                     HStack(spacing: 24) {

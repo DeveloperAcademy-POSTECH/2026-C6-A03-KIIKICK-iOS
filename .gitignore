@@ -1,5 +1,5 @@
 # Local API keys
-Config/Secrets.xcconfig
+*.xcconfig
 *.xcuserstate
 
 # Xcode

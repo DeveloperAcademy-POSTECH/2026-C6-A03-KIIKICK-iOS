@@ -198,6 +198,8 @@ private struct StatTile: View {
     }
 }
 
+#if DEBUG
 #Preview {
     WorkoutDetailView(record: WorkoutRecord(payload: .fake()))
 }
+#endif

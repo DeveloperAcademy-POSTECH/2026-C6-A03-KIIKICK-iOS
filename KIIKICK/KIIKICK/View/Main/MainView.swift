@@ -34,6 +34,13 @@ struct MainView: View {
             }
                 .tabItem { Label("마이페이지", systemImage: "person.fill") }
                 .tag(AppRouter.AppTab.myPage)
+            #if DEBUG
+            NavigationStack(path: router.path(for: .devAuth)) {
+                DevAuthView()
+            }
+                .tabItem { Label("로그인(테스트)", systemImage: "ladybug") }
+                .tag(AppRouter.AppTab.devAuth)
+            #endif
         }
     }
 }

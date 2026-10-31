@@ -18,11 +18,15 @@ final class AppRouter {
     }
     
     enum AppTab: Hashable {
-        case home, fieldRegister, myPage
+        case home, friends, analysis, myPage
+        #if DEBUG
+        case devAuth
+        #endif
     }
     
     enum Route: Hashable {
         case profile
+        case matchDetail(WorkoutRecord)
         case search
     }
     

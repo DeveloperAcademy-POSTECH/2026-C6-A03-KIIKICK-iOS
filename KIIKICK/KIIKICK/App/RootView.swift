@@ -26,7 +26,7 @@ struct RootView: View {
         .onAppear {
             Task {
                 // sleep(1)
-                router.finishSplash(isLoggedIn: true)
+                router.finishSplash(isLoggedIn: UserSession.isLoggedIn)
             }
         }
     }

@@ -13,7 +13,3 @@ struct SplashView: View {
             .font(.title)
     }
 }
-
-#Preview {
-    SplashView()
-}

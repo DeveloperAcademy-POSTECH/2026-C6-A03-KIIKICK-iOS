@@ -16,21 +16,21 @@ struct CtaWatchView: View {
     let text: String
     var type: CtaWatchType = .primary
     let action: () -> Void
-
+    
     private var background: Color {
         switch type {
         case .primary: return Color("Mint500")
         case .destructive: return Color("Gray900")
         }
     }
-
+    
     private var foreground: Color {
         switch type {
         case .primary: return .black
         case .destructive: return Color("Red500")
         }
     }
-
+    
     var body: some View {
         Button(action: action) {
             Text(text)
@@ -38,7 +38,8 @@ struct CtaWatchView: View {
                 .foregroundStyle(foreground)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 12)
-                .frame(width: 147)
+                .frame(minWidth: 147)
+                .frame(height: 49)
                 .background(background, in: Capsule())
         }
         .buttonStyle(.plain)

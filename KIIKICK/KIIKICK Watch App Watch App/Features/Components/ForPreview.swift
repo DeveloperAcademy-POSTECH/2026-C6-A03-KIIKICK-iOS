@@ -25,26 +25,6 @@ struct ForPreview: View {
                 Spacer()
                 CtaWatchView(text: "경기 시작", type: .primary, action: {})
             }
-            VStack {
-                Text("포지션을 선택하세요")
-                    .font(Font.body4R)
-                HStack(spacing: 8) {
-                    BtnSelectionView { }
-                    BtnSelectionView { }
-                    BtnSelectionView { }
-                }
-                HStack(spacing: 8) {
-                    BtnSelectionView { }
-                    BtnSelectionView { }
-                    BtnSelectionView { }
-                }
-                HStack(spacing: 8) {
-                    BtnSelectionView { }
-                    BtnSelectionView { }
-                    BtnSelectionView { }
-                }
-                BtnSelectionView { }
-            }
             CtaWatchView(text: "경기 시작", type: .primary, action: {})
             CtaWatchView(text: "경기 종료", type: .destructive, action: {})
             ProgressWatchButton()

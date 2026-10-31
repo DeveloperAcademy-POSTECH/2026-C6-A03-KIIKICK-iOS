@@ -12,7 +12,7 @@ struct StepperViewWatch: View {
     @State var count: Int = 0
 
     var body: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 25) {
             Button {
                 count -= 1
             } label: {
@@ -27,12 +27,12 @@ struct StepperViewWatch: View {
             }
             .buttonStyle(.plain)
             .disabled(count <= 0)
-
+            
             Text(String(count))
                 .textStyle(.head1B)
                 .foregroundStyle(.white)
                 .frame(minWidth: 20)
-
+            
             Button {
                 count += 1
             } label: {

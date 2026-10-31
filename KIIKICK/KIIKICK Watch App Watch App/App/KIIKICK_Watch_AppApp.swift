@@ -10,8 +10,8 @@ struct KIIKICK_Watch_App_Watch_AppApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ForPreview()
-            .environment(SessionManager.shared)
+            MainView()
+                .environment(SessionManager.shared)
         }
     }
 }

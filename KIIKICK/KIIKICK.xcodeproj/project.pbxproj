@@ -46,6 +46,13 @@
 			);
 			target = 000000000000000100000000 /* KIIKICK */;
 		};
+		DF47700BAD6B9C553A502F64 /* Exceptions for "KIIKICK Watch App Watch App" folder in "KIIKICK Watch App Watch App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = C0C941D1308F9F48006E6711 /* KIIKICK Watch App Watch App */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -59,6 +66,9 @@
 		};
 		B2C48F1A3A964FD924B50857 /* KIIKICK Watch App Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DF47700BAD6B9C553A502F64 /* Exceptions for "KIIKICK Watch App Watch App" folder in "KIIKICK Watch App Watch App" target */,
+			);
 			path = "KIIKICK Watch App Watch App";
 			sourceTree = "<group>";
 		};
@@ -358,6 +368,7 @@
 			baseConfigurationReference = 226416D9E3604B22363399A2 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2QJX795Q3R;
@@ -404,6 +415,7 @@
 			baseConfigurationReference = 226416D9E3604B22363399A2 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2QJX795Q3R;
@@ -456,6 +468,7 @@
 				DEVELOPMENT_TEAM = 2QJX795Q3R;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "KIIKICK Watch App Watch App/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "KIIKICK Watch App";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "운동 중 심박수, 거리, 속도 등 건강 데이터를 가져오기 위해 접근 권한이 필요합니다.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "완료된 운동 기록을 건강 앱에 저장하기 위해 접근 권한이 필요합니다.";
@@ -494,6 +507,7 @@
 				DEVELOPMENT_TEAM = 2QJX795Q3R;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "KIIKICK Watch App Watch App/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "KIIKICK Watch App";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "운동 중 심박수, 거리, 속도 등 건강 데이터를 가져오기 위해 접근 권한이 필요합니다.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "완료된 운동 기록을 건강 앱에 저장하기 위해 접근 권한이 필요합니다.";

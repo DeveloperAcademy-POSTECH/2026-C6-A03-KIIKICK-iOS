@@ -4,5 +4,13 @@
 <dict>
 	<key>BaseURL</key>
 	<string>$(BASE_URL)</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Pretendard-Regular.otf</string>
+		<string>Pretendard-Medium.otf</string>
+		<string>Pretendard-SemiBold.otf</string>
+		<string>Pretendard-Bold.otf</string>
+		<string>Kanit-SemiBold.ttf</string>
+	</array>
 </dict>
 </plist>

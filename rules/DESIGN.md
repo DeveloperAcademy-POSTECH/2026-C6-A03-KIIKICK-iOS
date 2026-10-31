@@ -1,17 +1,24 @@
 # DESIGN.md — Design System
 
-Maps Figma Variables / Styles to code tokens. **Figma is the source of truth for values.** This file only defines which code token to use for each Figma name.
+Records Figma design references and their implementation status. **Figma is the source of truth for values.** Only verified mappings may be used as implementation guidance.
 
-Source: [Design System for Color, Fonts](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/-Earthuu-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=1-239)
+Source: [Design System for Color, Fonts](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/%E2%9A%BD%EF%B8%8F-KIIKICK-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=1-239&t=vl5yYnI25mUIBsBJ-1)
+
+## Verification status
+
+- The links now point to the KIIKICK design library. Fonts and Color must be read from node `1:239`; Components must be read from node `1:440`.
+- **The Typography and Colors tables below are legacy Earthu mappings, not verified KIIKICK specifications. Do not implement from these tables until they have been checked against the new library.**
+- This repository uses `KIIKICK/KIIKICK/`. The referenced `Earthu/DesignSystem/` and `Earthu/Assets.xcassets/Colors/` paths do not exist here, and the documented `.textStyle(_:)` and semantic color APIs are not implemented here.
+- Exact font styles, color variables/aliases, spacing, radii, component variants and layout properties remain unverified. Do not infer values from screenshots.
 
 ## Rules
 
-- Always use the tokens below. Never hard-code raw colors, font sizes, spacing, or radius.
+- Use verified design tokens when available. Never treat the legacy tables below as existing KIIKICK APIs or hard-code unverified colors, font sizes, spacing, or radius.
 - Reuse existing components before creating new ones.
 - If a Figma value has no matching token, do not create one. Use the closest token and report it as a 🟡 Gap (see [FIGMA.md](FIGMA.md)).
 - Do not add or modify tokens without approval.
 
-## Typography
+## Typography — legacy, pending verification
 
 13 Figma text styles plus the wordmark. Everything is Pretendard; only the wordmark uses Galano Grotesque.
 
@@ -44,7 +51,7 @@ Text("2026 정기 고연전")
 - `wordmark` is reserved for the EarthUU wordmark. Never use it for regular UI text.
 - Defined in `Earthu/DesignSystem/Typography/`.
 
-## Colors
+## Colors — legacy, pending verification
 
 UI code uses **semantic tokens only**. `Color.Primitive.*` (the palette) exists solely to define semantic tokens.
 
@@ -100,8 +107,18 @@ Text("모집 중")
 
 ## Components
 
-🚧 No shared components exist yet. Fill in this table as they are added.
+Source: [KIIKICK Components](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/?node-id=1-440).
 
-| Figma Component | Code | Path                              |
-| --------------- | ---- | --------------------------------- |
-| —               | —    | `Earthu/DesignSystem/Components/` |
+The design library now includes Components. Check the component definitions before implementing a screen, and reuse matching implementations when available.
+
+| Figma reference | Code / Path | Verification status |
+| --------------- | ----------- | ------------------- |
+| Components (`1:440`) | No verified code mapping yet | Inventory, exact names, variants, states and layout properties must be read from the source |
+
+For each component, record its node link, exact name, variant properties, states, text/color styles, Auto Layout direction, sizing (Fixed / Hug / Fill), spacing, padding and radius, followed by the actual Swift type and repository path once implemented. A Figma component existing does not mean its SwiftUI implementation exists.
+
+### Design Gaps — library synchronization
+
+- 🔴 Fonts / Color (`1:239`): current properties could not be retrieved; legacy mappings above are not validated.
+- 🔴 Components (`1:440`): source link registered; detailed component specifications could not be retrieved.
+- Verification attempt: Aside returned `402 Insufficient credits`; web access failed; the Figma desktop UI exposed no node properties and window interaction returned `noWindowsAvailable`.

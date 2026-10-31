@@ -14,28 +14,56 @@ struct WorkoutDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Field.name) private var fields: [Field]
     @State private var isPresentingFieldPicker = false
-
+    
+    // 대표적인 3개의 스탯의 타입
+    private enum StatType: CaseIterable, Identifiable {
+        case maxSpeed, distance, calories
+        
+        var id: Self { self }
+        
+        var title: String {
+            switch self {
+            case .maxSpeed: return "최고 속도"
+            case .distance: return "이동 거리"
+            case .calories: return "소모 칼로리"
+            }
+        }
+        
+        func value(for record: WorkoutRecord) -> String {
+            switch self {
+            case .maxSpeed:
+                let maxSpeed = record.points.map(\.speed).max() ?? 0
+                return String(format: "%.1f km/h", maxSpeed * 3.6)
+            case .distance:
+                return String(format: "%.0f m", record.totalDistance)
+            case .calories:
+                return String(format: "%.0f kcal", record.totalCalories)
+            }
+        }
+    }
+    
     enum SendState {
         case idle
         case sending
         case success
         case failure(String)
     }
+    
     @State private var sendState: SendState = .idle
     
     private var isSending: Bool {
         if case .sending = sendState { return true }
         return false
     }
-
+    
     private func sendToServer() async {
         guard let userId = UserSession.userId else {
             sendState = .failure("로그인이 필요합니다.")
             return
         }
-
+        
         sendState = .sending
-
+        
         let payload = WorkoutPayload(
             startDate: record.date,
             endDate: record.date.addingTimeInterval(record.duration),
@@ -44,7 +72,7 @@ struct WorkoutDetailView: View {
             totalCalories: record.totalCalories,
             totalDistance: record.totalDistance
         )
-
+        
         do {
             _ = try await WorkoutAPI.upload(userId: userId, payload: payload)
             sendState = .success
@@ -54,7 +82,7 @@ struct WorkoutDetailView: View {
             sendState = .failure("전송에 실패했습니다.")
         }
     }
-
+    
     private var region: MKCoordinateRegion {
         let lats = record.points.map(\.latitude)
         let lngs = record.points.map(\.longitude)
@@ -115,7 +143,7 @@ struct WorkoutDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("경기 정보 전송")
                         .font(.headline)
-
+                    
                     Button {
                         Task { await sendToServer() }
                     } label: {
@@ -127,7 +155,7 @@ struct WorkoutDetailView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(isSending)
-
+                    
                     switch sendState {
                     case .idle, .sending:
                         EmptyView()
@@ -138,40 +166,21 @@ struct WorkoutDetailView: View {
                         Label(message, systemImage: "xmark.circle.fill")
                             .foregroundStyle(.red)
                     }
-
+                    
                     if UserSession.userId == nil {
                         Text("로그인 후 전송할 수 있어요.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
-
+                
                 // 주요 스탯
-                GeometryReader { geo in
-                    HStack(spacing: 24) {
-                        ZStack {
-                            VStack {
-                                Text("최고 속도")
-                            }
-                        }
-                        .frame(width: (geo.size.width - 48) / 3, height: (geo.size.width - 48) / 3)
-                        
-                        ZStack {
-                            VStack {
-                                Text("이동 거리")
-                            }
-                        }
-                        .frame(width: (geo.size.width - 48) / 3, height: (geo.size.width - 48) / 3)
-                        
-                        ZStack {
-                            VStack {
-                                Text("소모 칼로리")
-                            }
-                        }
-                        .frame(width: (geo.size.width - 48) / 3, height: (geo.size.width - 48) / 3)
+                HStack(spacing: 24) {
+                    ForEach(StatType.allCases) { stat in
+                        StatTile(title: stat.title, value: stat.value(for: record))
+                            .aspectRatio(1, contentMode: .fit)
                     }
                 }
-                .frame(height: 110)
                 
                 // 움직임
                 VStack(alignment: .leading, spacing: 18) {
@@ -267,7 +276,7 @@ private struct StatTile: View {
             Text(value)
                 .font(.headline)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
     }

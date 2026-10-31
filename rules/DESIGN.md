@@ -82,7 +82,7 @@ Exact hex values read from the rendered color swatches. No semantic/alias layer 
 | `lime/`      | `lime300` #EFFCB0, `lime500` #DFFF3F, `lime700` #C4E90B                                          |
 | `orange/`    | `orange100` #FFA68B, `orange500` #FF6131, `orange700` #C94219                                    |
 
-- None of these are registered as `Color Set`s in `KIIKICK/KIIKICK/Assets.xcassets` yet (only `AccentColor` exists there) — implement on first use.
+- All 33 non-black/white values above are registered as `Color Set`s in `KIIKICK Global/Assets.xcassets` (shared by iOS + watchOS), named PascalCase exactly as the Figma step name (e.g. `mint500` → `Mint500` → `Color(.mint500)` / `UIColor(resource: .mint500)`). Pure black/white use `Color.black`/`Color.white` directly instead of a Color Set.
 - `mint500` (#00DAC3) is the most saturated/brand-like color in the palette; confirm with design before assuming it's the primary brand color — this file does not label any color as "brand."
 - Dark mode values are not visible in this page (single Universal swatch per step); check the `watchOS`/`iOS` screen pages directly if dark-mode-specific values are needed for a given screen.
 
@@ -101,13 +101,13 @@ The design library includes a Components page. Check the component definitions b
 | Figma component | Variant axes / states | Approx. size | Code / Path |
 | ---------------- | ---------------------- | ------------ | ------------ |
 | `cta` (Button)   | `active` (on/off) × `Type` (primary/secondary/sub/destructive/Default) × `size` (L/s) | size L ≈ 352×55(54), size s ≈ 116×46 | not implemented |
-| `cta-watch` (watchOS button) | `Type` (primary/destructive) | 147×49 | not implemented |
+| `cta-watch` (watchOS button) | `Type` (primary/destructive) | 147×49 | `CtaWatchView` — `KIIKICK Watch App Watch App/Features/Components/CtaWatchView.swift` |
 | `navi_row`       | no variants seen        | 354×64       | not implemented |
 | `searchbar`      | `State` (default/writing/completed) | 354×52 each | not implemented |
 | `textfield`      | `State` (default/writing/completed/error) | 354×77–78 each | not implemented |
-| `sub-watch`      | no variants seen        | 147×52       | not implemented |
-| `Stepper` (watchOS) | no variants seen     | 156×60       | not implemented |
-| `btn_selection` (watchOS) | no variants seen | 48×32        | not implemented |
+| `sub-watch`      | no variants seen        | 147×52       | `SubWatchView` — `KIIKICK Watch App Watch App/Features/Components/SubWatchView.swift` |
+| `Stepper` (watchOS) | no variants seen     | 156×60       | `StepperViewWatch` — `KIIKICK Watch App Watch App/Features/Components/StepperView.swift` |
+| `btn_selection` (watchOS) | no variants seen | 48×32        | `BtnSelectionView` — `KIIKICK Watch App Watch App/Features/Components/BtnSelectionView.swift` |
 | `Performance Trends` chart | `Property 1` = "Quarter chart" (×3 shown) | 362×348 each | not implemented |
 | `logo`           | —                       | 400×200      | not implemented |
 | Icon sizes       | `size` = 8/12/16/20/24/28(`size11`)/28/32/36/40/44 | — | not implemented |

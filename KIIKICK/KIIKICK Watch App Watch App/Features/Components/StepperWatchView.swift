@@ -18,10 +18,10 @@ struct StepperWatchView: View {
             } label: {
                 ZStack {
                     Capsule()
-                        .fill(.gray400)
+                        .fill(.colorBrandPrimary)
                     Image(systemName: "minus")
                         .font(.system(size: 24, weight: .medium))
-                        .foregroundStyle(.gray50)
+                        .foregroundStyle(.colorTextPrimary)
                 }
                 .frame(width: 48, height: 60)
             }
@@ -41,7 +41,7 @@ struct StepperWatchView: View {
                         .fill(.mint500)
                     Image(systemName: "plus")
                         .font(.system(size: 24, weight: .medium))
-                        .foregroundStyle(.gray50)
+                        .foregroundStyle(.colorTextPrimary)
                 }
                 .frame(width: 48, height: 60)
             }

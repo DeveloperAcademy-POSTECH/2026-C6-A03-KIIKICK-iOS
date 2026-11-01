@@ -12,23 +12,20 @@ struct BtnSelectionView: View {
     var style: BtnSelectionStyle = .primary
     let action: () -> Void
     
-    // DESIGN-GAP: Figma btn_selection(249:549)에는 variant가 없고 기본(gray850/white) 상태만
-    // 정의돼 있다. selected는 Figma에 없는 상태라, 다른 컴포넌트의 "선택됨 = mint500" 관례
-    // (CtaWatchView primary, Stepper increment)를 따라 임의로 추가했다.
     enum BtnSelectionStyle {
         case primary, selected
 
         var background: Color {
             switch self {
-            case .primary: return .gray850
-            case .selected: return .mint950
+            case .primary: return .colorSurfacePrimary
+            case .selected: return .colorSurfaceElevated
             }
         }
 
         var foreground: Color {
             switch self {
             case .primary: return .white
-            case .selected: return .mint500
+            case .selected: return .textBrand
             }
         }
     }

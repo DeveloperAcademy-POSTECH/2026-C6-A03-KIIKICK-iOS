@@ -7,7 +7,7 @@ Source: [Design System for Color, Fonts](https://www.figma.com/design/Oc5LQED0S2
 ## Verification status
 
 - Verified via Figma MCP (`get_metadata` + `get_screenshot`) on node `1:239` ("System" page → "Typography : variables" + "Color: Primitive" frames) and node `1:440` ("Assets&Components" page). Values below are read directly from the file, not inferred from screenshots or guessed.
-- **No semantic color layer exists in the source file.** The "System" page contains only "Typography : variables" and "Color: Primitive" — there is no separate semantic/alias color page or frame. Code must either define its own semantic layer on top of the primitives below, or apply primitives directly; either choice should be called out as a 🟡 Gap when non-obvious.
+- **A semantic color Variable collection does exist, but it is not documented as its own page.** The "Color: Primitive" page's own swatches use raw fills (no Variable binding, confirmed via `get_variable_defs` returning empty there) — that part of the earlier claim stands. But `get_variable_defs` on actual component instances (e.g. the watchOS components section, node `241:4076`) resolves real bound Variables. See "Colors — Semantic" below.
 - **None of the tokens or components below have a SwiftUI implementation in this repo yet**, except the raw font files (see Typography). This repository uses `KIIKICK/KIIKICK/`; there is no `Earthu/DesignSystem/` directory, no `.textStyle(_:)` API, and no `Color Set` other than `AccentColor` in `Assets.xcassets`. Treat every token as "value verified, code not yet written."
 - Earlier verification attempts (Aside, plain web fetch, Figma desktop UI automation) had all failed — see git history. The Figma MCP tools (`get_metadata`, `get_screenshot`) succeeded where those did not. `get_variable_defs` still fails here ("nothing selected" — it needs a layer selected in the Figma desktop app), so primitive values were read from the rendered documentation table via `get_screenshot`, not from live Figma Variables.
 
@@ -86,13 +86,34 @@ Exact hex values read from the rendered color swatches. No semantic/alias layer 
 - `mint500` (#00DAC3) is the most saturated/brand-like color in the palette; confirm with design before assuming it's the primary brand color — this file does not label any color as "brand."
 - Dark mode values are not visible in this page (single Universal swatch per step); check the `watchOS`/`iOS` screen pages directly if dark-mode-specific values are needed for a given screen.
 
-## Spacing
+## Colors — Semantic, verified (`get_variable_defs` on node `241:4076`, watchOS components section)
 
-🚧 Not read from Figma yet. Check the relevant screen frame's Auto Layout `spacing`/`padding` properties via `get_design_context` when implementing, and report as Gaps if unspecified.
+Real bound Figma Variables found on actual component instances (not on the Primitive documentation page — see Verification status above). Names are as Figma reports them (mixed `kebab-case`/`path/case`); no consistent naming convention across them.
 
-## Radius
+| Variable | Resolved value | Nearest primitive | Swift (`Color+Semantic.swift`) |
+| --- | --- | --- | --- |
+| `color-text-primary` / `icon/default` | `#FAFAFA` | `gray50` | `Color.colorTextPrimary` |
+| `color-surface-primary` | `#242424` | `gray850` | `Color.colorSurfacePrimary` |
+| `color-background-secondary` | `#1A1A1A` | `gray900` | `Color.colorBackgroundSecondary` |
+| `color-surface-elevated` | `#0B2522` | `mint950` | `Color.colorSurfaceElevated` |
+| `mint-500` / `text/brand` | `#00DAC3` | `mint500` | `Color.textBrand` |
+| `action/destructive` | `#FF3737` | `red500` | `Color.actionDestructive` |
+| `color-brand-primary` | `#737373` | `gray500` | `Color.colorBrandPrimary` |
 
-🚧 Not read from Figma yet. Same as Spacing above.
+Implemented in `KIIKICK Global/Color+Semantic.swift` as a thin alias layer over the Primitive Color Sets (no new hex introduced). `color-brand-primary`'s live value (`#737373` / `gray500`) disagreed with a baked fallback (`#A3A3A3` / `gray400`) seen earlier on the Stepper decrement button (`249:525`) — resolved in favor of the live Variable value. `StepperWatchView`'s decrement capsule now uses `.colorBrandPrimary`.
+
+Only these 4 watchOS components have been checked for Variable bindings so far — other components/screens may use the same or additional semantic Variables; re-run `get_variable_defs` on their nodes before assuming a primitive-only implementation is correct.
+
+## Spacing — partially verified (`get_variable_defs` on node `241:4076`)
+
+- `padding-12` = 12pt — vertical padding on `cta-watch`, `sub-watch`, `btn_selection`.
+- `spacing-20` = 20pt — `HStack` gap in `Stepper`.
+- Not yet checked on other screens/components — check the relevant frame's Auto Layout `spacing`/`padding` via `get_design_context`/`get_variable_defs` when implementing, and report as Gaps if unspecified.
+
+## Radius — partially verified (`get_variable_defs` on node `241:4076`)
+
+- `radius-full` = 999 — effectively a full capsule/pill; implement with SwiftUI `Capsule()` (already done for the 4 watchOS components), not a numeric `cornerRadius`.
+- Not yet checked on other screens/components — same as Spacing above.
 
 ## Components — inventory, verified (Figma node `1:440`, "Assets&Components")
 

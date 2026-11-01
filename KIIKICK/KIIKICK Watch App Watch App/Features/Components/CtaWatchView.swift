@@ -20,14 +20,14 @@ struct CtaWatchView: View {
     private var background: Color {
         switch type {
         case .primary: return .mint500
-        case .destructive: return .gray900
+        case .destructive: return .colorBackgroundSecondary
         }
     }
 
     private var foreground: Color {
         switch type {
         case .primary: return .black
-        case .destructive: return .red500
+        case .destructive: return .actionDestructive
         }
     }
     

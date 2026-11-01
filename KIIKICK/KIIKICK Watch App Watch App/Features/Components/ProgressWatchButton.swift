@@ -37,11 +37,11 @@ struct ProgressWatchButton: View {
             progress.icon
                 .resizable()
                 .frame(width: 28, height: 28)
-                .foregroundStyle(.gray50)
+                .foregroundStyle(.colorTextPrimary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 12)
                 .frame(width: 147)
-                .background(.gray850, in: Capsule())
+                .background(.colorSurfacePrimary, in: Capsule())
         }
         .buttonStyle(.plain)
     }

@@ -55,12 +55,12 @@ struct CtaView: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 2) {
+            HStack(spacing: 6) {
                 if let icon {
                     icon
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 24, height: 24)
+                        .frame(width: size == .large ? 24 : 12, height: size == .large ? 24 : 12)
                 }
                 Text(text)
                     .font(font)

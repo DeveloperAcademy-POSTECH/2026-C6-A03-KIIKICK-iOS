@@ -14,6 +14,11 @@ This is not a design guide. These are rules for turning Figma UI into code **wit
 
 [KIIKICK Components](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/?node-id=1-440)
 
+All of the above live in the **same Figma file** (key `Oc5LQED0S2UeVfXvdAjNwO`) — iOS and watchOS screens are separate pages/frames within it, not separate files:
+
+- [iOS screens](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/%E2%9A%BD%EF%B8%8F-KIIKICK-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=120-12) (node `120:12`)
+- [watchOS screens](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/%E2%9A%BD%EF%B8%8F-KIIKICK-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=241-3911) (node `241:3911`)
+
 ## Pre-Implementation Check
 
 - [ ] Does every frame use **Auto Layout**? (Plain Groups and absolute positioning are Gaps.)

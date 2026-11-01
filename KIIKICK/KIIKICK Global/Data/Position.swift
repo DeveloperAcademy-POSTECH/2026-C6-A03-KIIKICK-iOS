@@ -5,7 +5,7 @@
 //  Created by Seungjun Lee on 11/1/26.
 //
 
-enum Position: String, CaseIterable {
+enum Position: String, CaseIterable, Codable {
     case lw, st, rw, lm, cm, rm, lb, cb, rb, gk
     
     var uppercased: String {

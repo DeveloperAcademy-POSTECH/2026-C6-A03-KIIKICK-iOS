@@ -8,10 +8,10 @@
 import SwiftUI
 
 struct PlayingView: View {
-    
+
     enum ScoreType: String {
         case goal, assist
-        
+
         var icon: Image {
             switch self {
             case .goal:
@@ -21,23 +21,30 @@ struct PlayingView: View {
             }
         }
     }
-    
 
-    var action: () -> Void
+    /// 지금 쿼터가 시작된 시각 — 라이브 타이머용.
+    let quarterStartDate: Date
+    /// 쿼터 종료 시 지금까지 기록된 득점/어시스트 개수를 넘겨준다.
+    var action: (_ goalCount: Int, _ assistCount: Int) -> Void
+
+    @State private var goalCount = 0
+    @State private var assistCount = 0
 
     var body: some View {
         TabView {
-            RecordEditView(type: .goal)
-            RecordEditView(type: .assist)
-            QuarterSetView(action: action)
+            RecordEditView(type: .goal, count: $goalCount, quarterStartDate: quarterStartDate)
+            RecordEditView(type: .assist, count: $assistCount, quarterStartDate: quarterStartDate)
+            QuarterSetView(action: { action(goalCount, assistCount) })
         }.tabViewStyle(.verticalPage)
     }
-    
-    
+
+
     struct RecordEditView: View {
-        
+
         @State var type: ScoreType
-        
+        @Binding var count: Int
+        let quarterStartDate: Date
+
         var body: some View {
             GeometryReader { geo in
                 VStack(spacing: 4) {
@@ -45,7 +52,7 @@ struct PlayingView: View {
                         Text("Match Time")
                             .font(.caption1M)
                         HStack(alignment: .center) {
-                            Text("12:34")
+                            Text(quarterStartDate, style: .timer)
                                 .font(.title4SB)
                             Spacer()
                             HStack(spacing: 4) {
@@ -60,14 +67,14 @@ struct PlayingView: View {
                     }
                     .padding(.horizontal, 16)
                     Spacer()
-                    StepperWatchView()
+                    StepperWatchView(count: $count)
                         .frame(width: geo.size.width - 32)
                 }
                 .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
             }
         }
     }
-    
+
     struct QuarterSetView: View {
         var action: () -> Void
 

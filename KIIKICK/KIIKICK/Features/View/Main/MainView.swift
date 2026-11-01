@@ -22,12 +22,12 @@ struct MainView: View {
             NavigationStack(path: router.path(for: .friends)) {
                 FriendsView()
             }
-                .tabItem { Label("친구", systemImage: "figure.2.right.holdinghands") }
+                .tabItem { Label("친구", systemImage: "person.2.fill") }
                 .tag(AppRouter.AppTab.friends)
             NavigationStack(path: router.path(for: .analysis)) {
                 AnalysisView()
             }
-                .tabItem { Label("분석", systemImage: "document") }
+                .tabItem { Label("분석", systemImage: "chart.bar.fill") }
                 .tag(AppRouter.AppTab.analysis)
             NavigationStack(path: router.path(for: .myPage)) {
                 MyPageView()

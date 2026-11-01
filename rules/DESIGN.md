@@ -12,7 +12,7 @@ All of the above live in the **same Figma file** (key `Oc5LQED0S2UeVfXvdAjNwO`) 
 ## Verification status
 
 - Verified via Figma MCP (`get_metadata` + `get_screenshot`) on node `1:239` ("System" page → "Typography : variables" + "Color: Primitive" frames) and node `1:440` ("Assets&Components" page). Values below are read directly from the file, not inferred from screenshots or guessed.
-- **A semantic color Variable collection does exist, but it is not documented as its own page.** The "Color: Primitive" page's own swatches use raw fills (no Variable binding, confirmed via `get_variable_defs` returning empty there) — that part of the earlier claim stands. But `get_variable_defs` on actual component instances (e.g. the watchOS components section, node `241:4076`) resolves real bound Variables. See "Colors — Semantic" below.
+- **A semantic color Variable collection exists and *is* documented as its own page** — node `313:2`, "Color · Semantic" (35 tokens, every value a Primitive alias). This was found later in the project; an earlier note here said it wasn't documented as its own page, which was wrong — it just hadn't been located yet. `get_variable_defs` on the "Color: Primitive" page's own swatches still returns empty (raw fills, no Variable binding), and still fails ("nothing selected") everywhere else in this file, so `313:2` was read via `get_screenshot` like everything else. See "Colors — Semantic" below.
 - **None of the tokens or components below have a SwiftUI implementation in this repo yet**, except the raw font files (see Typography). This repository uses `KIIKICK/KIIKICK/`; there is no `Earthu/DesignSystem/` directory, no `.textStyle(_:)` API, and no `Color Set` other than `AccentColor` in `Assets.xcassets`. Treat every token as "value verified, code not yet written."
 - Earlier verification attempts (Aside, plain web fetch, Figma desktop UI automation) had all failed — see git history. The Figma MCP tools (`get_metadata`, `get_screenshot`) succeeded where those did not. `get_variable_defs` still fails here ("nothing selected" — it needs a layer selected in the Figma desktop app), so primitive values were read from the rendered documentation table via `get_screenshot`, not from live Figma Variables.
 
@@ -91,25 +91,30 @@ Exact hex values read from the rendered color swatches. No semantic/alias layer 
 - `mint500` (#00DAC3) is the most saturated/brand-like color in the palette; confirm with design before assuming it's the primary brand color — this file does not label any color as "brand."
 - Dark mode values are not visible in this page (single Universal swatch per step); check the `watchOS`/`iOS` screen pages directly if dark-mode-specific values are needed for a given screen.
 
-## Colors — Semantic, verified (`get_variable_defs` on node `241:4076`, watchOS components section)
+## Colors — Semantic, verified (node `313:2`, "Color · Semantic" documentation page)
 
-Real bound Figma Variables found on actual component instances (not on the Primitive documentation page — see Verification status above). Names are as Figma reports them (mixed `kebab-case`/`path/case`); no consistent naming convention across them.
+`313:2` is the authoritative semantic color page — "Dark가 기본인 단일 테마 · 35개 semantic 토큰 · 모든 색상은 primitive alias로 연결" (dated 2026.11.01 in the doc itself). It supersedes the earlier `get_variable_defs`-on-component-instance readings below; those were a workaround for not having found this page yet, and one of them (`color-surface-elevated` → `mint950`) turned out to actually be a *different*, separately-named token (`surface/darken`) — not the real `surface/elevated` (which is `gray800`). Read via `get_screenshot`, not `get_variable_defs` (still fails the same way as before).
 
-| Variable | Resolved value | Nearest primitive | Swift (`Color+Semantic.swift`) |
+| Figma name | Resolved value | Primitive | Swift (`Color+Semantic.swift`) |
 | --- | --- | --- | --- |
-| `color-text-primary` / `icon/default` | `#FAFAFA` | `gray50` | `Color.colorTextPrimary` |
-| `color-surface-primary` | `#242424` | `gray850` | `Color.colorSurfacePrimary` |
-| `color-background-secondary` | `#1A1A1A` | `gray900` | `Color.colorBackgroundSecondary` |
-| `color-surface-elevated` | `#0B2522` | `mint950` | `Color.colorSurfaceElevated` |
-| `mint-500` / `text/brand` | `#00DAC3` | `mint500` | `Color.textBrand` |
+| `background/primary` | `#121212` | `gray950` | — (not yet aliased) |
+| `background/secondary` | `#1A1A1A` | `gray900` | `Color.colorBackgroundSecondary` |
+| `surface/primary` | `#242424` | `gray850` | `Color.colorSurfacePrimary` |
+| `surface/elevated` | `#303030` | `gray800` | — (not yet aliased; iOS components use `.gray800` primitive directly) |
+| `surface/darken` | `#0B2522` | `mint950` | `Color.surfaceDarken` |
+| `surface/recessed` | `#0A0A0A` | `gray1000` | — (not yet aliased) |
+| `text/brand` | `#00DAC3` | `mint500` | `Color.textBrand` |
 | `action/destructive` | `#FF3737` | `red500` | `Color.actionDestructive` |
-| `color-brand-primary` | `#737373` | `gray500` | `Color.colorBrandPrimary` |
+| `brand/primary` | `#00DAC3` | `mint500` | — (not yet aliased; same value as `text/brand`) |
+| `brand/pressed` | `#009989` | `mint700` | — (not yet aliased) |
+| `brand/subtle` | `#004139` | `mint900` | — (not yet aliased) |
+| `brand/gray` | `#737373` | `gray500` | `Color.brandGray` |
 
-Implemented in `KIIKICK Global/Color+Semantic.swift` as a thin alias layer over the Primitive Color Sets (no new hex introduced). `color-brand-primary`'s live value (`#737373` / `gray500`) disagreed with a baked fallback (`#A3A3A3` / `gray400`) seen earlier on the Stepper decrement button (`249:525`) — resolved in favor of the live Variable value. `StepperWatchView`'s decrement capsule now uses `.colorBrandPrimary`.
+Only the rows actually used by a component so far are aliased in `Color+Semantic.swift`; the rest of the 35 tokens (Text/Icon/Border/Feedback/Data-visualization sections) haven't been transcribed yet — re-read node `313:2` when a new component needs one of them, rather than guessing from the Primitive table.
 
-Only these 4 watchOS components have been checked for Variable bindings so far — other components/screens may use the same or additional semantic Variables; re-run `get_variable_defs` on their nodes before assuming a primitive-only implementation is correct.
+`StepperWatchView`'s decrement capsule uses `.brandGray` (formerly misnamed `colorBrandPrimary` — same value, `gray500`, just the name was wrong: it was derived from a WEB CSS var string that the Figma doc happens to reuse across all 4 `brand/*` rows, not from the actual distinct Variable name). `BtnSelectionView`'s `.selected` style uses `.surfaceDarken` (formerly misnamed `colorSurfaceElevated`).
 
-🟡 **Gap found while implementing issue #10 (iOS components):** `get_design_context` on the iOS atoms (`textfield` `256:918`, `cta` `241:638`, `searchbar` `256:913`, etc.) embeds each Variable's *resolved fallback* as `var(--name, #hex)`. On those nodes `color-surface-elevated` resolves to `#303030` (`gray800`), not `#0B2522` (`mint950`) as recorded above for the watchOS section — the same Variable *name* apparently resolves differently depending on which part of the file it's bound in (not re-verified against a live Figma Variable mode, just observed from two different nodes' embedded fallbacks). Rather than reuse the possibly-wrong `Color.colorSurfaceElevated` alias, the new iOS components (`CtaView`, `KiikickTextField`, `SearchBarView`, `NotificationFriendView`, `ListFriendView`, `NotificationCommentView`, `DatePickerView`, `CardSummaryView`, `PerformanceTrendsView`) use the **Primitive** Color Sets directly (`.gray800`, `.gray850`, `.gray900`, `.gray950`, `.gray700`, `.mint500`, `.mint700`, `.red500`) rather than the semantic aliases above. Needs a real design check before adding more semantic aliases.
+The iOS atoms (`CtaView`, `KiikickTextField`, `SearchBarView`, `NotificationFriendView`, `ListFriendView`, `NotificationCommentView`, `DatePickerView`, `CardSummaryView`, `PerformanceTrendsView`) use the **Primitive** Color Sets directly (`.gray800`, `.gray850`, `.gray900`, `.gray950`, `.gray700`, `.mint500`, `.mint700`, `.red500`) rather than semantic aliases — this is now confirmed correct per the table above (`surface/elevated` really is `gray800`), just not yet wired through named semantic properties. Fine to switch to semantic names on next touch.
 
 ## Spacing — partially verified (`get_variable_defs` on node `241:4076`)
 

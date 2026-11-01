@@ -18,7 +18,7 @@ struct StepperWatchView: View {
             } label: {
                 ZStack {
                     Capsule()
-                        .fill(.colorBrandPrimary)
+                        .fill(.brandGray)
                     Image(systemName: "minus")
                         .font(.system(size: 24, weight: .medium))
                         .foregroundStyle(.colorTextPrimary)

@@ -25,6 +25,7 @@ struct FieldCanvasView: View {
             )
         }
         .aspectRatio(105.0 / 68.0, contentMode: .fit)
+        .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

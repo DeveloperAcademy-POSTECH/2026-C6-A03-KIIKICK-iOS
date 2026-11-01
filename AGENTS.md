@@ -50,6 +50,10 @@
 - 슬라이더를 움직이면 구간이 따라 이동해, 경기 중 어떤 방식으로 움직였는지 흐름으로 확인할 수 있다.
 - 구간 길이는 설정값으로 둔다. 스크러빙 중 끊김이 없도록 시간 기준 필터링이 빨라야 한다 (샘플을 시간순으로 정렬해 두고 범위 탐색).
 
+# Network
+
+When Implementing API related functions follow rules/NETWORK.md
+
 # Git Strategy
 
 Follow rules/GIT.md

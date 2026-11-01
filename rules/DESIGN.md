@@ -4,6 +4,11 @@ Records Figma design references and their implementation status. **Figma is the 
 
 Source: [Design System for Color, Fonts](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/%E2%9A%BD%EF%B8%8F-KIIKICK-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=1-239&t=vl5yYnI25mUIBsBJ-1)
 
+All of the above live in the **same Figma file** (key `Oc5LQED0S2UeVfXvdAjNwO`) — iOS and watchOS screens are separate pages/frames within it, not separate files:
+
+- [iOS screens](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/%E2%9A%BD%EF%B8%8F-KIIKICK-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=120-12) (node `120:12`)
+- [watchOS screens](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/%E2%9A%BD%EF%B8%8F-KIIKICK-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=241-3911) (node `241:3911`)
+
 ## Verification status
 
 - Verified via Figma MCP (`get_metadata` + `get_screenshot`) on node `1:239` ("System" page → "Typography : variables" + "Color: Primitive" frames) and node `1:440` ("Assets&Components" page). Values below are read directly from the file, not inferred from screenshots or guessed.
@@ -104,6 +109,8 @@ Implemented in `KIIKICK Global/Color+Semantic.swift` as a thin alias layer over 
 
 Only these 4 watchOS components have been checked for Variable bindings so far — other components/screens may use the same or additional semantic Variables; re-run `get_variable_defs` on their nodes before assuming a primitive-only implementation is correct.
 
+🟡 **Gap found while implementing issue #10 (iOS components):** `get_design_context` on the iOS atoms (`textfield` `256:918`, `cta` `241:638`, `searchbar` `256:913`, etc.) embeds each Variable's *resolved fallback* as `var(--name, #hex)`. On those nodes `color-surface-elevated` resolves to `#303030` (`gray800`), not `#0B2522` (`mint950`) as recorded above for the watchOS section — the same Variable *name* apparently resolves differently depending on which part of the file it's bound in (not re-verified against a live Figma Variable mode, just observed from two different nodes' embedded fallbacks). Rather than reuse the possibly-wrong `Color.colorSurfaceElevated` alias, the new iOS components (`CtaView`, `KiikickTextField`, `SearchBarView`, `NotificationFriendView`, `ListFriendView`, `NotificationCommentView`, `DatePickerView`, `CardSummaryView`, `PerformanceTrendsView`) use the **Primitive** Color Sets directly (`.gray800`, `.gray850`, `.gray900`, `.gray950`, `.gray700`, `.mint500`, `.mint700`, `.red500`) rather than the semantic aliases above. Needs a real design check before adding more semantic aliases.
+
 ## Spacing — partially verified (`get_variable_defs` on node `241:4076`)
 
 - `padding-12` = 12pt — vertical padding on `cta-watch`, `sub-watch`, `btn_selection`.
@@ -117,21 +124,26 @@ Only these 4 watchOS components have been checked for Variable bindings so far �
 
 ## Components — inventory, verified (Figma node `1:440`, "Assets&Components")
 
-The design library includes a Components page. Check the component definitions before implementing a screen, and reuse matching implementations when available. None of the below have a SwiftUI implementation in this repo yet.
+The design library includes a Components page. Check the component definitions before implementing a screen, and reuse matching implementations when available.
 
 | Figma component | Variant axes / states | Approx. size | Code / Path |
 | ---------------- | ---------------------- | ------------ | ------------ |
-| `cta` (Button)   | `active` (on/off) × `Type` (primary/secondary/sub/destructive/Default) × `size` (L/s) | size L ≈ 352×55(54), size s ≈ 116×46 | not implemented |
+| `cta` (Button)   | `active` (on/off) × `Type` (primary/secondary/sub/destructive/Default) × `size` (L/s) | size L fills width (55/54 tall), size s hugs content (46 tall) | `CtaView` — `KIIKICK/Features/Components/CtaView.swift` |
 | `cta-watch` (watchOS button) | `Type` (primary/destructive) | 147×49 | `CtaWatchView` — `KIIKICK Watch App Watch App/Features/Components/CtaWatchView.swift` |
 | `navi_row`       | no variants seen        | 354×64       | not implemented |
-| `searchbar`      | `State` (default/writing/completed) | 354×52 each | not implemented |
-| `textfield`      | `State` (default/writing/completed/error) | 354×77–78 each | not implemented |
+| `searchbar`      | `State` (default/writing/completed) | 354×52 each | `SearchBarView` — `KIIKICK/Features/Components/SearchBarView.swift` |
+| `textfield`      | `State` (default/writing/completed/error) | 354×77–78 each | `KiikickTextField` — `KIIKICK/Features/Components/KiikickTextField.swift` |
 | `sub-watch`      | no variants seen        | 147×52       | `SubWatchView` — `KIIKICK Watch App Watch App/Features/Components/SubWatchView.swift` |
 | `Stepper` (watchOS) | no variants seen     | 156×60       | `StepperWatchView` — `KIIKICK Watch App Watch App/Features/Components/StepperWatchView.swift` |
 | `btn_selection` (watchOS) | no variants seen | 48×32        | `BtnSelectionView` — `KIIKICK Watch App Watch App/Features/Components/BtnSelectionView.swift` |
-| `Performance Trends` chart | `Property 1` = "Quarter chart" (×3 shown) | 362×348 each | not implemented |
+| `Performance Trends` chart | `Property 1` = "Quarter chart" (×3 shown) | 362×348 each | `PerformanceTrendsView` — `KIIKICK/Features/Components/PerformanceTrendsView.swift` (line rendering only — pinch/pan/tap-select from the Figma component description not implemented, see 🟡 Gaps below) |
+| `notification_friend` | `property1` = Default (pending/accepted/rejected text) | 354×auto | `NotificationFriendView` — `KIIKICK/Features/Components/NotificationFriendView.swift` |
+| `notification_comment` | no variants seen | 354×auto | `NotificationCommentView` — `KIIKICK/Features/Components/NotificationCommentView.swift` |
+| `list_friend`    | `waiting` (bool)        | 354×auto     | `ListFriendView` — `KIIKICK/Features/Components/ListFriendView.swift` |
+| `DatePicker`     | `down` (collapsed/expanded) | auto | `DatePickerView` — `KIIKICK/Features/Components/DatePickerView.swift` (expanded state uses native `.wheel` Picker, not a pixel copy of the static mockup — see 🟡 Gaps) |
+| `card_summary`   | no variants seen        | 354×auto     | `CardSummaryView` — `KIIKICK/Features/Components/CardSummaryView.swift` |
 | `logo`           | —                       | 400×200      | not implemented |
 | Icon sizes       | `size` = 8/12/16/20/24/28(`size11`)/28/32/36/40/44 | — | not implemented |
-| Icons            | `ic/pause`, `ic/play`, `ic/search`, `ic/mylocation`, `ic/delete`, `ic/success` | 24–28px | not implemented |
+| Icons            | `ic/pause`, `ic/play`, `ic/search`, `ic/mylocation`, `ic/delete`, `ic/success`, `ic/arrow`, `ic/arrow-down` | 24–28px | bundled in `KIIKICK Global/Assets.xcassets/Icon/` (added `ic_arrow`, `ic_chevron_down` for issue #10; `ic/arrow-right` reuses `ic_arrow` — identical SVG path) |
 
 For each component, before implementing: read its exact variant properties, states, text/color styles, Auto Layout direction, sizing (Fixed / Hug / Fill), spacing, padding and radius via `get_design_context` on its specific node id — the table above is an inventory (names, variant axes, approximate sizes), not a full spec. Update the "Code / Path" column with the actual Swift type and repository path once implemented. A Figma component existing does not mean its SwiftUI implementation exists.

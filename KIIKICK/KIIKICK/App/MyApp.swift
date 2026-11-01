@@ -13,7 +13,7 @@ import SwiftData
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            ComponentsPreview()
                 .environment(router)
         }
         .modelContainer(modelContainer)

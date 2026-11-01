@@ -9,7 +9,7 @@ import SwiftUI
 
 struct MainView: View {
     
-    enum Step: Int, CaseIterable { case start, countDown, playing, position, interval, end }
+    private enum Step: Int, CaseIterable { case start, countDown, playing, position, interval, end }
     
     @State private var step: Step = .start
     

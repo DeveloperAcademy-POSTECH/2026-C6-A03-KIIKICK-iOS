@@ -45,7 +45,7 @@ No `.textStyle(_:)`-style convenience API exists yet — `Font.custom("Pretendar
 | `title1_sb`   | SemiBold | 20   | 125 %       | -1.5 %          |
 | `title2_sb`   | SemiBold | 18   | 125 %       | -1.5 %          |
 | `title3_m`    | Medium   | 18   | 125 %       | -1.5 %          |
-| `title4_sb`   | SemiBold | 14   | 125 %       | -1.5 %          |
+| `title4_sb`   | SemiBold | 16   | 125 %       | -1.5 %          |
 | `label1_m`    | Medium   | 16   | 140 %       | -1.5 %          |
 | `label2_sb`   | SemiBold | 14   | 140 %       | -1.5 %          |
 | `label3_m`    | Medium   | 14   | 140 %       | -1.5 %          |
@@ -106,7 +106,7 @@ The design library includes a Components page. Check the component definitions b
 | `searchbar`      | `State` (default/writing/completed) | 354×52 each | not implemented |
 | `textfield`      | `State` (default/writing/completed/error) | 354×77–78 each | not implemented |
 | `sub-watch`      | no variants seen        | 147×52       | `SubWatchView` — `KIIKICK Watch App Watch App/Features/Components/SubWatchView.swift` |
-| `Stepper` (watchOS) | no variants seen     | 156×60       | `StepperViewWatch` — `KIIKICK Watch App Watch App/Features/Components/StepperView.swift` |
+| `Stepper` (watchOS) | no variants seen     | 156×60       | `StepperWatchView` — `KIIKICK Watch App Watch App/Features/Components/StepperWatchView.swift` |
 | `btn_selection` (watchOS) | no variants seen | 48×32        | `BtnSelectionView` — `KIIKICK Watch App Watch App/Features/Components/BtnSelectionView.swift` |
 | `Performance Trends` chart | `Property 1` = "Quarter chart" (×3 shown) | 362×348 each | not implemented |
 | `logo`           | —                       | 400×200      | not implemented |

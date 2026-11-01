@@ -13,9 +13,14 @@ struct IntervalView: View {
     var finishGame: () -> Void
     
     var body: some View {
-        VStack(spacing: 8) {
-            CtaWatchView(text: "새 쿼터 시작", type: .primary, action: {startQuarter()})
-            CtaWatchView(text: "경기 종료", type: .destructive, action: {finishGame()})
-        }
+        TabView {
+            VStack {
+                
+            }
+            VStack(spacing: 8) {
+                CtaWatchView(text: "새 쿼터 시작", type: .primary, action: {startQuarter()})
+                CtaWatchView(text: "경기 종료", type: .destructive, action: {finishGame()})
+            }
+        }.tabViewStyle(.verticalPage)
     }
 }

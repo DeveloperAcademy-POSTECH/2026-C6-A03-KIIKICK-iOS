@@ -19,15 +19,15 @@ struct CtaWatchView: View {
     
     private var background: Color {
         switch type {
-        case .primary: return Color("Mint500")
-        case .destructive: return Color("Gray900")
+        case .primary: return .mint500
+        case .destructive: return .gray900
         }
     }
-    
+
     private var foreground: Color {
         switch type {
         case .primary: return .black
-        case .destructive: return Color("Red500")
+        case .destructive: return .red500
         }
     }
     
@@ -43,12 +43,5 @@ struct CtaWatchView: View {
                 .background(background, in: Capsule())
         }
         .buttonStyle(.plain)
-    }
-}
-
-#Preview("Apple Watch Series 9 - 45mm") {
-    VStack(spacing: 16) {
-        CtaWatchView(text: "버튼", type: .primary) {}
-        CtaWatchView(text: "버튼", type: .destructive) {}
     }
 }

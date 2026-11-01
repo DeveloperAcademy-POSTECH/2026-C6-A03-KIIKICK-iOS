@@ -17,11 +17,11 @@ struct SubWatchView: View {
             icon
                 .resizable()
                 .frame(width: 28, height: 28)
-                .foregroundStyle(Color("Gray50"))
+                .foregroundStyle(.gray50)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 12)
                 .frame(width: 147)
-                .background(Color("Gray850"), in: Capsule())
+                .background(.gray850, in: Capsule())
         }
         .buttonStyle(.plain)
     }

@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct StepperViewWatch: View {
+struct StepperWatchView: View {
     
     @State var count: Int = 0
 
@@ -18,10 +18,10 @@ struct StepperViewWatch: View {
             } label: {
                 ZStack {
                     Capsule()
-                        .fill(Color("Gray400"))
+                        .fill(.gray400)
                     Image(systemName: "minus")
                         .font(.system(size: 24, weight: .medium))
-                        .foregroundStyle(Color("Gray50"))
+                        .foregroundStyle(.gray50)
                 }
                 .frame(width: 48, height: 60)
             }
@@ -38,10 +38,10 @@ struct StepperViewWatch: View {
             } label: {
                 ZStack {
                     Capsule()
-                        .fill(Color("Mint500"))
+                        .fill(.mint500)
                     Image(systemName: "plus")
                         .font(.system(size: 24, weight: .medium))
-                        .foregroundStyle(Color("Gray50"))
+                        .foregroundStyle(.gray50)
                 }
                 .frame(width: 48, height: 60)
             }
@@ -51,5 +51,5 @@ struct StepperViewWatch: View {
 }
 
 #Preview("Apple Watch Series 9 - 45mm") {
-    StepperViewWatch()
+    StepperWatchView()
 }

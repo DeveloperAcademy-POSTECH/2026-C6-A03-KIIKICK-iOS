@@ -60,7 +60,7 @@ struct PlayingView: View {
                     }
                     .padding(.horizontal, 16)
                     Spacer()
-                    StepperViewWatch()
+                    StepperWatchView()
                         .frame(width: geo.size.width - 32)
                 }
                 .frame(width: geo.size.width, height: geo.size.height, alignment: .top)

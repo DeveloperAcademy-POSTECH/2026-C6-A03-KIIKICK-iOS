@@ -28,7 +28,7 @@ struct ForPreview: View {
             CtaWatchView(text: "경기 시작", type: .primary, action: {})
             CtaWatchView(text: "경기 종료", type: .destructive, action: {})
             ProgressWatchButton()
-            StepperViewWatch()
+            StepperWatchView()
             SubWatchView { }
         }
     }

@@ -28,14 +28,17 @@ final class SessionManager: NSObject {
         case failure(String)
     }
     var transferStatus: TransferStatus = .idle
+    var modelContext: ModelContext?
     private var pendingPointCount: Int = 0
-    
+
     func beginTransfer(pointCount: Int) {
         pendingPointCount = pointCount
         DispatchQueue.main.async { self.transferStatus = .sending(pointCount: pointCount) }
     }
 
-    func send(payload: WorkoutPayload) {
+    /// `recordID`를 넘기면, 이 전송이 성공했을 때 같은 id의 `QuarterRecord`만 지운다.
+    /// (쿼터 하나 = WorkoutPayload 하나라서, 쿼터가 끝날 때마다 바로 보낸다.)
+    func send(payload: WorkoutPayload, recordID: UUID? = nil) {
         do {
             let data = try JSONEncoder().encode(payload)
             let url = FileManager.default.temporaryDirectory
@@ -43,7 +46,8 @@ final class SessionManager: NSObject {
                 .appendingPathExtension("json")
             try data.write(to: url)
             beginTransfer(pointCount: payload.points.count)
-            WCSession.default.transferFile(url, metadata: nil)
+            let metadata = recordID.map { ["quarterRecordID": $0.uuidString] }
+            WCSession.default.transferFile(url, metadata: metadata)
         } catch {
             DispatchQueue.main.async { self.transferStatus = .failure(error.localizedDescription) }
         }
@@ -115,12 +119,32 @@ extension SessionManager: WCSessionDelegate {
     func session(_ session: WCSession,
                  didFinish fileTransfer: WCSessionFileTransfer,
                  error: Error?) {
+        let recordIDString = fileTransfer.file.metadata?["quarterRecordID"] as? String
         DispatchQueue.main.async {
             if let error {
                 self.transferStatus = .failure(error.localizedDescription)
             } else {
                 self.transferStatus = .success(pointCount: self.pendingPointCount)
+                if let recordIDString, let recordID = UUID(uuidString: recordIDString) {
+                    self.deleteQuarterRecord(id: recordID)
+                }
             }
+        }
+    }
+
+    /// 전송이 끝난 쿼터 기록은 워치에 남겨둘 필요가 없어서 같은 id의 기록만 지운다.
+    private func deleteQuarterRecord(id: UUID) {
+        guard let modelContext else { return }
+        do {
+            let descriptor = FetchDescriptor<QuarterRecord>(predicate: #Predicate { $0.id == id })
+            for record in try modelContext.fetch(descriptor) {
+                modelContext.delete(record)
+            }
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("[SessionManager] 전송 완료 기록 삭제 실패 - \(error)")
+            #endif
         }
     }
     #endif

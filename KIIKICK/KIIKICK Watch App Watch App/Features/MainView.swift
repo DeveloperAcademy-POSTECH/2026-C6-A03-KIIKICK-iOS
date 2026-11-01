@@ -71,21 +71,21 @@ struct PositionView: View {
             Text("포지션을 선택하세요")
                 .font(Font.body4R)
             HStack(spacing: 8) {
-                BtnSelectionView { action() }
-                BtnSelectionView { action() }
-                BtnSelectionView { action() }
+                BtnSelectionView(text: Position.lw.uppercased) { action() }
+                BtnSelectionView(text: Position.st.uppercased) { action() }
+                BtnSelectionView(text: Position.rw.uppercased) { action() }
             }
             HStack(spacing: 8) {
-                BtnSelectionView { action() }
-                BtnSelectionView { action() }
-                BtnSelectionView { action() }
+                BtnSelectionView(text: Position.lm.uppercased) { action() }
+                BtnSelectionView(text: Position.cm.uppercased) { action() }
+                BtnSelectionView(text: Position.rm.uppercased) { action() }
             }
             HStack(spacing: 8) {
-                BtnSelectionView { action() }
-                BtnSelectionView { action() }
-                BtnSelectionView { action() }
+                BtnSelectionView(text: Position.lb.uppercased) { action() }
+                BtnSelectionView(text: Position.cb.uppercased) { action() }
+                BtnSelectionView(text: Position.rb.uppercased) { action() }
             }
-            BtnSelectionView { }
+            BtnSelectionView(text: Position.gk.uppercased) { }
         }
     }
 }

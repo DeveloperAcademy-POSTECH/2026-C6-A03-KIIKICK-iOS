@@ -1,5 +1,5 @@
 # Local API keys
-Config/Secrets.xcconfig
+*.xcconfig
 *.xcuserstate
 
 # Xcode
@@ -129,3 +129,8 @@ GoogleService-Info.plist
 *.log
 *.orig
 *.p8
+
+# ========================
+# AI
+# ========================
+NETWORK.md

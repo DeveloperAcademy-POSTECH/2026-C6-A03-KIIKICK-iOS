@@ -1,107 +1,137 @@
 # DESIGN.md — Design System
 
-Maps Figma Variables / Styles to code tokens. **Figma is the source of truth for values.** This file only defines which code token to use for each Figma name.
+Records Figma design references and their implementation status. **Figma is the source of truth for values.** Only verified mappings may be used as implementation guidance.
 
-Source: [Design System for Color, Fonts](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/-Earthuu-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=1-239)
+Source: [Design System for Color, Fonts](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/%E2%9A%BD%EF%B8%8F-KIIKICK-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=1-239&t=vl5yYnI25mUIBsBJ-1)
+
+## Verification status
+
+- Verified via Figma MCP (`get_metadata` + `get_screenshot`) on node `1:239` ("System" page → "Typography : variables" + "Color: Primitive" frames) and node `1:440` ("Assets&Components" page). Values below are read directly from the file, not inferred from screenshots or guessed.
+- **A semantic color Variable collection does exist, but it is not documented as its own page.** The "Color: Primitive" page's own swatches use raw fills (no Variable binding, confirmed via `get_variable_defs` returning empty there) — that part of the earlier claim stands. But `get_variable_defs` on actual component instances (e.g. the watchOS components section, node `241:4076`) resolves real bound Variables. See "Colors — Semantic" below.
+- **None of the tokens or components below have a SwiftUI implementation in this repo yet**, except the raw font files (see Typography). This repository uses `KIIKICK/KIIKICK/`; there is no `Earthu/DesignSystem/` directory, no `.textStyle(_:)` API, and no `Color Set` other than `AccentColor` in `Assets.xcassets`. Treat every token as "value verified, code not yet written."
+- Earlier verification attempts (Aside, plain web fetch, Figma desktop UI automation) had all failed — see git history. The Figma MCP tools (`get_metadata`, `get_screenshot`) succeeded where those did not. `get_variable_defs` still fails here ("nothing selected" — it needs a layer selected in the Figma desktop app), so primitive values were read from the rendered documentation table via `get_screenshot`, not from live Figma Variables.
 
 ## Rules
 
-- Always use the tokens below. Never hard-code raw colors, font sizes, spacing, or radius.
+- Use verified design tokens when available. Never hard-code raw colors, font sizes, spacing, or radius once a code token exists for them.
 - Reuse existing components before creating new ones.
 - If a Figma value has no matching token, do not create one. Use the closest token and report it as a 🟡 Gap (see [FIGMA.md](FIGMA.md)).
 - Do not add or modify tokens without approval.
 
-## Typography
+## Typography — verified (Figma node `1:239`)
 
-13 Figma text styles plus the wordmark. Everything is Pretendard; only the wordmark uses Galano Grotesque.
+Two font families are used:
 
-`.textStyle(_:)` applies **line-height and letter-spacing along with the font**. `.font(...)` alone drops both, so always use `.textStyle(_:)` for text.
+- **Pretendard** — all UI text styles (`head`, `title`, `label`, `body`, `caption`).
+- **Kanit** — `display` styles only, used for large numeric/stat displays.
 
-```swift
-Text("2026 정기 고연전")
-    .textStyle(.head1SB)
-    .foregroundStyle(Color.textPrimary)
-```
+**Font files are bundled** in `KIIKICK/KIIKICK Global/Fonts/` (shared by both the iOS and watchOS targets) and registered via `UIAppFonts` in both `KIIKICK/KIIKICK/Info.plist` (iOS) and `KIIKICK/KIIKICK Watch App Watch App/Info.plist` (watchOS) — verified on both: `CTFontManagerRegisterFontsForURL` + `CTFontCreateWithName` resolves each PostScript name below without falling back to a system font, and both targets' built `.app` bundles contain the font files. Only the weights actually used by the table below are bundled — not the full family:
 
-| Figma Text Style      | Code                      | Weight   | Size | Line height | Letter spacing |
-| --------------------- | ------------------------- | -------- | ---- | ----------- | -------------- |
-| `headline/head1_sb`   | `.textStyle(.head1SB)`    | SemiBold | 28   | 125 %       | -2.5 %         |
-| `headline/head2_sb`   | `.textStyle(.head2SB)`    | SemiBold | 24   | 125 %       | -2.5 %         |
-| `headline/head3_b`    | `.textStyle(.head3B)`     | Bold     | 20   | 125 %       | -2.5 %         |
-| `title/title1_sb`     | `.textStyle(.title1SB)`   | SemiBold | 20   | 125 %       | -2.5 %         |
-| `title/title2_sb`     | `.textStyle(.title2SB)`   | SemiBold | 18   | 125 %       | -2.5 %         |
-| `label/label1_sb`     | `.textStyle(.label1SB)`   | SemiBold | 14   | 140 %       | -2.5 %         |
-| `label/label2_m`      | `.textStyle(.label2M)`    | Medium   | 14   | 140 %       | -2.5 %         |
-| `label/label3_sb`     | `.textStyle(.label3SB)`   | SemiBold | 12   | 140 %       | -1.5 %         |
-| `body/body1_r`        | `.textStyle(.body1R)`     | Regular  | 18   | 140 %       | -2.5 %         |
-| `body/body2_r`        | `.textStyle(.body2R)`     | Regular  | 16   | 140 %       | -2.5 %         |
-| `body/body3_r`        | `.textStyle(.body3R)`     | Regular  | 14   | 140 %       | -2.5 %         |
-| `caption/caption1_m`  | `.textStyle(.caption1M)`  | Medium   | 12   | 140 %       | -1.5 %         |
-| `caption/caption2_sb` | `.textStyle(.caption2SB)` | SemiBold | 10   | 140 %       | -1.5 %         |
-| `Brand / Wordmark`    | `.textStyle(.wordmark)`   | Medium   | 20   | 125 %       | -2.5 %         |
+| PostScript name       | File                       |
+| ---------------------- | --------------------------- |
+| `Pretendard-Regular`   | `KIIKICK Global/Fonts/Pretendard-Regular.otf` |
+| `Pretendard-Medium`    | `KIIKICK Global/Fonts/Pretendard-Medium.otf`  |
+| `Pretendard-SemiBold`  | `KIIKICK Global/Fonts/Pretendard-SemiBold.otf`|
+| `Pretendard-Bold`      | `KIIKICK Global/Fonts/Pretendard-Bold.otf`    |
+| `Kanit-SemiBold`       | `KIIKICK Global/Fonts/Kanit-SemiBold.ttf`     |
 
-- `Size` is the design reference value. Text **scales with Dynamic Type** (`Font.custom(_:size:relativeTo:)`). Use padding instead of fixed heights so layouts survive larger text.
-- `wordmark` is reserved for the EarthUU wordmark. Never use it for regular UI text.
-- Defined in `Earthu/DesignSystem/Typography/`.
+No `.textStyle(_:)`-style convenience API exists yet — `Font.custom("Pretendard-Bold", size: 28)` etc. works today on both platforms; implement the convenience wrapper on first use and update this section with the actual Swift API and file path. If a style needs a weight not listed above (e.g. Thin/Light/ExtraBold/Black), the matching file must be added to `KIIKICK Global/Fonts/` and registered in **both** Info.plist files first — the source downloads are in `~/Downloads/Pretendard-1.3.9/public/static/` and `~/Downloads/Kanit/`.
 
-## Colors
+| Figma name    | Weight   | Size | Line height | Letter spacing |
+| ------------- | -------- | ---- | ----------- | --------------- |
+| `head1_b`     | Bold     | 28   | 125 %       | -1.5 %          |
+| `head2_sb`    | SemiBold | 24   | 125 %       | -1.5 %          |
+| `head3_b`     | Bold     | 20   | 125 %       | -1.5 %          |
+| `title1_sb`   | SemiBold | 20   | 125 %       | -1.5 %          |
+| `title2_sb`   | SemiBold | 18   | 125 %       | -1.5 %          |
+| `title3_m`    | Medium   | 18   | 125 %       | -1.5 %          |
+| `title4_sb`   | SemiBold | 16   | 125 %       | -1.5 %          |
+| `label1_m`    | Medium   | 16   | 140 %       | -1.5 %          |
+| `label2_sb`   | SemiBold | 14   | 140 %       | -1.5 %          |
+| `label3_m`    | Medium   | 14   | 140 %       | -1.5 %          |
+| `label4_sb`   | SemiBold | 12   | 140 %       | -0 %            |
+| `body1_m`     | Medium   | 18   | 140 %       | -1.5 %          |
+| `body2_r`     | Regular  | 18   | 140 %       | -1.5 %          |
+| `body3_r`     | Regular  | 16   | 140 %       | -1.5 %          |
+| `body4_r`     | Regular  | 14   | 140 %       | -1.5 %          |
+| `caption1_m`  | Medium   | 12   | 140 %       | -0 %            |
+| `caption2_sb` | SemiBold | 10   | 140 %       | -0 %            |
 
-UI code uses **semantic tokens only**. `Color.Primitive.*` (the palette) exists solely to define semantic tokens.
+Kanit display styles:
 
-```swift
-Text("모집 중")
-    .foregroundStyle(Color.textOnBrand)
-    .background(Color.backgroundBrand)
-```
+| Figma name     | Weight   | Size | Line height | Letter spacing |
+| -------------- | -------- | ---- | ----------- | --------------- |
+| `display1_sb`  | SemiBold | 36   | 120 %       | 0 %             |
+| `display2_sb`  | SemiBold | 32   | 120 %       | 0 %             |
+| `display3_sb`  | SemiBold | 24   | 120 %       | 0 %             |
 
-| Figma Variable                          | Code                                                       | Primitive                |
-| --------------------------------------- | ---------------------------------------------------------- | ------------------------ |
-| `background/bg`                         | `Color.backgroundBg`                                       | `neutral/100`            |
-| `background/surface`                    | `Color.backgroundSurface`                                  | `global/white`           |
-| `background/brand`                      | `Color.backgroundBrand`                                    | `orange/500`             |
-| `background/brand-subtle`               | `Color.backgroundBrandSubtle`                              | `orange/50`              |
-| `background/inverse`                    | `Color.backgroundInverse`                                  | `neutral/950`            |
-| `action/primary/default`                | `Color.actionPrimaryDefault`                               | `orange/500`             |
-| `action/primary/default50`~`default900` | `Color.actionPrimaryDefault50` ~ `actionPrimaryDefault900` | `orange/50`~`orange/900` |
-| `action/primary/disabled`               | `Color.actionPrimaryDisabled`                              | `neutral/200`            |
-| `text/primary`                          | `Color.textPrimary`                                        | `neutral/950`            |
-| `text/secondary`                        | `Color.textSecondary`                                      | `neutral/800`            |
-| `text/tertiary`                         | `Color.textTertiary`                                       | `neutral/500`            |
-| `text/disabled`                         | `Color.textDisabled`                                       | `neutral/500`            |
-| `text/on-brand`                         | `Color.textOnBrand`                                        | `global/white`           |
-| `text/accent`                           | `Color.textAccent`                                         | `orange/500`             |
-| `text/sub`                              | `Color.textSub`                                            | `orange/300`             |
-| `icon/default`                          | `Color.iconDefault`                                        | `neutral/950`            |
-| `icon/disabled`                         | `Color.iconDisabled`                                       | `neutral/500`            |
-| `icon/on-brand`                         | `Color.iconOnBrand`                                        | `global/white`           |
-| `icon/accent`                           | `Color.iconAccent`                                         | `orange/500`             |
-| `icon/sub`                              | `Color.iconSub`                                            | `neutral/900`            |
-| `feedback/error`                        | `Color.feedbackError`                                      | `red/500`                |
-| `feedback/success`                      | `Color.feedbackSuccess`                                    | `green/500`              |
-| `status/positive`                       | `Color.statusPositive`                                     | `green/500`              |
-| `status/neutral`                        | `Color.statusNeutral`                                      | `neutral/600`            |
-| `status/negative`                       | `Color.statusNegative`                                     | `red/500`                |
-| `border/default`                        | `Color.borderDefault`                                      | `neutral/200`            |
-| `border/subtle`                         | `Color.borderSubtle`                                       | `neutral/100`            |
-| `border/focus`                          | `Color.borderFocus`                                        | `orange/500`             |
-| `border/sub`                            | `Color.borderSub`                                          | `orange/300`             |
+- `Size` is the design reference value. Text should scale with Dynamic Type (`Font.custom(_:size:relativeTo:)`) once implemented.
+- A separate "Font Weight / Letter Spacing" summary table also exists on the same page (`26:524`–`26:552`), but its frame names (`letter-spacing/tight`, `letter-spacing/none`, …) don't match the weight values shown in its rows (`font-weight/bold = 700`, `font-weight/semibold = 600`, …) — this looks like a stale/mislabeled table in the source file itself. The per-style table above (read directly from each style's row) is the reliable source; the summary table was not used.
 
-- The 38-color primitive palette is registered as Color Sets in `Earthu/Assets.xcassets/Colors/`: `global/black·white`, `neutral/50`~`950`, `orange/50`~`900`, and `red·blue·green/100`~`900`.
-- Defined in `Earthu/DesignSystem/Colors/`.
-- Dark mode values are not defined in the design file. Every Color Set holds a single Universal value.
+## Colors — Primitive, verified (Figma node `1:239`, "Color: Primitive")
 
-## Spacing
+Exact hex values read from the rendered color swatches. No semantic/alias layer exists in the source (see Verification status above) — there is no `background/bg`, `text/primary`, etc. in the Figma file. Code should define a semantic layer on top of these if/when needed, rather than inventing Figma names that don't exist.
 
-🚧 Not implemented as tokens yet. Figma defines `margin/margin-l` (24) and `margin/margin-xl` (40), but the full scale is not specified, so no code tokens were created. Handle this in a separate issue when it is needed.
+| Group        | Steps                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------ |
+| `global/`    | `black` #000000, `white` #FFFFFF                                                                 |
+| `grayscale/` | `gray50` #FAFAFA, `gray100` #F5F5F5, `gray200` #E5E5E5, `gray300` #D4D4D4, `gray400` #A3A3A3, `gray500` #737373, `gray600` #525252, `gray700` #404040, `gray800` #303030, `gray850` #242424, `gray900` #1A1A1A, `gray950` #121212, `gray1000` #0A0A0A |
+| `mint/`      | `mint100` #CCF8F3, `mint300` #66E9DB, `mint500` #00DAC3, `mint700` #009989, `mint900` #004139, `mint950` #0B2522 |
+| `blue/`      | `blue100` #9CFFFD, `blue300` #0EEFFF, `blue500` #21A3FF, `blue700` #0E64B3, `blue900` #00417D    |
+| `red/`       | `red300` #FB9696, `red500` #FF3737, `red700` #AE0000                                             |
+| `lime/`      | `lime300` #EFFCB0, `lime500` #DFFF3F, `lime700` #C4E90B                                          |
+| `orange/`    | `orange100` #FFA68B, `orange500` #FF6131, `orange700` #C94219                                    |
 
-## Radius
+- All 33 non-black/white values above are registered as `Color Set`s in `KIIKICK Global/Assets.xcassets` (shared by iOS + watchOS), named PascalCase exactly as the Figma step name (e.g. `mint500` → `Mint500` → `Color(.mint500)` / `UIColor(resource: .mint500)`). Pure black/white use `Color.black`/`Color.white` directly instead of a Color Set.
+- `mint500` (#00DAC3) is the most saturated/brand-like color in the palette; confirm with design before assuming it's the primary brand color — this file does not label any color as "brand."
+- Dark mode values are not visible in this page (single Universal swatch per step); check the `watchOS`/`iOS` screen pages directly if dark-mode-specific values are needed for a given screen.
 
-🚧 Not implemented as tokens yet.
+## Colors — Semantic, verified (`get_variable_defs` on node `241:4076`, watchOS components section)
 
-## Components
+Real bound Figma Variables found on actual component instances (not on the Primitive documentation page — see Verification status above). Names are as Figma reports them (mixed `kebab-case`/`path/case`); no consistent naming convention across them.
 
-🚧 No shared components exist yet. Fill in this table as they are added.
+| Variable | Resolved value | Nearest primitive | Swift (`Color+Semantic.swift`) |
+| --- | --- | --- | --- |
+| `color-text-primary` / `icon/default` | `#FAFAFA` | `gray50` | `Color.colorTextPrimary` |
+| `color-surface-primary` | `#242424` | `gray850` | `Color.colorSurfacePrimary` |
+| `color-background-secondary` | `#1A1A1A` | `gray900` | `Color.colorBackgroundSecondary` |
+| `color-surface-elevated` | `#0B2522` | `mint950` | `Color.colorSurfaceElevated` |
+| `mint-500` / `text/brand` | `#00DAC3` | `mint500` | `Color.textBrand` |
+| `action/destructive` | `#FF3737` | `red500` | `Color.actionDestructive` |
+| `color-brand-primary` | `#737373` | `gray500` | `Color.colorBrandPrimary` |
 
-| Figma Component | Code | Path                              |
-| --------------- | ---- | --------------------------------- |
-| —               | —    | `Earthu/DesignSystem/Components/` |
+Implemented in `KIIKICK Global/Color+Semantic.swift` as a thin alias layer over the Primitive Color Sets (no new hex introduced). `color-brand-primary`'s live value (`#737373` / `gray500`) disagreed with a baked fallback (`#A3A3A3` / `gray400`) seen earlier on the Stepper decrement button (`249:525`) — resolved in favor of the live Variable value. `StepperWatchView`'s decrement capsule now uses `.colorBrandPrimary`.
+
+Only these 4 watchOS components have been checked for Variable bindings so far — other components/screens may use the same or additional semantic Variables; re-run `get_variable_defs` on their nodes before assuming a primitive-only implementation is correct.
+
+## Spacing — partially verified (`get_variable_defs` on node `241:4076`)
+
+- `padding-12` = 12pt — vertical padding on `cta-watch`, `sub-watch`, `btn_selection`.
+- `spacing-20` = 20pt — `HStack` gap in `Stepper`.
+- Not yet checked on other screens/components — check the relevant frame's Auto Layout `spacing`/`padding` via `get_design_context`/`get_variable_defs` when implementing, and report as Gaps if unspecified.
+
+## Radius — partially verified (`get_variable_defs` on node `241:4076`)
+
+- `radius-full` = 999 — effectively a full capsule/pill; implement with SwiftUI `Capsule()` (already done for the 4 watchOS components), not a numeric `cornerRadius`.
+- Not yet checked on other screens/components — same as Spacing above.
+
+## Components — inventory, verified (Figma node `1:440`, "Assets&Components")
+
+The design library includes a Components page. Check the component definitions before implementing a screen, and reuse matching implementations when available. None of the below have a SwiftUI implementation in this repo yet.
+
+| Figma component | Variant axes / states | Approx. size | Code / Path |
+| ---------------- | ---------------------- | ------------ | ------------ |
+| `cta` (Button)   | `active` (on/off) × `Type` (primary/secondary/sub/destructive/Default) × `size` (L/s) | size L ≈ 352×55(54), size s ≈ 116×46 | not implemented |
+| `cta-watch` (watchOS button) | `Type` (primary/destructive) | 147×49 | `CtaWatchView` — `KIIKICK Watch App Watch App/Features/Components/CtaWatchView.swift` |
+| `navi_row`       | no variants seen        | 354×64       | not implemented |
+| `searchbar`      | `State` (default/writing/completed) | 354×52 each | not implemented |
+| `textfield`      | `State` (default/writing/completed/error) | 354×77–78 each | not implemented |
+| `sub-watch`      | no variants seen        | 147×52       | `SubWatchView` — `KIIKICK Watch App Watch App/Features/Components/SubWatchView.swift` |
+| `Stepper` (watchOS) | no variants seen     | 156×60       | `StepperWatchView` — `KIIKICK Watch App Watch App/Features/Components/StepperWatchView.swift` |
+| `btn_selection` (watchOS) | no variants seen | 48×32        | `BtnSelectionView` — `KIIKICK Watch App Watch App/Features/Components/BtnSelectionView.swift` |
+| `Performance Trends` chart | `Property 1` = "Quarter chart" (×3 shown) | 362×348 each | not implemented |
+| `logo`           | —                       | 400×200      | not implemented |
+| Icon sizes       | `size` = 8/12/16/20/24/28(`size11`)/28/32/36/40/44 | — | not implemented |
+| Icons            | `ic/pause`, `ic/play`, `ic/search`, `ic/mylocation`, `ic/delete`, `ic/success` | 24–28px | not implemented |
+
+For each component, before implementing: read its exact variant properties, states, text/color styles, Auto Layout direction, sizing (Fixed / Hug / Fill), spacing, padding and radius via `get_design_context` on its specific node id — the table above is an inventory (names, variant axes, approximate sizes), not a full spec. Update the "Code / Path" column with the actual Swift type and repository path once implemented. A Figma component existing does not mean its SwiftUI implementation exists.

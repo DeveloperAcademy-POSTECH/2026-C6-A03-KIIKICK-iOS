@@ -58,6 +58,12 @@ final class SessionManager: NSObject {
             #endif
             return
         }
+        guard ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != "1" else {
+            #if DEBUG
+            print("[SessionManager] SwiftUI Preview에서는 WCSession을 활성화하지 않음.")
+            #endif
+            return
+        }
         WCSession.default.delegate = self
         WCSession.default.activate()
     }

@@ -22,68 +22,68 @@ final class WorkoutManager: NSObject {
     var activeEnergy: Double = 0
     var distance: Double = 0
     var speed: Double = 0
-
+    
     var isRunning: Bool = false
     private(set) var points: [TrackPoint] = []
     private(set) var heartRateSamples: [HeartRateSample] = []
-
+    
     func start() async {
         await requestAuthorization()
-
+        
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = 1
         locationManager.requestWhenInUseAuthorization()
-
+        
         let config = HKWorkoutConfiguration()
         config.activityType = .soccer
         config.locationType = .outdoor
-
+        
         do {
             let session = try HKWorkoutSession(healthStore: healthStore, configuration: config)
             let builder = session.associatedWorkoutBuilder()
             builder.dataSource = HKLiveWorkoutDataSource(healthStore: healthStore, workoutConfiguration: config)
-
+            
             session.delegate = self
             builder.delegate = self
-
+            
             workoutSession = session
             workoutBuilder = builder
             routeBuilder = builder.seriesBuilder(for: HKSeriesType.workoutRoute()) as? HKWorkoutRouteBuilder
             points = []
             heartRateSamples = []
-
+            
             let startDate = Date()
             session.startActivity(with: startDate)
             try await builder.beginCollection(at: startDate)
-
+            
             isRunning = true
             locationManager.startUpdatingLocation()
         } catch {
             print("[WorkoutManager] 세션 시작 실패 - \(error)")
         }
     }
-
+    
     func stop() async {
         locationManager.stopUpdatingLocation()
-
+        
         guard let session = workoutSession, let builder = workoutBuilder else {
             isRunning = false
             return
         }
-
+        
         let endDate = Date()
         let startDate = builder.startDate ?? endDate
         session.stopActivity(with: endDate)
         session.end()
-
+        
         do {
             try await builder.endCollection(at: endDate)
             _ = try await builder.finishWorkout()
         } catch {
             print("[WorkoutManager] 세션 종료 실패 - \(error)")
         }
-
+        
         let payload = WorkoutPayload(
             startDate: startDate,
             endDate: endDate,
@@ -93,12 +93,12 @@ final class WorkoutManager: NSObject {
             totalDistance: distance
         )
         SessionManager.shared.send(payload: payload)
-
+        
         isRunning = false
     }
-
+    
     // MARK: - Private Helpers
-
+    
     private func requestAuthorization() async {
         let typesToShare: Set<HKSampleType> = [
             HKObjectType.workoutType(),
@@ -122,7 +122,7 @@ final class WorkoutManager: NSObject {
 
 extension WorkoutManager: HKWorkoutSessionDelegate {
     func workoutSession(_ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState, from fromState: HKWorkoutSessionState, date: Date) {}
-
+    
     func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: any Error) {
         print("[WorkoutManager] session 오류: \(error)")
     }
@@ -132,7 +132,7 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
     func workoutBuilder(_ workoutBuilder: HKLiveWorkoutBuilder, didCollectDataOf collectedTypes: Set<HKSampleType>) {
         for type in collectedTypes {
             guard let quantityType = type as? HKQuantityType else { continue }
-
+            
             switch quantityType {
             case HKQuantityType(.heartRate):
                 let unit = HKUnit.count().unitDivided(by: .minute())
@@ -171,11 +171,11 @@ extension WorkoutManager: CLLocationManagerDelegate {
             }
         }
     }
-
+    
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("[WorkoutManager] 위치 오류 - \(error)")
     }
-
+    
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         guard isRunning else { return }
         switch manager.authorizationStatus {

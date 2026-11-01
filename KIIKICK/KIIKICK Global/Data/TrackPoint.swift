@@ -1,6 +1,8 @@
 //
-//  WorkoutPayload.swift
+//  TrackPoint.swift
 //  KIIKICK Global
+//
+//  Created by Seungjun Lee on 10/31/26.
 //
 
 import CoreLocation
@@ -36,18 +38,4 @@ struct TrackPoint: Codable {
             timestamp: location.timestamp
         )
     }
-}
-
-struct HeartRateSample: Codable {
-    let timestamp: Date
-    let bpm: Double
-}
-
-struct WorkoutPayload: Codable {
-    let startDate: Date
-    let endDate: Date
-    let points: [TrackPoint]
-    let heartRateSamples: [HeartRateSample]
-    let totalCalories: Double
-    let totalDistance: Double
 }

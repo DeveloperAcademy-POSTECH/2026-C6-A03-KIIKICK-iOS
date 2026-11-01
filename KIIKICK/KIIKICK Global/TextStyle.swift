@@ -40,7 +40,7 @@ enum KiikickTextStyle {
         case .title1SB: 20
         case .title2SB: 18
         case .title3M: 18
-        case .title4SB: 14
+        case .title4SB: 16
         case .label1M: 16
         case .label2SB: 14
         case .label3M: 14

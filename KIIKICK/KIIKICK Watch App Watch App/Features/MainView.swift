@@ -11,7 +11,7 @@ struct MainView: View {
     
     private enum Step: Int, CaseIterable { case start, countDown, playing, position, interval, end }
     
-    @State private var step: Step = .start
+    @State private var step: Step = .interval
     
     var body: some View {
         ZStack {
@@ -25,7 +25,7 @@ struct MainView: View {
             case .position:
                 PositionView { step = .interval }
             case .interval:
-                IntervalView(startQuarter: {
+                IntervalView(position: .lw, startQuarter: {
                     step = .playing
                 }, finishGame: {
                     step = .end

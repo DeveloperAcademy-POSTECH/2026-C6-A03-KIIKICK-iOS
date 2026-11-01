@@ -18,7 +18,7 @@ struct BtnSelectionView: View {
         var background: Color {
             switch self {
             case .primary: return .colorSurfacePrimary
-            case .selected: return .colorSurfaceElevated
+            case .selected: return .surfaceDarken
             }
         }
 

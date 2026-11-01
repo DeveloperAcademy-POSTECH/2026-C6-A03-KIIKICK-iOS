@@ -19,8 +19,8 @@ extension Color {
     /// Figma `color-background-secondary` → `gray900`
     static var colorBackgroundSecondary: Color { .gray900 }
     
-    /// Figma `color-surface-elevated` → `mint950`
-    static var colorSurfaceElevated: Color { .mint950 }
+    /// Figma `surface/darken` (어두운 민트 계열 표면) → `mint950`
+    static var surfaceDarken: Color { .mint950 }
     
     /// Figma `text/brand` (= `mint-500`) → `mint500`
     static var textBrand: Color { .mint500 }
@@ -28,8 +28,8 @@ extension Color {
     /// Figma `action/destructive` → `red500`
     static var actionDestructive: Color { .red500 }
     
-    /// Figma `color-brand-primary` → `gray500`
-    static var colorBrandPrimary: Color { .gray500 }
+    /// Figma `brand/gray` (중립 브랜드 변형) → `gray500`
+    static var brandGray: Color { .gray500 }
 }
 
 // Asset Catalog 자동생성 심볼(`GeneratedAssetSymbols.swift`)과 동일하게, `.fill(.colorSurfacePrimary)`처럼
@@ -38,8 +38,8 @@ extension ShapeStyle where Self == Color {
     static var colorTextPrimary: Color { .colorTextPrimary }
     static var colorSurfacePrimary: Color { .colorSurfacePrimary }
     static var colorBackgroundSecondary: Color { .colorBackgroundSecondary }
-    static var colorSurfaceElevated: Color { .colorSurfaceElevated }
+    static var surfaceDarken: Color { .surfaceDarken }
     static var textBrand: Color { .textBrand }
     static var actionDestructive: Color { .actionDestructive }
-    static var colorBrandPrimary: Color { .colorBrandPrimary }
+    static var brandGray: Color { .brandGray }
 }

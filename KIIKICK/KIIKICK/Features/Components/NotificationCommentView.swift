@@ -14,7 +14,7 @@ struct NotificationCommentView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            (profileImage ?? Image(systemName: "person.crop.circle.fill"))
+            (profileImage ?? Image("img_profile_default"))
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 48, height: 48)

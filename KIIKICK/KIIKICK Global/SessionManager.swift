@@ -15,9 +15,12 @@ final class SessionManager: NSObject {
     static let shared = SessionManager()
     
     var isReachable: Bool = false
+    var isMatchInProgress: Bool = false
 
     #if os(iOS)
     var modelContext: ModelContext?
+    /// 워치가 가장 최근에 보내온, 아직 홈 화면에서 확인하지 않은 기록. 상세 화면을 열면 nil로 비운다.
+    var justArrivedRecord: WorkoutRecord?
     #endif
 
     #if os(watchOS)
@@ -34,6 +37,14 @@ final class SessionManager: NSObject {
     func beginTransfer(pointCount: Int) {
         pendingPointCount = pointCount
         DispatchQueue.main.async { self.transferStatus = .sending(pointCount: pointCount) }
+    }
+
+    /// 경기 시작/종료 시점에 호출해서 iPhone 쪽에 현재 경기 진행 여부를 알린다.
+    /// `updateApplicationContext`를 쓰는 이유: iPhone이 reachable(포그라운드)이 아니어도
+    /// 마지막 값이 보존돼, 나중에 앱을 열었을 때도 올바른 상태를 읽을 수 있다.
+    func updateMatchStatus(isInProgress: Bool) {
+        isMatchInProgress = isInProgress
+        try? WCSession.default.updateApplicationContext(["isMatchInProgress": isInProgress])
     }
 
     /// `recordID`를 넘기면, 이 전송이 성공했을 때 같은 id의 `QuarterRecord`만 지운다.
@@ -76,6 +87,12 @@ final class SessionManager: NSObject {
 extension SessionManager: WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {
         DispatchQueue.main.async { self.isReachable = session.isReachable }
+        #if os(iOS)
+        // 앱이 늦게 켜져서 activate 전에 이미 워치가 context를 갱신해놨을 수 있으니 시작 시점에 한 번 읽어둔다.
+        if let isInProgress = session.receivedApplicationContext["isMatchInProgress"] as? Bool {
+            DispatchQueue.main.async { self.isMatchInProgress = isInProgress }
+        }
+        #endif
         #if DEBUG
         if let error {
             print("[SessionManager] 활성화 실패 - \(error)")
@@ -111,10 +128,16 @@ extension SessionManager: WCSessionDelegate {
         DispatchQueue.main.async {
             self.modelContext?.insert(record)
             try? self.modelContext?.save()
+            self.justArrivedRecord = record
         }
         #endif
     }
-    
+
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        guard let isInProgress = applicationContext["isMatchInProgress"] as? Bool else { return }
+        DispatchQueue.main.async { self.isMatchInProgress = isInProgress }
+    }
+
     #if os(watchOS)
     func session(_ session: WCSession,
                  didFinish fileTransfer: WCSessionFileTransfer,

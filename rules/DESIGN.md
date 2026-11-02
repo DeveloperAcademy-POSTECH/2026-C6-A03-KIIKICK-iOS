@@ -97,7 +97,7 @@ Exact hex values read from the rendered color swatches. No semantic/alias layer 
 
 | Figma name | Resolved value | Primitive | Swift (`Color+Semantic.swift`) |
 | --- | --- | --- | --- |
-| `background/primary` | `#121212` | `gray950` | — (not yet aliased) |
+| `background/primary` | `#121212` | `gray950` | `Color.colorBackgroundPrimary` |
 | `background/secondary` | `#1A1A1A` | `gray900` | `Color.colorBackgroundSecondary` |
 | `surface/primary` | `#242424` | `gray850` | `Color.colorSurfacePrimary` |
 | `surface/elevated` | `#303030` | `gray800` | — (not yet aliased; iOS components use `.gray800` primitive directly) |
@@ -105,7 +105,7 @@ Exact hex values read from the rendered color swatches. No semantic/alias layer 
 | `surface/recessed` | `#0A0A0A` | `gray1000` | — (not yet aliased) |
 | `text/brand` | `#00DAC3` | `mint500` | `Color.textBrand` |
 | `action/destructive` | `#FF3737` | `red500` | `Color.actionDestructive` |
-| `brand/primary` | `#00DAC3` | `mint500` | — (not yet aliased; same value as `text/brand`) |
+| `brand/primary` | `#00DAC3` | `mint500` | `Color.brandPrimary` (same value as `text/brand`, kept as a separate name for non-text uses like borders) |
 | `brand/pressed` | `#009989` | `mint700` | — (not yet aliased) |
 | `brand/subtle` | `#004139` | `mint900` | — (not yet aliased) |
 | `brand/gray` | `#737373` | `gray500` | `Color.brandGray` |
@@ -135,7 +135,9 @@ The design library includes a Components page. Check the component definitions b
 | ---------------- | ---------------------- | ------------ | ------------ |
 | `cta` (Button)   | `active` (on/off) × `Type` (primary/secondary/sub/destructive/Default) × `size` (L/s) | size L fills width (55/54 tall), size s hugs content (46 tall) | `CtaView` — `KIIKICK/Features/Components/CtaView.swift` |
 | `cta-watch` (watchOS button) | `Type` (primary/destructive) | 147×49 | `CtaWatchView` — `KIIKICK Watch App Watch App/Features/Components/CtaWatchView.swift` |
-| `navi_row`       | no variants seen        | 354×64       | not implemented |
+| `navi_row`       | no variants seen        | 354×64       | `NaviRowView` — `KIIKICK/Features/Components/NaviRowView.swift` (탭 동작을 담지 않은 순수 표시 컴포넌트, 호출부가 `NavigationLink(value:)`로 감싼다; 이번에 만든 인스턴스는 node `241:1583`/`241:1584` 배너 전용이라 정확한 사이즈 재검증 안 됨, 🟡 Gap) |
+| `card_info` (node `259:3099`) | no variants seen | — | `CardInfoView` — `KIIKICK/Features/Components/CardInfoView.swift` (radius 16 / border 1pt는 유사 컴포넌트 유추값, 이번 세션에 재검증 안 됨, 🟡 Gap) |
+| Tab Bar (node `241:916`) | `separateSearch`/`minimized` (bool) × `tabs`(4) × `mode`(Dark) | — | 네이티브 `TabView` 리스타일 — `KIIKICK/Features/View/Main/MainView.swift` (배경 `gray900`/선택색 `mint500`은 이번 세션에 재검증 안 됨, 🟡 Gap) |
 | `searchbar`      | `State` (default/writing/completed) | 354×52 each | `SearchBarView` — `KIIKICK/Features/Components/SearchBarView.swift` |
 | `textfield`      | `State` (default/writing/completed/error) | 354×77–78 each | `KiikickTextField` — `KIIKICK/Features/Components/KiikickTextField.swift` |
 | `sub-watch`      | no variants seen        | 147×52       | `SubWatchView` — `KIIKICK Watch App Watch App/Features/Components/SubWatchView.swift` |

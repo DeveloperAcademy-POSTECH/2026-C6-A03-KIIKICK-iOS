@@ -149,8 +149,13 @@ The design library includes a Components page. Check the component definitions b
 | `list_friend`    | `waiting` (bool)        | 354×auto     | `ListFriendView` — `KIIKICK/Features/Components/ListFriendView.swift` |
 | `DatePicker`     | `down` (collapsed/expanded) | auto | `DatePickerView` — `KIIKICK/Features/Components/DatePickerView.swift` (expanded state uses native `.wheel` Picker, not a pixel copy of the static mockup — see 🟡 Gaps) |
 | `card_summary`   | no variants seen        | 354×auto     | `CardSummaryView` — `KIIKICK/Features/Components/CardSummaryView.swift` |
+| `comment_thread` (node `353:2288`) | reply nesting (1 level, flat list) | 354×auto | `CommentThreadView` — `KIIKICK/Features/Components/CommentThreadView.swift` (L자 커넥터는 SVG 대신 세로선으로 근사, 🟡 Gap) |
+| `TextfieldComment` (node `355:1324`) | no variants seen | 354×auto | `CommentComposerView` — `KIIKICK/Features/Components/CommentComposerView.swift` |
+| `list_withfriend` (node `371:3739`) | no variants seen | 354×auto | `ListWithFriendView` — `KIIKICK/Features/Components/ListWithFriendView.swift` |
 | `logo`           | —                       | 400×200      | not implemented |
 | Icon sizes       | `size` = 8/12/16/20/24/28(`size11`)/28/32/36/40/44 | — | not implemented |
 | Icons            | `ic/pause`, `ic/play`, `ic/search`, `ic/mylocation`, `ic/delete`, `ic/success`, `ic/arrow`, `ic/arrow-down` | 24–28px | bundled in `KIIKICK Global/Assets.xcassets/Icon/` (added `ic_arrow`, `ic_chevron_down` for issue #10; `ic/arrow-right` reuses `ic_arrow` — identical SVG path) |
 
 For each component, before implementing: read its exact variant properties, states, text/color styles, Auto Layout direction, sizing (Fixed / Hug / Fill), spacing, padding and radius via `get_design_context` on its specific node id — the table above is an inventory (names, variant axes, approximate sizes), not a full spec. Update the "Code / Path" column with the actual Swift type and repository path once implemented. A Figma component existing does not mean its SwiftUI implementation exists.
+
+`View.gradientForeground(_:)` (`KIIKICK/Features/Components/View+GradientForeground.swift`) replaces the gradient-text headings seen on the Analysis detail screen (issue #17) — exact gradient stops/angle not independently re-verified via `get_variable_defs`, approximated as `mint500`→`mint300` left-to-right (🟡 Gap).

@@ -31,6 +31,7 @@ struct MainView: View {
                     Task {
                         await workoutManager.startMatch()
                         workoutManager.beginQuarter()
+                        SessionManager.shared.updateMatchStatus(isInProgress: true)
                         step = .playing
                     }
                 }
@@ -70,6 +71,7 @@ struct MainView: View {
                         finishGame: {
                             Task {
                                 await workoutManager.finishMatch()
+                                SessionManager.shared.updateMatchStatus(isInProgress: false)
                                 step = .end
                             }
                         }

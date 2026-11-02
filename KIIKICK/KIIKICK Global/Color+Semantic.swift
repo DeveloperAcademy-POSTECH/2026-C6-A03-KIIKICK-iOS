@@ -30,6 +30,14 @@ extension Color {
     
     /// Figma `brand/gray` (중립 브랜드 변형) → `gray500`
     static var brandGray: Color { .gray500 }
+
+    /// Figma `background/primary` → `gray950`
+    static var colorBackgroundPrimary: Color { .gray950 }
+
+    /// Figma `brand/primary` (node 313:2 35개 토큰 표 기준. `text/brand`와 값은 같지만(mint500)
+    /// 별도 row로 존재 — 텍스트가 아닌 보더/강조 용도로 쓸 때는 이쪽을 쓴다.
+    /// "border/brand"라는 이름의 row는 그 표에 없어서 만들지 않았다.
+    static var brandPrimary: Color { .mint500 }
 }
 
 // Asset Catalog 자동생성 심볼(`GeneratedAssetSymbols.swift`)과 동일하게, `.fill(.colorSurfacePrimary)`처럼
@@ -42,4 +50,6 @@ extension ShapeStyle where Self == Color {
     static var textBrand: Color { .textBrand }
     static var actionDestructive: Color { .actionDestructive }
     static var brandGray: Color { .brandGray }
+    static var colorBackgroundPrimary: Color { .colorBackgroundPrimary }
+    static var brandPrimary: Color { .brandPrimary }
 }

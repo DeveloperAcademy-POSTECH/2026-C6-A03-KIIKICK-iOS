@@ -76,20 +76,3 @@ struct CtaView: View {
         .disabled(!isActive)
     }
 }
-
-#Preview {
-    VStack(alignment: .leading, spacing: 12) {
-        CtaView(text: "버튼", type: .primary, action: {})
-        CtaView(text: "버튼", type: .secondary, action: {})
-        CtaView(text: "버튼", type: .sub, action: {})
-        CtaView(text: "버튼", type: .destructive, action: {})
-        CtaView(text: "버튼", type: .primary, isActive: false, action: {})
-        CtaView(text: "버튼", type: .primary, size: .small, icon: Image(systemName: "plus"), action: {})
-        CtaView(text: "조금 더 긴 버튼 텍스트", type: .secondary, size: .small, icon: Image(systemName: "plus"), action: {})
-        CtaView(text: "버튼", type: .sub, size: .small, icon: Image(systemName: "plus"), action: {})
-        CtaView(text: "버튼", type: .destructive, size: .small, icon: Image(systemName: "plus"), action: {})
-        CtaView(text: "버튼", type: .primary, size: .small, isActive: false, action: {})
-    }
-    .padding()
-    .background(Color.gray950)
-}

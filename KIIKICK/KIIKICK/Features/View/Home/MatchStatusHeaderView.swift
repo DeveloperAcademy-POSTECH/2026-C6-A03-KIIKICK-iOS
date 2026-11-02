@@ -15,8 +15,6 @@ struct MatchStatusHeaderView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            header
-
             switch state {
             case .readyToPrepare:
                 watchInfoRow
@@ -25,7 +23,7 @@ struct MatchStatusHeaderView: View {
             case .prepared(let fieldName):
                 CardInfoView(
                     title: fieldName,
-                    message: "경기가 준비되었어요. Apple Watch에서 시작해주세요"
+                    message: "경기가 준비되었어요. Apple Watch에서 시작해주세요."
                 )
 
             case .inProgress:
@@ -63,24 +61,7 @@ struct MatchStatusHeaderView: View {
         .padding(.horizontal, 24)
         .background(.colorBackgroundSecondary)
     }
-
-    private var header: some View {
-        HStack {
-            Image("Logo")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(height: 24)
-            Spacer()
-            Button(action: {}) {
-                Image(systemName: "bell")
-                    .foregroundStyle(.colorTextPrimary)
-                    .padding(8)
-                    .background(.colorSurfacePrimary, in: Circle())
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
+    
     private var watchInfoRow: some View {
         InfoRow(
             icon: Image(systemName: "applewatch"),
@@ -98,22 +79,24 @@ private struct InfoRow: View {
 
     var body: some View {
         Group {
-            if alignment == .center {
+            switch alignment {
+            case .center:
                 VStack(spacing: 8) {
-                    icon.foregroundStyle(.colorTextPrimary)
+                    icon
+                        .foregroundStyle(.colorTextPrimary)
                     Text(text)
                         .font(font)
-                        .lineLimit(1)
                         .foregroundStyle(.colorTextPrimary)
                 }
-                .frame(maxWidth: .infinity)
-            } else {
+            default :
                 HStack(alignment: .top, spacing: 12) {
-                    icon.foregroundStyle(.colorTextPrimary)
+                    icon
+                        .foregroundStyle(.colorTextPrimary)
                     Text(text)
                         .font(font)
                         .foregroundStyle(.colorTextPrimary)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(16)

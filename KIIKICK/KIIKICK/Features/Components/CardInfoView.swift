@@ -13,16 +13,17 @@ struct CardInfoView: View {
     let message: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(spacing: 8) {
             Text(title)
                 .textStyle(.title1SB)
                 .foregroundStyle(.colorTextPrimary)
             Text(message)
                 .textStyle(.body4R)
-                .foregroundStyle(.brandGray)
+                .foregroundStyle(.colorTextPrimary)
+                .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .frame(maxWidth: .infinity)
+        .padding(12)
         // DESIGN-GAP: radius 16 / border 1pt는 다른 카드 컴포넌트 유추값.
         .background(.colorBackgroundPrimary, in: RoundedRectangle(cornerRadius: 16))
         .overlay {

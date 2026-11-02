@@ -40,11 +40,28 @@ final class SessionManager: NSObject {
     }
 
     /// 경기 시작/종료 시점에 호출해서 iPhone 쪽에 현재 경기 진행 여부를 알린다.
-    /// `updateApplicationContext`를 쓰는 이유: iPhone이 reachable(포그라운드)이 아니어도
-    /// 마지막 값이 보존돼, 나중에 앱을 열었을 때도 올바른 상태를 읽을 수 있다.
+    /// `updateApplicationContext`만으로는(백그라운드 상태에서) 전달이 늦거나 유실되는 걸로
+    /// 보여서, reachable일 때는 `sendMessage`로 즉시 한 번 더 보낸다 — 두 경로 모두
+    /// iOS 쪽의 같은 키("isMatchInProgress")를 읽는다.
     func updateMatchStatus(isInProgress: Bool) {
         isMatchInProgress = isInProgress
-        try? WCSession.default.updateApplicationContext(["isMatchInProgress": isInProgress])
+        let payload = ["isMatchInProgress": isInProgress]
+
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(payload, replyHandler: nil) { error in
+                #if DEBUG
+                print("[SessionManager] sendMessage(경기 상태) 실패 - \(error)")
+                #endif
+            }
+        }
+
+        do {
+            try WCSession.default.updateApplicationContext(payload)
+        } catch {
+            #if DEBUG
+            print("[SessionManager] updateApplicationContext(경기 상태) 실패 - \(error)")
+            #endif
+        }
     }
 
     /// `recordID`를 넘기면, 이 전송이 성공했을 때 같은 id의 `QuarterRecord`만 지운다.
@@ -134,8 +151,21 @@ extension SessionManager: WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        guard let isInProgress = applicationContext["isMatchInProgress"] as? Bool else { return }
-        DispatchQueue.main.async { self.isMatchInProgress = isInProgress }
+        applyMatchStatus(from: applicationContext)
+    }
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        applyMatchStatus(from: message)
+    }
+
+    private func applyMatchStatus(from payload: [String: Any]) {
+        guard let isInProgress = payload["isMatchInProgress"] as? Bool else { return }
+        DispatchQueue.main.async {
+            #if DEBUG
+            print("[SessionManager] isMatchInProgress 수신 - \(isInProgress)")
+            #endif
+            self.isMatchInProgress = isInProgress
+        }
     }
 
     #if os(watchOS)

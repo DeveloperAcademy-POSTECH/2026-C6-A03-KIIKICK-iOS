@@ -59,24 +59,16 @@ struct HomeView: View {
                         }
                     }
             }
-            .navigationTitle("측정 기록")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    NavigationLink("운동장") {
-                        FieldListView()
-                    }
-                }
-            }
-            #if DEBUG
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("테스트 데이터 추가") {
-                        modelContext.insert(WorkoutRecord(payload: .fake()))
-                        try? modelContext.save()
+                    NavigationLink(destination: NotificationListView()) {
+                        Image(systemName: "bell")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 20)
                     }
                 }
             }
-            #endif
         }
     }
 }

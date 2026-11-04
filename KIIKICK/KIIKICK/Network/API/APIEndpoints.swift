@@ -6,3 +6,17 @@
 //
 
 import Foundation
+
+enum APIEndpoints {
+    case auth   
+    case match
+    
+    var endPoint: Endpoint<Any> {
+        switch self {
+        case .auth:
+            return Endpoint(baseURL: "")
+        case .match:
+            return Endpoint(baseURL: "")
+        }
+    }
+}

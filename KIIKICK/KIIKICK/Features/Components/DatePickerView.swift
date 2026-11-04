@@ -29,6 +29,7 @@ struct DatePickerView: View {
                         .foregroundStyle(.gray50)
                     Image("ic_chevron_down")
                         .resizable()
+                        .foregroundStyle(.gray50)
                         .frame(width: 24, height: 24)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }

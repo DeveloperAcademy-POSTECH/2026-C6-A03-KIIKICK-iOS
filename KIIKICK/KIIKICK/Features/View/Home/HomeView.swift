@@ -62,10 +62,10 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink(destination: NotificationListView()) {
-                        Image(systemName: "bell")
+                        Image("ic_bell")
                             .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(height: 20)
+                            .foregroundStyle(.gray50)
+                            .frame(width: 24, height: 24)
                     }
                 }
             }

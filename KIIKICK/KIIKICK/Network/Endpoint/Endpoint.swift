@@ -18,7 +18,7 @@ struct Endpoint<R>: RequestResponsable {
     var headers: [String: String]?
     var sampleData: Data?
     
-    init(baseURL: String,
+    init(baseURL: String = APIConfig.baseURL.absoluteString,
          path: String = "",
          method: HTTPMethod = .get,
          queryParameters: Encodable? = nil,

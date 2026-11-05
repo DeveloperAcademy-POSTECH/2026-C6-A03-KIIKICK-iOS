@@ -17,7 +17,8 @@ struct KiikickTextField: View {
     var state: KiikickTextFieldState = .default
     var errorMessage: String = ""
     var maxCount: Int? = nil
-    
+    var isSecure: Bool = false
+
     private var borderColor: Color {
         switch state {
         case .error: return .red500
@@ -25,15 +26,21 @@ struct KiikickTextField: View {
         case .default, .writing: return .gray700
         }
     }
-    
+
     private var textColor: Color {
         state == .default ? .gray400 : .gray50
     }
-    
+
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
             HStack(spacing: 4) {
-                TextField(placeholder, text: $text)
+                Group {
+                    if isSecure {
+                        SecureField(placeholder, text: $text)
+                    } else {
+                        TextField(placeholder, text: $text)
+                    }
+                }
                     .font(state == .default ? .body2R : .body1M)
                     .foregroundStyle(textColor)
                 

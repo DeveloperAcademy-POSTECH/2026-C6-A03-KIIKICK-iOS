@@ -11,26 +11,35 @@ import Foundation
 enum UserSession {
     private static let userIdKey = "userId"
     private static let nicknameKey = "nickname"
-    
+    private static let tokenKey = "accessToken"
+
     static var userId: UUID? {
         guard let value = KeychainService.get(key: userIdKey) else { return nil }
         return UUID(uuidString: value)
     }
-    
-    static var isLoggedIn: Bool { userId != nil }
-    
+
+    /// 로그인/회원가입 API가 아직 없어(변경 예정) 실제 토큰이 아니라 mock 값이 저장된다.
+    static var token: String? { KeychainService.get(key: tokenKey) }
+
+    static var isLoggedIn: Bool { userId != nil || token != nil }
+
     static var nickname: String? {
         get { UserDefaults.standard.string(forKey: nicknameKey) }
         set { UserDefaults.standard.set(newValue, forKey: nicknameKey) }
     }
-    
+
     static func save(userId: UUID, nickname: String) {
         _ = KeychainService.add(key: userIdKey, value: userId.uuidString)
         self.nickname = nickname
     }
-    
+
+    static func saveToken(_ token: String) {
+        _ = KeychainService.add(key: tokenKey, value: token)
+    }
+
     static func clear() {
         _ = KeychainService.delete(key: userIdKey)
+        _ = KeychainService.delete(key: tokenKey)
         UserDefaults.standard.removeObject(forKey: nicknameKey)
     }
 }

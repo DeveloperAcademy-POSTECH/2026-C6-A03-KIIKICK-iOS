@@ -35,7 +35,9 @@ struct DevAuthView: View {
         .navigationTitle("로그인 (테스트)")
         .onAppear { isLoggedIn = UserSession.isLoggedIn }
         .sheet(isPresented: $isPresentingLogin) {
-            LoginView()
+            NavigationStack {
+                LoginView()
+            }
         }
     }
 }

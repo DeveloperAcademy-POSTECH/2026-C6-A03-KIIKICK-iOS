@@ -50,13 +50,26 @@ struct AddFriendView: View {
                             .font(.label4SB)
                             .foregroundStyle(.gray400)
 
-                        ForEach(results) { user in
-                            Button {
-                                pushedProfile = user
-                            } label: {
-                                ListFriendView(name: user.nickname, isWaiting: user.status == .requestSent)
+                        if results.isEmpty {
+                            VStack(spacing: 16) {
+                                Text("검색 결과가 없어요")
+                                    .font(.title4SB)
+                                    .foregroundStyle(.gray50)
+                                Text("닉네임을 확인하고 다시 검색해 보세요")
+                                    .font(.body4R)
+                                    .foregroundStyle(.gray50)
                             }
-                            .buttonStyle(.plain)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 80)
+                        } else {
+                            ForEach(results) { user in
+                                Button {
+                                    pushedProfile = user
+                                } label: {
+                                    ListFriendView(name: user.nickname, isWaiting: user.status == .requestSent)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
                 }

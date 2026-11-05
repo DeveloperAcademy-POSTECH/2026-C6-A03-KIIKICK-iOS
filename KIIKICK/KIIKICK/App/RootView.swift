@@ -16,7 +16,7 @@ struct RootView: View {
             case .splash:
                 SplashView()
             case .auth:
-                LoginView()
+                StartView()
             case .main:
                 MainView()
                     .environment(SessionManager.shared)
@@ -26,7 +26,7 @@ struct RootView: View {
         .onAppear {
             Task {
                 // sleep(1)
-                router.finishSplash(isLoggedIn: UserSession.isLoggedIn)
+                router.finishSplash(isLoggedIn: false)// UserSession.isLoggedIn)
             }
         }
     }

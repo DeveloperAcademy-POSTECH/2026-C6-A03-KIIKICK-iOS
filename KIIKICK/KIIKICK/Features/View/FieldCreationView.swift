@@ -20,25 +20,58 @@ struct FieldCreationView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    @State private var pins: [CLLocationCoordinate2D] = []
+    @State private var rect = CGRect(x: 100, y: 200, width: 200, height: 150)
     @State private var fieldName: String = ""
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var locationManager = CLLocationManager()
 
+    /// 사각형 네 꼭짓점을 위경도로 변환할 때의 기준 순서. 저장되는 cornerA~D도 항상
+    /// 이 시계방향 순서를 따른다 (AGENTS.md: 핀 순서를 일관된 규칙으로 저장).
+    private let cornerOrder: [Corner] = [.topLeading, .topTrailing, .bottomTrailing, .bottomLeading]
 
     var body: some View {
-        VStack {
+        MapReader { proxy in
             ZStack(alignment: .bottom) {
-                MapReader { proxy in
-                    Map(position: $cameraPosition) {
-                        UserAnnotation()
-                    }
-                    .mapStyle(.imagery(elevation: .realistic))
+                Map(position: $cameraPosition) {
+                    UserAnnotation()
                 }
+                .mapStyle(.imagery(elevation: .realistic))
                 .ignoresSafeArea()
-                ResizableRectangleView()
+
+                ResizableRectangleView(rect: $rect)
+
+                VStack(spacing: 12) {
+                    TextField("경기장 이름을 지어주세요", text: $fieldName)
+                        .textFieldStyle(.roundedBorder)
+
+                    Button("저장") { save(using: proxy) }
+                        .disabled(fieldName.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .buttonStyle(.borderedProminent)
+                }
+                .padding()
+                .background(.ultraThinMaterial)
             }
         }
+        .navigationTitle("경기장 등록")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            locationManager.requestWhenInUseAuthorization()
+        }
+    }
+
+    private func save(using proxy: MapProxy) {
+        let coordinates = cornerOrder.compactMap { proxy.convert($0.point(in: rect), from: .local) }
+        guard coordinates.count == 4 else { return }
+        let field = Field(
+            name: fieldName,
+            cornerA: FieldCorner(latitude: coordinates[0].latitude, longitude: coordinates[0].longitude),
+            cornerB: FieldCorner(latitude: coordinates[1].latitude, longitude: coordinates[1].longitude),
+            cornerC: FieldCorner(latitude: coordinates[2].latitude, longitude: coordinates[2].longitude),
+            cornerD: FieldCorner(latitude: coordinates[3].latitude, longitude: coordinates[3].longitude)
+        )
+        modelContext.insert(field)
+        try? modelContext.save()
+        dismiss()
     }
 }
 
@@ -184,7 +217,7 @@ private struct EdgeTick: Shape {
 struct ResizableRectangleView: View {
 
     // 사걱형의 크기와 위치 정보
-    @State private var rect = CGRect(x: 100, y: 200, width: 200, height: 150)
+    @Binding var rect: CGRect
     @State private var startRect: CGRect?
 
     private let minSize: CGFloat = 40

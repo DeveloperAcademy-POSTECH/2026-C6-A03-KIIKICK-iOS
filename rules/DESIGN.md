@@ -4,10 +4,15 @@ Records Figma design references and their implementation status. **Figma is the 
 
 Source: [Design System for Color, Fonts](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/%E2%9A%BD%EF%B8%8F-KIIKICK-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=1-239&t=vl5yYnI25mUIBsBJ-1)
 
+All of the above live in the **same Figma file** (key `Oc5LQED0S2UeVfXvdAjNwO`) — iOS and watchOS screens are separate pages/frames within it, not separate files:
+
+- [iOS screens](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/%E2%9A%BD%EF%B8%8F-KIIKICK-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=120-12) (node `120:12`)
+- [watchOS screens](https://www.figma.com/design/Oc5LQED0S2UeVfXvdAjNwO/%E2%9A%BD%EF%B8%8F-KIIKICK-%EB%94%94%EC%9E%90%EC%9D%B8-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC?node-id=241-3911) (node `241:3911`)
+
 ## Verification status
 
 - Verified via Figma MCP (`get_metadata` + `get_screenshot`) on node `1:239` ("System" page → "Typography : variables" + "Color: Primitive" frames) and node `1:440` ("Assets&Components" page). Values below are read directly from the file, not inferred from screenshots or guessed.
-- **A semantic color Variable collection does exist, but it is not documented as its own page.** The "Color: Primitive" page's own swatches use raw fills (no Variable binding, confirmed via `get_variable_defs` returning empty there) — that part of the earlier claim stands. But `get_variable_defs` on actual component instances (e.g. the watchOS components section, node `241:4076`) resolves real bound Variables. See "Colors — Semantic" below.
+- **A semantic color Variable collection exists and *is* documented as its own page** — node `313:2`, "Color · Semantic" (35 tokens, every value a Primitive alias). This was found later in the project; an earlier note here said it wasn't documented as its own page, which was wrong — it just hadn't been located yet. `get_variable_defs` on the "Color: Primitive" page's own swatches still returns empty (raw fills, no Variable binding), and still fails ("nothing selected") everywhere else in this file, so `313:2` was read via `get_screenshot` like everything else. See "Colors — Semantic" below.
 - **None of the tokens or components below have a SwiftUI implementation in this repo yet**, except the raw font files (see Typography). This repository uses `KIIKICK/KIIKICK/`; there is no `Earthu/DesignSystem/` directory, no `.textStyle(_:)` API, and no `Color Set` other than `AccentColor` in `Assets.xcassets`. Treat every token as "value verified, code not yet written."
 - Earlier verification attempts (Aside, plain web fetch, Figma desktop UI automation) had all failed — see git history. The Figma MCP tools (`get_metadata`, `get_screenshot`) succeeded where those did not. `get_variable_defs` still fails here ("nothing selected" — it needs a layer selected in the Figma desktop app), so primitive values were read from the rendered documentation table via `get_screenshot`, not from live Figma Variables.
 
@@ -86,23 +91,30 @@ Exact hex values read from the rendered color swatches. No semantic/alias layer 
 - `mint500` (#00DAC3) is the most saturated/brand-like color in the palette; confirm with design before assuming it's the primary brand color — this file does not label any color as "brand."
 - Dark mode values are not visible in this page (single Universal swatch per step); check the `watchOS`/`iOS` screen pages directly if dark-mode-specific values are needed for a given screen.
 
-## Colors — Semantic, verified (`get_variable_defs` on node `241:4076`, watchOS components section)
+## Colors — Semantic, verified (node `313:2`, "Color · Semantic" documentation page)
 
-Real bound Figma Variables found on actual component instances (not on the Primitive documentation page — see Verification status above). Names are as Figma reports them (mixed `kebab-case`/`path/case`); no consistent naming convention across them.
+`313:2` is the authoritative semantic color page — "Dark가 기본인 단일 테마 · 35개 semantic 토큰 · 모든 색상은 primitive alias로 연결" (dated 2026.11.01 in the doc itself). It supersedes the earlier `get_variable_defs`-on-component-instance readings below; those were a workaround for not having found this page yet, and one of them (`color-surface-elevated` → `mint950`) turned out to actually be a *different*, separately-named token (`surface/darken`) — not the real `surface/elevated` (which is `gray800`). Read via `get_screenshot`, not `get_variable_defs` (still fails the same way as before).
 
-| Variable | Resolved value | Nearest primitive | Swift (`Color+Semantic.swift`) |
+| Figma name | Resolved value | Primitive | Swift (`Color+Semantic.swift`) |
 | --- | --- | --- | --- |
-| `color-text-primary` / `icon/default` | `#FAFAFA` | `gray50` | `Color.colorTextPrimary` |
-| `color-surface-primary` | `#242424` | `gray850` | `Color.colorSurfacePrimary` |
-| `color-background-secondary` | `#1A1A1A` | `gray900` | `Color.colorBackgroundSecondary` |
-| `color-surface-elevated` | `#0B2522` | `mint950` | `Color.colorSurfaceElevated` |
-| `mint-500` / `text/brand` | `#00DAC3` | `mint500` | `Color.textBrand` |
+| `background/primary` | `#121212` | `gray950` | `Color.colorBackgroundPrimary` |
+| `background/secondary` | `#1A1A1A` | `gray900` | `Color.colorBackgroundSecondary` |
+| `surface/primary` | `#242424` | `gray850` | `Color.colorSurfacePrimary` |
+| `surface/elevated` | `#303030` | `gray800` | — (not yet aliased; iOS components use `.gray800` primitive directly) |
+| `surface/darken` | `#0B2522` | `mint950` | `Color.surfaceDarken` |
+| `surface/recessed` | `#0A0A0A` | `gray1000` | — (not yet aliased) |
+| `text/brand` | `#00DAC3` | `mint500` | `Color.textBrand` |
 | `action/destructive` | `#FF3737` | `red500` | `Color.actionDestructive` |
-| `color-brand-primary` | `#737373` | `gray500` | `Color.colorBrandPrimary` |
+| `brand/primary` | `#00DAC3` | `mint500` | `Color.brandPrimary` (same value as `text/brand`, kept as a separate name for non-text uses like borders) |
+| `brand/pressed` | `#009989` | `mint700` | — (not yet aliased) |
+| `brand/subtle` | `#004139` | `mint900` | — (not yet aliased) |
+| `brand/gray` | `#737373` | `gray500` | `Color.brandGray` |
 
-Implemented in `KIIKICK Global/Color+Semantic.swift` as a thin alias layer over the Primitive Color Sets (no new hex introduced). `color-brand-primary`'s live value (`#737373` / `gray500`) disagreed with a baked fallback (`#A3A3A3` / `gray400`) seen earlier on the Stepper decrement button (`249:525`) — resolved in favor of the live Variable value. `StepperWatchView`'s decrement capsule now uses `.colorBrandPrimary`.
+Only the rows actually used by a component so far are aliased in `Color+Semantic.swift`; the rest of the 35 tokens (Text/Icon/Border/Feedback/Data-visualization sections) haven't been transcribed yet — re-read node `313:2` when a new component needs one of them, rather than guessing from the Primitive table.
 
-Only these 4 watchOS components have been checked for Variable bindings so far — other components/screens may use the same or additional semantic Variables; re-run `get_variable_defs` on their nodes before assuming a primitive-only implementation is correct.
+`StepperWatchView`'s decrement capsule uses `.brandGray` (formerly misnamed `colorBrandPrimary` — same value, `gray500`, just the name was wrong: it was derived from a WEB CSS var string that the Figma doc happens to reuse across all 4 `brand/*` rows, not from the actual distinct Variable name). `BtnSelectionView`'s `.selected` style uses `.surfaceDarken` (formerly misnamed `colorSurfaceElevated`).
+
+The iOS atoms (`CtaView`, `KiikickTextField`, `SearchBarView`, `NotificationFriendView`, `ListFriendView`, `NotificationCommentView`, `DatePickerView`, `CardSummaryView`, `PerformanceTrendsView`) use the **Primitive** Color Sets directly (`.gray800`, `.gray850`, `.gray900`, `.gray950`, `.gray700`, `.mint500`, `.mint700`, `.red500`) rather than semantic aliases — this is now confirmed correct per the table above (`surface/elevated` really is `gray800`), just not yet wired through named semantic properties. Fine to switch to semantic names on next touch.
 
 ## Spacing — partially verified (`get_variable_defs` on node `241:4076`)
 
@@ -117,21 +129,41 @@ Only these 4 watchOS components have been checked for Variable bindings so far �
 
 ## Components — inventory, verified (Figma node `1:440`, "Assets&Components")
 
-The design library includes a Components page. Check the component definitions before implementing a screen, and reuse matching implementations when available. None of the below have a SwiftUI implementation in this repo yet.
+The design library includes a Components page. Check the component definitions before implementing a screen, and reuse matching implementations when available.
 
 | Figma component | Variant axes / states | Approx. size | Code / Path |
 | ---------------- | ---------------------- | ------------ | ------------ |
-| `cta` (Button)   | `active` (on/off) × `Type` (primary/secondary/sub/destructive/Default) × `size` (L/s) | size L ≈ 352×55(54), size s ≈ 116×46 | not implemented |
+| `cta` (Button)   | `active` (on/off) × `Type` (primary/secondary/sub/destructive/Default) × `size` (L/s) | size L fills width (55/54 tall), size s hugs content (46 tall) | `CtaView` — `KIIKICK/Features/Components/CtaView.swift` |
 | `cta-watch` (watchOS button) | `Type` (primary/destructive) | 147×49 | `CtaWatchView` — `KIIKICK Watch App Watch App/Features/Components/CtaWatchView.swift` |
-| `navi_row`       | no variants seen        | 354×64       | not implemented |
-| `searchbar`      | `State` (default/writing/completed) | 354×52 each | not implemented |
-| `textfield`      | `State` (default/writing/completed/error) | 354×77–78 each | not implemented |
+| `navi_row`       | no variants seen        | 354×64       | `NaviRowView` — `KIIKICK/Features/Components/NaviRowView.swift` (탭 동작을 담지 않은 순수 표시 컴포넌트, 호출부가 `NavigationLink(value:)`로 감싼다; 이번에 만든 인스턴스는 node `241:1583`/`241:1584` 배너 전용이라 정확한 사이즈 재검증 안 됨, 🟡 Gap) |
+| `card_info` (node `259:3099`) | no variants seen | — | `CardInfoView` — `KIIKICK/Features/Components/CardInfoView.swift` (radius 16 / border 1pt는 유사 컴포넌트 유추값, 이번 세션에 재검증 안 됨, 🟡 Gap) |
+| Tab Bar (node `241:916`) | `separateSearch`/`minimized` (bool) × `tabs`(4) × `mode`(Dark) | — | 네이티브 `TabView` 리스타일 — `KIIKICK/Features/View/Main/MainView.swift` (배경 `gray900`/선택색 `mint500`은 이번 세션에 재검증 안 됨, 🟡 Gap) |
+| `searchbar`      | `State` (default/writing/completed) | 354×52 each | `SearchBarView` — `KIIKICK/Features/Components/SearchBarView.swift` |
+| `textfield`      | `State` (default/writing/completed/error) | 354×77–78 each | `KiikickTextField` — `KIIKICK/Features/Components/KiikickTextField.swift` |
 | `sub-watch`      | no variants seen        | 147×52       | `SubWatchView` — `KIIKICK Watch App Watch App/Features/Components/SubWatchView.swift` |
 | `Stepper` (watchOS) | no variants seen     | 156×60       | `StepperWatchView` — `KIIKICK Watch App Watch App/Features/Components/StepperWatchView.swift` |
 | `btn_selection` (watchOS) | no variants seen | 48×32        | `BtnSelectionView` — `KIIKICK Watch App Watch App/Features/Components/BtnSelectionView.swift` |
-| `Performance Trends` chart | `Property 1` = "Quarter chart" (×3 shown) | 362×348 each | not implemented |
-| `logo`           | —                       | 400×200      | not implemented |
+| `Performance Trends` chart | `Property 1` = "Quarter chart" (×3 shown) | 362×348 each | `PerformanceTrendsView` — `KIIKICK/Features/Components/PerformanceTrendsView.swift` (line rendering only — pinch/pan/tap-select from the Figma component description not implemented, see 🟡 Gaps below) |
+| `notification_friend` | `property1` = Default (pending/accepted/rejected text) | 354×auto | `NotificationFriendView` — `KIIKICK/Features/Components/NotificationFriendView.swift` |
+| `notification_comment` | no variants seen | 354×auto | `NotificationCommentView` — `KIIKICK/Features/Components/NotificationCommentView.swift` |
+| `list_friend`    | `waiting` (bool)        | 354×auto     | `ListFriendView` — `KIIKICK/Features/Components/ListFriendView.swift` |
+| `DatePicker`     | `down` (collapsed/expanded) | auto | `DatePickerView` — `KIIKICK/Features/Components/DatePickerView.swift` (expanded state uses native `.wheel` Picker, not a pixel copy of the static mockup — see 🟡 Gaps) |
+| `card_summary`   | no variants seen        | 354×auto     | `CardSummaryView` — `KIIKICK/Features/Components/CardSummaryView.swift` |
+| `comment_thread` (node `353:2288`) | reply nesting (1 level, flat list) | 354×auto | `CommentThreadView` — `KIIKICK/Features/Components/CommentThreadView.swift` (L자 커넥터는 SVG 대신 세로선으로 근사, 🟡 Gap) |
+| `TextfieldComment` (node `355:1324`) | no variants seen | 354×auto | `CommentComposerView` — `KIIKICK/Features/Components/CommentComposerView.swift` |
+| `list_withfriend` (node `371:3739`) | no variants seen | 354×auto | `ListWithFriendView` — `KIIKICK/Features/Components/ListWithFriendView.swift` |
+| `chip` (node `309:2031`) | `selected` (on/off) | 68×38 (hugs content) | `FilterChipView` — `KIIKICK/Features/Components/FilterChipView.swift` (issue #14) |
+| `Avatar / default profile` (node `309:1406`) | no variants seen | 104×104 | `ProfileAvatarView` — `KIIKICK/Features/Components/ProfileAvatarView.swift` (issue #14; icon only, not a Figma-library symbol — see `ic/person` note below) |
+| `logo`           | —                       | 400×200      | `Logo.imageset` — `KIIKICK Global/Assets.xcassets/Logo.imageset/` (SwiftUI wrapper not implemented yet; synced to latest Figma export on 2026-11-04, viewBox changed 400×200 → 396.667×186.667) |
+| `logo_full` (node `492:2405`) | —            | 560×106      | `LogoFull.imageset` — `KIIKICK Global/Assets.xcassets/LogoFull.imageset/` (added 2026-11-04, not yet used in any SwiftUI view) |
 | Icon sizes       | `size` = 8/12/16/20/24/28(`size11`)/28/32/36/40/44 | — | not implemented |
-| Icons            | `ic/pause`, `ic/play`, `ic/search`, `ic/mylocation`, `ic/delete`, `ic/success` | 24–28px | not implemented |
+| Icons            | `ic/pause`, `ic/play`, `ic/search`, `ic/mylocation`, `ic/delete`, `ic/success`, `ic/arrow`, `ic/arrow-down`, `ic/plus`, `ic/info`, `ic/arrow-up`, `ic/new`, `ic/link`, `ic/bell`, `ic/bell_new`, `ic/triangle_l`, `ic/triangle_r`, `ic/flip`, `ic/goal`, `ic/assist` | 21–28px | bundled in `KIIKICK Global/Assets.xcassets/Icon/` (`ic_arrow`, `ic_chevron_down` added for issue #10; `ic/arrow-right` reuses `ic_arrow` — identical SVG path; 12 more icons synced 2026-11-04 — all `template-rendering-intent: template`, tint via `.foregroundStyle(_:)`). `ic_chevron_down` had no `template-rendering-intent` and a stale hardcoded `#00DAC3` fill until the 2026-11-04 sync — `DatePickerView`'s chevron rendered mint instead of tracking the adjacent text color; fixed alongside the asset update (now `.foregroundStyle(.gray50)`). **Not a Figma-library symbol:** `ic_person` — one-off icon from inside the `friend_profile` frame (node `309:1407`), used only by `ProfileAvatarView`, not part of this shared icon set. |
+| `img_profile` (node `309:1294`) | —           | 204×204      | `img_profile_default.imageset` — used by `ListFriendView`/`NotificationFriendView`/`NotificationCommentView` (issue #14) |
+| `Goal` / `Assist` (nodes `371:3957`/`371:3958`) | —    | 160×160 each | `img_goal.imageset` / `img_assist.imageset` — added 2026-11-04, not yet used in any SwiftUI view (likely for issue #16, 골/어시스트 햅틱 피드백) |
+| `img_empty` (node `544:4011`) | —              | 200×200      | `img_empty.imageset` — added 2026-11-04, not yet used in any SwiftUI view (empty-state illustration) |
+| `img_field` (node `556:5059`, top-level canvas symbol, not inside the "Assets" section) | — | 1536×1024 | `img_field.imageset` — added 2026-11-04. 🟡 Gap: this node is a composed illustration (1 photo layer + 5 vector layers — pitch lines, goals, center circle, texture), not a single exportable vector, so it was flattened via `get_screenshot` to one PNG (1536×1020, only 1x captured) instead of reconstructed layer-by-layer. Not yet used in any SwiftUI view. |
+| `start` (node `585:6806`, top-level canvas symbol — a Lottie animation exported via Figma's Lottie plugin, not a static asset) | — | 402×312, 144 frames @ 60fps | `KIIKICK Global/Animations/analyzing.json` — added 2026-11-04 as a bundle resource (not in `Assets.xcassets`; Lottie JSON isn't an image asset type). 🔴 Not renderable yet — this project has no Lottie-rendering dependency (`lottie-ios` or similar) in `project.pbxproj`/`Package.resolved`. Adding that dependency is a separate decision (new third-party package) and wasn't made as part of an asset sync. |
 
 For each component, before implementing: read its exact variant properties, states, text/color styles, Auto Layout direction, sizing (Fixed / Hug / Fill), spacing, padding and radius via `get_design_context` on its specific node id — the table above is an inventory (names, variant axes, approximate sizes), not a full spec. Update the "Code / Path" column with the actual Swift type and repository path once implemented. A Figma component existing does not mean its SwiftUI implementation exists.
+
+`View.gradientForeground(_:)` (`KIIKICK/Features/Components/View+GradientForeground.swift`) replaces the gradient-text headings seen on the Analysis detail screen (issue #17) — exact gradient stops/angle not independently re-verified via `get_variable_defs`, approximated as `mint500`→`mint300` left-to-right (🟡 Gap).

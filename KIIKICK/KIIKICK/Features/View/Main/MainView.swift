@@ -17,28 +17,32 @@ struct MainView: View {
             NavigationStack(path: router.path(for: .home)) {
                 HomeView()
             }
-            .tabItem { Label("홈", systemImage: "house") }
+            .tabItem { Label("홈", systemImage: "house.fill") }
             .tag(AppRouter.AppTab.home)
+            
             NavigationStack(path: router.path(for: .friends)) {
                 FriendsView()
             }
-                .tabItem { Label("친구", systemImage: "figure.2.right.holdinghands") }
+                .tabItem { Label("친구", systemImage: "person.2.fill") }
                 .tag(AppRouter.AppTab.friends)
             NavigationStack(path: router.path(for: .fieldRegister)) {
                 FieldCreationView()
             }
                 .tabItem { Label("운동장", systemImage: "sportscourt") }
                 .tag(AppRouter.AppTab.fieldRegister)
+
             NavigationStack(path: router.path(for: .analysis)) {
                 AnalysisView()
             }
-                .tabItem { Label("분석", systemImage: "document") }
+                .tabItem { Label("분석", systemImage: "chart.bar.fill") }
                 .tag(AppRouter.AppTab.analysis)
+            
             NavigationStack(path: router.path(for: .myPage)) {
                 MyPageView()
             }
                 .tabItem { Label("마이페이지", systemImage: "person.fill") }
                 .tag(AppRouter.AppTab.myPage)
+            
             #if DEBUG
             NavigationStack(path: router.path(for: .devAuth)) {
                 DevAuthView()
@@ -47,6 +51,11 @@ struct MainView: View {
                 .tag(AppRouter.AppTab.devAuth)
             #endif
         }
+        .tint(.mint500)
+        // DESIGN-GAP: 탭바 배경/선택색은 Figma master component(241:916)를 이번 세션에
+        // 재검증하지 못해 gray900/mint500으로 가정했다.
+        .toolbarBackground(Color.gray900, for: .tabBar)
+        .toolbarColorScheme(.dark, for: .tabBar)
     }
 }
 

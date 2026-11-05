@@ -8,8 +8,9 @@
 import SwiftUI
 
 struct ForPreview: View {
-    
+
     @State private var selection: WatchComponents = .btn
+    @State private var stepperCount = 0
 
     enum WatchComponents {
         case btn, cta, progress, stepper, sub
@@ -28,7 +29,7 @@ struct ForPreview: View {
             CtaWatchView(text: "경기 시작", type: .primary, action: {})
             CtaWatchView(text: "경기 종료", type: .destructive, action: {})
             ProgressWatchButton()
-            StepperWatchView()
+            StepperWatchView(count: $stepperCount)
             SubWatchView { }
         }
     }

@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct StepperWatchView: View {
-    
-    @State var count: Int = 0
+
+    @Binding var count: Int
 
     var body: some View {
         HStack(spacing: 25) {
@@ -18,7 +18,7 @@ struct StepperWatchView: View {
             } label: {
                 ZStack {
                     Capsule()
-                        .fill(.colorBrandPrimary)
+                        .fill(.brandGray)
                     Image(systemName: "minus")
                         .font(.system(size: 24, weight: .medium))
                         .foregroundStyle(.colorTextPrimary)
@@ -51,5 +51,5 @@ struct StepperWatchView: View {
 }
 
 #Preview("Apple Watch Series 9 - 45mm") {
-    StepperWatchView()
+    StepperWatchView(count: .constant(0))
 }

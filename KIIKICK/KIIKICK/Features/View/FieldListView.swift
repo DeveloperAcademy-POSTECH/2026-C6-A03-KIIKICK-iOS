@@ -9,10 +9,19 @@ import SwiftData
 struct FieldListView: View {
     @Query(sort: \Field.name) private var fields: [Field]
     @State private var isPresentingRegistration = false
-    
+    var onSelect: ((Field) -> Void)? = nil
+
     var body: some View {
         List(fields) { field in
-            Text(field.name)
+            if let onSelect {
+                Button {
+                    onSelect(field)
+                } label: {
+                    Text(field.name)
+                }
+            } else {
+                Text(field.name)
+            }
         }
         .overlay {
             if fields.isEmpty {

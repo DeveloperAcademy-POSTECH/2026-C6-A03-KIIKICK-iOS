@@ -74,9 +74,9 @@ struct WorkoutDetailView: View {
         )
         
         do {
-            _ = try await WorkoutAPI.upload(userId: userId, payload: payload)
+            _ = try await NetworkService.provider.request(with: WorkoutPayloadEndpoints.upload(userId: userId, payload: payload))
             sendState = .success
-        } catch let APIError.serverError(_, message) {
+        } catch let NetworkError.invalidHttpStatusCode(_, message) {
             sendState = .failure(message ?? "전송에 실패했습니다.")
         } catch {
             sendState = .failure("전송에 실패했습니다.")

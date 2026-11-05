@@ -12,7 +12,7 @@ extension Date {
         let startOfSelf = calendar.startOfDay(for: self)
         let startOfToday = calendar.startOfDay(for: now)
         let daysAgo = calendar.dateComponents([.day], from: startOfSelf, to: startOfToday).day ?? 0
-
+        
         switch daysAgo {
         case 0: return "오늘"
         case 1: return "어제"

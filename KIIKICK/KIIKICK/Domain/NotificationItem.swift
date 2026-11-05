@@ -16,13 +16,13 @@ struct NotificationItem: Identifiable, Hashable {
     let id: UUID
     let date: Date
     let kind: NotificationKind
-
+    
     init(id: UUID = UUID(), date: Date, kind: NotificationKind) {
         self.id = id
         self.date = date
         self.kind = kind
     }
-
+    
     var filterCategory: NotificationFilter {
         switch kind {
         case .friendRequest: .friendRequest

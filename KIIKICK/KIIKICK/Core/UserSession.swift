@@ -11,24 +11,24 @@ import Foundation
 enum UserSession {
     private static let userIdKey = "userId"
     private static let nicknameKey = "nickname"
-
+    
     static var userId: UUID? {
         guard let value = KeychainService.get(key: userIdKey) else { return nil }
         return UUID(uuidString: value)
     }
-
+    
     static var isLoggedIn: Bool { userId != nil }
-
+    
     static var nickname: String? {
         get { UserDefaults.standard.string(forKey: nicknameKey) }
         set { UserDefaults.standard.set(newValue, forKey: nicknameKey) }
     }
-
+    
     static func save(userId: UUID, nickname: String) {
         _ = KeychainService.add(key: userIdKey, value: userId.uuidString)
         self.nickname = nickname
     }
-
+    
     static func clear() {
         _ = KeychainService.delete(key: userIdKey)
         UserDefaults.standard.removeObject(forKey: nicknameKey)

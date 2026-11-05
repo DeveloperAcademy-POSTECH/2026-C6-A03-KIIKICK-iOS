@@ -74,19 +74,19 @@ final class ProviderImpl: Provider {
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let raw = try container.decode(String.self)
-
+            
             let parts = raw.split(separator: ".", maxSplits: 1)
             let wholePart = String(parts[0])
-
+            
             let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(identifier: "UTC")
+            formatter.locale = Locale(identifier: "ko_KR")
+            formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
             formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-
+            
             guard let baseDate = formatter.date(from: wholePart) else {
                 throw DecodingError.dataCorruptedError(in: container, debugDescription: "날짜 형식을 해석할 수 없습니다: \(raw)")
             }
-
+            
             guard parts.count == 2, let fraction = Double("0.\(parts[1])") else {
                 return baseDate
             }

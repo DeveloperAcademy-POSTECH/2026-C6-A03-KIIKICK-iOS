@@ -25,11 +25,6 @@ struct MainView: View {
             }
                 .tabItem { Label("친구", systemImage: "person.2.fill") }
                 .tag(AppRouter.AppTab.friends)
-            NavigationStack(path: router.path(for: .fieldRegister)) {
-                FieldCreationView()
-            }
-                .tabItem { Label("운동장", systemImage: "sportscourt") }
-                .tag(AppRouter.AppTab.fieldRegister)
 
             NavigationStack(path: router.path(for: .analysis)) {
                 AnalysisView()

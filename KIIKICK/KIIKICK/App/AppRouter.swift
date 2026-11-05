@@ -18,7 +18,7 @@ final class AppRouter {
     }
     
     enum AppTab: Hashable {
-        case home, friends, fieldRegister, analysis, myPage
+        case home, friends, analysis, myPage
         #if DEBUG
         case devAuth
         #endif

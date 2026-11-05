@@ -49,8 +49,7 @@ struct MatchStatusHeaderView: View {
                 CtaView(text: "경기 준비하기", type: .primary, action: onPrepareMatch)
                 NavigationLink(value: record) {
                     NaviRowView(
-                        // DESIGN-GAP: 실제 ic/new 에셋 미다운로드, SF Symbol로 대체.
-                        icon: Image(systemName: "sparkles"),
+                        icon: Image("ic_new"),
                         text: "새로운 분석지가 도착했어요! 확인해보세요"
                     )
                 }

@@ -12,19 +12,25 @@ import SwiftUI
 /// 탭 동작은 넣지 않은 순수 표시용 행이다 — 호출부가 `NavigationLink(value:)`나 `Button`으로
 /// 감싸는 방식이 다를 수 있어서(예: 화면 이동 vs. 다른 액션) 여기서 탭 제스처를 고정하지 않았다.
 struct NaviRowView: View {
-    let icon: Image
+    var icon: Image? = nil
     let text: String
+    var textStyle: KiikickTextStyle = .body4R
+    var textColor: Color = .colorTextPrimary
+    /// 기본은 화면 이동을 뜻하는 화살표(`ic_arrow`). 외부 링크로 나가는 행은 `ic_link`로 바꿔 쓴다.
+    var trailingIconName: String = "ic_arrow"
 
     var body: some View {
         HStack(spacing: 12) {
-            icon
-                .resizable()
-                .frame(width: 28, height: 28)
+            if let icon {
+                icon
+                    .resizable()
+                    .frame(width: 28, height: 28)
+            }
             Text(text)
-                .textStyle(.body4R)
-                .foregroundStyle(.colorTextPrimary)
+                .textStyle(textStyle)
+                .foregroundStyle(textColor)
             Spacer()
-            Image("ic_arrow")
+            Image(trailingIconName)
                 .resizable()
                 .frame(width: 24, height: 24)
         }

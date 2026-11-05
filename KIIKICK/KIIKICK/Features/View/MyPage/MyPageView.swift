@@ -2,87 +2,98 @@
 //  MyPageView.swift
 //  KIIKICK
 //
-//  Created by Seungjun Lee on 10/29/26.
+//  Figma node 392:4459 "my" (iOS 화면)
 //
 
 import SwiftUI
 
 struct MyPageView: View {
-    @Environment(AppRouter.self) private var router
-    
-    @State private var nickname: String = UserSession.nickname ?? ""
-    @State private var isSubmitting = false
-    @State private var errorMessage: String?
-    @State private var isPresentingDeleteConfirm = false
-    
+    private let nickname = UserSession.nickname ?? ""
+
     var body: some View {
-        VStack(spacing: 16) {
-            Text("마이페이지")
-                .font(.title2)
-                .fontWeight(.bold)
-            
-            TextField("닉네임", text: $nickname)
-                .textFieldStyle(.roundedBorder)
-            
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(.red)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 32) {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("프로필")
+                        .font(.title2SB)
+                        .foregroundStyle(.gray50)
+
+                    NavigationLink {
+                        EditProfileView()
+                    } label: {
+                        HStack(spacing: 16) {
+                            Image("img_profile_default")
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 56, height: 56)
+                                .clipShape(Circle())
+
+                            Text(nickname)
+                                .font(.title2SB)
+                                .foregroundStyle(.gray50)
+
+                            Spacer()
+
+                            Text("프로필 수정")
+                                .font(.label4SB)
+                                .foregroundStyle(.mint500)
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(height: 96)
+                        .background(Color.gray850, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("설정")
+                        .font(.title2SB)
+                        .foregroundStyle(.gray50)
+
+                    VStack(spacing: 12) {
+                        NavigationLink {
+                            SetNotificationView()
+                        } label: {
+                            NaviRowView(text: "알림 설정", textStyle: .title3M)
+                        }
+                        .buttonStyle(.plain)
+
+                        NavigationLink {
+                            AccountView()
+                        } label: {
+                            NaviRowView(text: "계정 관리", textStyle: .title3M)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("고객 지원")
+                        .font(.title2SB)
+                        .foregroundStyle(.gray50)
+
+                    Button {
+                        if let url = URL(string: "https://open.kakao.com/o/g72l1tVi") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        NaviRowView(text: "문의하기", textStyle: .title3M, trailingIconName: "ic_link")
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            
-            Button("닉네임 저장") {
-                Task { await updateNickname() }
-            }
-            .disabled(nickname.trimmingCharacters(in: .whitespaces).isEmpty || isSubmitting)
-            .buttonStyle(.borderedProminent)
-            
-            Button("회원 탈퇴", role: .destructive) {
-                isPresentingDeleteConfirm = true
-            }
-            .disabled(isSubmitting)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
         }
-        .padding()
-        .confirmationDialog("정말 탈퇴하시겠어요?", isPresented: $isPresentingDeleteConfirm, titleVisibility: .visible) {
-            Button("탈퇴", role: .destructive) {
-                Task { await deleteAccount() }
-            }
-            Button("취소", role: .cancel) {}
-        }
-    }
-    
-    private func updateNickname() async {
-        guard let userId = UserSession.userId else { return }
-        isSubmitting = true
-        errorMessage = nil
-        defer { isSubmitting = false }
-        
-        do {
-            let user = try await NetworkService.provider.request(with: UserEndpoints.update(userId: userId, nickname: nickname))
-            UserSession.nickname = user.nickname
-        } catch let NetworkError.invalidHttpStatusCode(_, message) {
-            errorMessage = message ?? "닉네임 수정에 실패했습니다. 다시 시도해주세요."
-        } catch {
-            errorMessage = "닉네임 수정에 실패했습니다. 다시 시도해주세요."
-        }
-    }
-    
-    private func deleteAccount() async {
-        guard let userId = UserSession.userId else { return }
-        isSubmitting = true
-        errorMessage = nil
-        defer { isSubmitting = false }
-        
-        do {
-            try await NetworkService.provider.requestWithoutResponse(with: UserEndpoints.delete(userId: userId))
-            UserSession.clear()
-            router.didSignOut()
-        } catch {
-            errorMessage = "탈퇴에 실패했습니다. 다시 시도해주세요."
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color.gray950)
+        .navigationTitle("마이페이지")
     }
 }
 
 #Preview {
-    MyPageView()
-        .environment(AppRouter())
+    NavigationStack {
+        MyPageView()
+    }
+    .environment(AppRouter())
 }

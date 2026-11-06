@@ -4,11 +4,10 @@
 //
 //  Created by Seungjun Lee on 10/27/26.
 //
-//  Figma node 256:1018 "newfield_02" (경기장 등록 — 사각형 조정 단계)
-//
-//  DESIGN-GAP: 골대 박스의 정확한 치수(폭/깊이 비율)는 Figma 목업(526:3137 "Match Map
-//  Viewer")이 단순화된 미리보기라 실측값이 없어, 실제 축구 페널티 박스 비율(가로 약
-//  59%, 세로 약 16%)을 근사해 하드코딩했다.
+//  핀 4개를 순서대로 탭해서 찍는 방식. 직사각형 프레임 UI(ResizableRectangleView)는
+//  제거했다 — 직사각형으로 맞추는 건 FieldRectangleCorrector가 등록 시점에 한 번만
+//  계산한다(docs/superpowers/specs/2026-11-06-field-rectangle-correction-design.md).
+//  핀 순서(1→2번)가 보정 기준각을 정하므로 그대로 화면에 안내한다.
 //
 //  DESIGN-GAP: "운동시설만" 검색되게 거르는 기준은 Figma에 명시가 없어, MapKit의
 //  POI 카테고리 중 운동 시설에 해당하는 .stadium / .fitnessCenter 두 개로 좁혔다.
@@ -18,6 +17,10 @@
 //  대신 검색 영역을 한국으로 한정해서(region 힌트 + countryCode 필터) 한국 내
 //  운동시설만 나오게 했고, 그 데이터 자체가 한글 이름으로 등록돼 있어 실질적으로
 //  한글 결과가 나온다.
+//
+//  DESIGN-GAP: 돋보기는 진짜 픽셀 확대가 아니라, 드래그 중인 핀의 실시간 좌표를
+//  중심으로 한 별도의 작은 확대 Map을 띄우는 방식이다 — MapKit이 특정 화면 영역만
+//  픽셀 단위로 확대해 보여주는 API를 제공하지 않기 때문.
 //
 
 import MapKit
@@ -31,26 +34,39 @@ struct FieldCreationView: View {
     /// 등록(저장 또는 취소)이 끝나 이 플로우 전체를 닫아야 할 때 호출된다.
     var onFinish: () -> Void = {}
 
-    @State private var rect = CGRect(x: 100, y: 200, width: 200, height: 150)
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var locationManager = CLLocationManager()
-    @State private var coordinates: [CLLocationCoordinate2D] = []
     @State private var goNext = false
+
+    /// 사용자가 찍은 순서 그대로의 원본 핀. 최대 4개. 순서가 보정 기준각(1→2번 핀 방향)을
+    /// 정하므로 이 배열의 순서를 절대 재정렬하지 않는다.
+    @State private var rawPinCoordinates: [CLLocationCoordinate2D] = []
+
+    @State private var draggingIndex: Int?
+    @State private var isMagnifying = false
+    @State private var magnifierCoordinate: CLLocationCoordinate2D?
+    @State private var magnifierAnchor: CGPoint = .zero
 
     @State private var searchQuery: String = ""
     @State private var searchResults: [MKMapItem] = []
     @State private var searchTask: Task<Void, Never>?
     @State private var isPresentingResults = false
 
-    /// 사각형 네 꼭짓점을 위경도로 변환할 때의 기준 순서. 저장되는 cornerA~D도 항상
-    /// 이 시계방향 순서를 따른다 (AGENTS.md: 핀 순서를 일관된 규칙으로 저장).
-    private let cornerOrder: [Corner] = [.topLeading, .topTrailing, .bottomTrailing, .bottomLeading]
-
     private let sportsFacilityFilter = MKPointOfInterestFilter(including: [.stadium, .fitnessCenter])
     private let southKoreaRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 35.9, longitude: 128.2),
         span: MKCoordinateSpan(latitudeDelta: 6.0, longitudeDelta: 7.5)
     )
+
+    private var guidanceText: String {
+        switch rawPinCoordinates.count {
+        case 0: return "운동장 꼭짓점을 탭해서 1번째 핀을 찍어주세요"
+        case 1: return "2번째 핀을 찍어주세요 — 1→2번 방향이 터치라인 기준이 돼요"
+        case 2: return "3번째 핀을 찍어주세요"
+        case 3: return "4번째 핀을 찍어주세요"
+        default: return "핀을 눌러서 꾹 누르면 돋보기로 미세 조정할 수 있어요"
+        }
+    }
 
     var body: some View {
         MapReader { proxy in
@@ -63,10 +79,11 @@ struct FieldCreationView: View {
 
                 // Map이 ignoresSafeArea라서 이것도 똑같이 걸어둬야 한다 — 그렇지 않으면
                 // 이 뷰의 로컬 좌표 원점이 safe area(상태바+네비바)만큼 Map과 어긋나서,
-                // proxy.convert(_:from: .local)이 사각형의 실제 화면 위치와 다른 엉뚱한
+                // proxy.convert(_:from: .local)이 핀의 실제 화면 위치와 다른 엉뚱한
                 // 위경도를 돌려준다(저장/스냅샷에서 "좌표가 밀린" 것처럼 보이는 원인).
-                ResizableRectangleView(rect: $rect)
+                pinField(proxy: proxy)
                     .ignoresSafeArea()
+                    .coordinateSpace(.named("pinField"))
 
                 VStack(spacing: 0) {
                     SearchBarView(
@@ -78,9 +95,8 @@ struct FieldCreationView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
 
-                    // TEMP: 사용자 요청으로 임시로 안내 문구를 숨김
-                    // infoBanner
-                    //     .padding(.top, 12)
+                    guidanceBanner
+                        .padding(.top, 12)
 
                     Spacer()
                 }
@@ -88,6 +104,9 @@ struct FieldCreationView: View {
                 VStack {
                     Spacer()
                     HStack {
+                        if !rawPinCoordinates.isEmpty {
+                            undoButton
+                        }
                         Spacer()
                         myLocationButton
                     }
@@ -95,12 +114,19 @@ struct FieldCreationView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 88)
 
-                CtaView(text: "추가", type: .primary, size: .large) {
-                    coordinates = cornerOrder.compactMap { proxy.convert($0.point(in: rect), from: .local) }
-                    goNext = coordinates.count == 4
+                CtaView(text: "추가", type: .primary, size: .large, isActive: rawPinCoordinates.count == 4) {
+                    goNext = rawPinCoordinates.count == 4
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
+
+                if isMagnifying, let magnifierCoordinate {
+                    MagnifierView(coordinate: magnifierCoordinate)
+                        .frame(width: 110, height: 110)
+                        .position(x: magnifierAnchor.x, y: max(70, magnifierAnchor.y - 90))
+                        .allowsHitTesting(false)
+                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                }
             }
         }
         .navigationTitle("경기장 등록")
@@ -119,7 +145,7 @@ struct FieldCreationView: View {
             search(for: newValue)
         }
         .navigationDestination(isPresented: $goNext) {
-            FieldNamingView(coordinates: coordinates, onFinish: onFinish)
+            FieldNamingView(rawCoordinates: rawPinCoordinates, onFinish: onFinish)
         }
         .sheet(isPresented: $isPresentingResults) {
             searchResultsSheet
@@ -129,13 +155,107 @@ struct FieldCreationView: View {
         }
     }
 
-    private var infoBanner: some View {
-        Text("경기장을 사각형에 맞추어 조정해주세요")
+    // MARK: - 핀 필드 (탭으로 배치, 드래그로 조정)
+
+    @ViewBuilder
+    private func pinField(proxy: MapProxy) -> some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0, coordinateSpace: .named("pinField"))
+                        .onEnded { value in
+                            guard rawPinCoordinates.count < 4,
+                                  let coordinate = proxy.convert(value.location, from: .local) else { return }
+                            rawPinCoordinates.append(coordinate)
+                        }
+                )
+
+            pinLoopPreview(proxy: proxy)
+                .allowsHitTesting(false)
+
+            ForEach(Array(rawPinCoordinates.enumerated()), id: \.offset) { index, coordinate in
+                if let point = proxy.convert(coordinate, to: .local) {
+                    pinHandle(number: index + 1)
+                        .position(point)
+                        .gesture(pinDragGesture(index: index, proxy: proxy))
+                }
+            }
+        }
+    }
+
+    private func pinDragGesture(index: Int, proxy: MapProxy) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.35)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("pinField")))
+            .onChanged { value in
+                switch value {
+                case .first(true):
+                    draggingIndex = index
+                    withAnimation(.easeOut(duration: 0.15)) { isMagnifying = true }
+                case .second(true, let drag):
+                    guard let drag, let coordinate = proxy.convert(drag.location, from: .local) else { return }
+                    rawPinCoordinates[index] = coordinate
+                    magnifierCoordinate = coordinate
+                    magnifierAnchor = drag.location
+                default:
+                    break
+                }
+            }
+            .onEnded { _ in
+                draggingIndex = nil
+                withAnimation(.easeIn(duration: 0.15)) { isMagnifying = false }
+            }
+    }
+
+    private func pinLoopPreview(proxy: MapProxy) -> some View {
+        Canvas { context, _ in
+            let points = rawPinCoordinates.compactMap { proxy.convert($0, to: .local) }
+            guard points.count >= 2 else { return }
+            var path = Path()
+            path.move(to: points[0])
+            points.dropFirst().forEach { path.addLine(to: $0) }
+            if points.count == 4 { path.closeSubpath() }
+
+            context.stroke(path, with: .color(.mint500.opacity(0.8)), style: StrokeStyle(lineWidth: 2, dash: [6, 5]))
+            if points.count == 4 {
+                context.fill(path, with: .color(.mint500.opacity(0.12)))
+            }
+        }
+    }
+
+    private func pinHandle(number: Int) -> some View {
+        ZStack {
+            Circle().fill(Color.gray950).frame(width: 28, height: 28)
+            Circle().stroke(Color.mint500, lineWidth: 3).frame(width: 28, height: 28)
+            Text("\(number)")
+                .font(.caption1M)
+                .foregroundStyle(.mint500)
+        }
+        .contentShape(Circle().inset(by: -8)) // 터치 영역을 살짝 넓힘
+    }
+
+    private var undoButton: some View {
+        Button {
+            _ = rawPinCoordinates.popLast()
+        } label: {
+            Image(systemName: "arrow.uturn.backward")
+                .font(.system(size: 16))
+                .foregroundStyle(.gray50)
+                .frame(width: 44, height: 44)
+                .background(Color.gray900, in: Circle())
+                .overlay(Circle().stroke(Color.gray700, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var guidanceBanner: some View {
+        Text(guidanceText)
             .font(.body3R)
             .foregroundStyle(.gray50)
             .frame(maxWidth: .infinity)
             .padding(10)
             .background(Color.gray950)
+            .padding(.horizontal, 16)
     }
 
     private var myLocationButton: some View {
@@ -231,249 +351,29 @@ struct FieldCreationView: View {
     }
 }
 
-private enum Corner: CaseIterable {
-    case topLeading, topTrailing, bottomLeading, bottomTrailing
-
-    var sign: (x: CGFloat, y: CGFloat) {
-        switch self {
-        case .topLeading:     (-1, -1)
-        case .topTrailing:    ( 1, -1)
-        case .bottomLeading:  (-1,  1)
-        case .bottomTrailing: ( 1,  1)
-        }
-    }
-
-    func point(in rect: CGRect) -> CGPoint {
-        CGPoint(x: sign.x < 0 ? rect.minX : rect.maxX,
-                y: sign.y < 0 ? rect.minY : rect.maxY)
-    }
-}
-
-private enum Edge: CaseIterable {
-    case top, bottom, leading, trailing
-
-    var sign: (x: CGFloat, y: CGFloat) {
-
-        switch self {
-        case .top:      ( 0, -1)
-        case .bottom:   ( 0,  1)
-        case .leading:  (-1,  0)
-        case .trailing: ( 1,  0)
-        }
-    }
-
-    var isHorizontal: Bool { self == .top || self == .bottom }
-
-    func point(in rect: CGRect) -> CGPoint {
-        CGPoint(x: rect.midX + rect.width  / 2 * sign.x,
-                y: rect.midY + rect.height / 2 * sign.y)
-    }
-}
-
-
-// MARK: - Pitch markings (골대 + 중앙선)
-
-/// 가로/세로 중 더 짧은 한 쌍의 변을 골라인으로 삼는다. 사각형을 조정해 가로세로가
-/// 뒤바뀌면(위 아래 변이 양 옆보다 짧아지면) 골대와 중앙선도 자동으로 90도 돌아간다.
-private extension CGRect {
-    var goalEdges: (Edge, Edge) {
-        width >= height ? (.leading, .trailing) : (.top, .bottom)
-    }
-}
-
-private func centerLinePath(in rect: CGRect) -> Path {
-    var path = Path()
-    let (a, _) = rect.goalEdges
-    // 중앙선은 골대가 있는 변과 수직인, 골대가 없는 변의 중점끼리 잇는다.
-    let (from, to) = a.isHorizontal
-        ? (Edge.leading.point(in: rect), Edge.trailing.point(in: rect))
-        : (Edge.top.point(in: rect), Edge.bottom.point(in: rect))
-    path.move(to: from)
-    path.addLine(to: to)
-    return path
-}
-
-private func goalBoxPath(at edge: Edge, in rect: CGRect) -> Path {
-    let span = (edge.isHorizontal ? rect.width : rect.height) * 0.5
-    let depth = (edge.isHorizontal ? rect.height : rect.width) * 0.16
-    let center = edge.point(in: rect)
-    let sign = edge.sign
-    let half = span / 2
-
-    var path = Path()
-    if edge.isHorizontal {
-        let inwardY = center.y - sign.y * depth
-        path.move(to: CGPoint(x: center.x - half, y: center.y))
-        path.addLine(to: CGPoint(x: center.x - half, y: inwardY))
-        path.addLine(to: CGPoint(x: center.x + half, y: inwardY))
-        path.addLine(to: CGPoint(x: center.x + half, y: center.y))
-    } else {
-        let inwardX = center.x - sign.x * depth
-        path.move(to: CGPoint(x: center.x, y: center.y - half))
-        path.addLine(to: CGPoint(x: inwardX, y: center.y - half))
-        path.addLine(to: CGPoint(x: inwardX, y: center.y + half))
-        path.addLine(to: CGPoint(x: center.x, y: center.y + half))
-    }
-    return path
-}
-
-private struct PitchMarkingsView: View {
-    let rect: CGRect
-
-    var body: some View {
-        let (goalA, goalB) = rect.goalEdges
-        Canvas { context, _ in
-            let style = StrokeStyle(lineWidth: 2, lineCap: .round)
-            context.stroke(centerLinePath(in: rect), with: .color(.white.opacity(0.9)), style: style)
-            context.stroke(goalBoxPath(at: goalA, in: rect), with: .color(.white.opacity(0.9)), style: style)
-            context.stroke(goalBoxPath(at: goalB, in: rect), with: .color(.white.opacity(0.9)), style: style)
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-// MARK: - Handle shapes (Photos 앱 크롭 UI 참고)
-
-private struct CornerBracket: Shape {
-    let corner: Corner
-    let armLength: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        let c = CGPoint(x: rect.midX, y: rect.midY)
-        let dx = corner.sign.x * armLength
-        let dy = corner.sign.y * armLength
-        var path = Path()
-        path.move(to: CGPoint(x: c.x, y: c.y + dy))
-        path.addLine(to: c)
-        path.addLine(to: CGPoint(x: c.x + dx, y: c.y))
-        return path
-    }
-}
-
-private struct EdgeTick: Shape {
-    let edge: Edge
-    let length: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        let c = CGPoint(x: rect.midX, y: rect.midY)
-        var path = Path()
-        if edge.isHorizontal {
-            path.move(to: CGPoint(x: c.x - length / 2, y: c.y))
-            path.addLine(to: CGPoint(x: c.x + length / 2, y: c.y))
-        } else {
-            path.move(to: CGPoint(x: c.x, y: c.y - length / 2))
-            path.addLine(to: CGPoint(x: c.x, y: c.y + length / 2))
-        }
-        return path
-    }
-}
-
-// MARK: - View
-
-struct ResizableRectangleView: View {
-
-    // 사걱형의 크기와 위치 정보
-    @Binding var rect: CGRect
-    @State private var startRect: CGRect?
-
-    private let minSize: CGFloat = 40
-    private let handleTouchSize: CGFloat = 44
+/// 핀을 꾹 눌러 드래그하는 동안 뜨는 확대경. 실제 화면을 픽셀 단위로 확대하는 게
+/// 아니라, 드래그 중인 좌표를 중심으로 한 별도의 작은 확대 Map을 띄우는 방식이다.
+private struct MagnifierView: View {
+    let coordinate: CLLocationCoordinate2D
 
     var body: some View {
         ZStack {
-            Rectangle()
-                .fill(Color.white.opacity(0.2))
-                .overlay(Rectangle().stroke(Color.white, lineWidth: 3))
-                .frame(width: rect.width, height: rect.height)
-                .position(x: rect.midX, y: rect.midY)
-                .gesture(drag)
+            Map(position: .constant(.region(
+                MKCoordinateRegion(center: coordinate, latitudinalMeters: 30, longitudinalMeters: 30)
+            )), interactionModes: [])
+            .mapStyle(.imagery(elevation: .realistic))
+            .allowsHitTesting(false)
 
-            PitchMarkingsView(rect: rect)
-
-            ForEach(Corner.allCases, id: \.self) { corner in
-                CornerBracket(corner: corner, armLength: 14)
-                    .stroke(Color.mint500, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
-                    .frame(width: handleTouchSize, height: handleTouchSize)
-                    .contentShape(Rectangle())
-                    .position(corner.point(in: rect))
-                    .gesture(resizeGesture(corner: corner))
-            }
-            ForEach(Edge.allCases, id: \.self) { edge in
-                EdgeTick(edge: edge, length: 20)
-                    .stroke(Color.mint500, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .frame(width: handleTouchSize, height: handleTouchSize)
-                    .contentShape(Rectangle())
-                    .position(edge.point(in: rect))
-                    .gesture(resizeGesture(edge: edge))
-            }
+            Circle()
+                .stroke(Color.mint500, lineWidth: 2)
+                .frame(width: 10, height: 10)
+            Rectangle().fill(Color.mint500).frame(width: 1.5, height: 16)
+            Rectangle().fill(Color.mint500).frame(width: 16, height: 1.5)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .coordinateSpace(.named("canvas"))
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Color.white, lineWidth: 3))
+        .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
     }
-
-    // MARK: - Gesture
-
-    var drag: some Gesture {
-        DragGesture()
-          .onChanged { gesture in
-              if startRect == nil { startRect = rect }
-              guard let start = startRect else { return }
-              rect = reposition(start, translation: gesture.translation)
-          }
-          .onEnded { gesture in
-            startRect = nil
-          }
-      }
-
-    private func resizeGesture(corner: Corner) -> some Gesture {
-        DragGesture(coordinateSpace: .named("canvas"))
-            .onChanged { value in
-                if startRect == nil { startRect = rect } // 드래그 시작 시 rect를 한 번만 저장
-                guard let start = startRect else { return }
-                rect = resized(start, sign: corner.sign, translation: value.translation)
-            }
-            .onEnded { _ in
-                startRect = nil
-            }
-    }
-
-    private func resizeGesture(edge: Edge) -> some Gesture {
-        DragGesture(coordinateSpace: .named("canvas"))
-            .onChanged { value in
-                if startRect == nil { startRect = rect }
-                guard let start = startRect else { return }
-                rect = resized(start, sign: edge.sign, translation: value.translation)
-            }
-            .onEnded { _ in
-                startRect = nil
-            }
-    }
-
-    private func reposition(_ start: CGRect, translation: CGSize) -> CGRect {
-        start.offsetBy(dx: translation.width, dy: translation.height)
-    }
-
-    private func resized(_ start: CGRect, sign s: (x: CGFloat, y: CGFloat), translation: CGSize) -> CGRect {
-        // 1. 반대편 변 = 고정 변
-        let fixedX = s.x < 0 ? start.maxX : start.minX
-        let fixedY = s.y < 0 ? start.maxY : start.minY
-
-        // 2. 드래그 방향을 부호로 보정해서 새 크기 계산 (최소 크기 보장)
-        let width  = max(minSize, start.width  + translation.width  * s.x)
-        let height = max(minSize, start.height + translation.height * s.y)
-
-        // 3. 고정점 기준으로 origin 다시 계산
-        let x = s.x < 0 ? fixedX - width  : fixedX
-        let y = s.y < 0 ? fixedY - height : fixedY
-
-        return CGRect(x: x, y: y, width: width, height: height)
-    }
-}
-
-extension CGSize {
-  static func + (lhs: Self, rhs: Self) -> Self {
-    CGSize(width: lhs.width + rhs.width, height: lhs.height + rhs.height)
-  }
 }
 
 #Preview {

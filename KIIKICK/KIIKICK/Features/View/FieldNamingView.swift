@@ -4,8 +4,9 @@
 //
 //  Figma node 256:1094 "newfield_03"(경기장 이름 입력) / 259:1467 "Alert"(등록 취소 확인) — iOS 화면
 //
-//  "selected field" 썸네일(256:1132)은 방금 그린 사각형 영역을 실제 지도 스냅샷으로
-//  렌더링해서 보여준다(MKMapSnapshotter). 스냅샷 위에 운동장 경계선도 같이 그린다.
+//  "selected field" 썸네일(256:1132)은 보정된 직사각형 영역을 실제 지도 스냅샷으로
+//  렌더링해서 보여준다(MKMapSnapshotter). 스냅샷 위에 보정된 운동장 경계선을 겹쳐 그려서,
+//  사용자가 찍은 원본 핀이 아니라 실제로 저장될 직사각형을 미리 보여준다.
 //
 
 import CoreLocation
@@ -17,7 +18,8 @@ struct FieldNamingView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    let coordinates: [CLLocationCoordinate2D]
+    /// 사용자가 찍은 순서 그대로의 원본 4핀. 보정된 직사각형은 이 값으로부터 계산한다.
+    let rawCoordinates: [CLLocationCoordinate2D]
     var onFinish: () -> Void = {}
 
     @State private var fieldName: String = ""
@@ -25,6 +27,10 @@ struct FieldNamingView: View {
     @State private var snapshotImage: UIImage?
 
     private let thumbnailSize = CGSize(width: 354, height: 138)
+
+    private var correctedCoordinates: [CLLocationCoordinate2D] {
+        FieldRectangleCorrector.correct(rawCorners: rawCoordinates)
+    }
 
     private var canSave: Bool {
         !fieldName.trimmingCharacters(in: .whitespaces).isEmpty
@@ -67,7 +73,7 @@ struct FieldNamingView: View {
             Text("입력한 내용은 저장되지 않아요.")
         }
         .task {
-            snapshotImage = await Self.renderSnapshot(for: coordinates, size: thumbnailSize)
+            snapshotImage = await Self.renderSnapshot(for: correctedCoordinates, size: thumbnailSize)
         }
     }
 
@@ -99,13 +105,18 @@ struct FieldNamingView: View {
     }
 
     private func save() {
-        guard coordinates.count == 4 else { return }
+        guard rawCoordinates.count == 4 else { return }
+        let corrected = correctedCoordinates
         let field = Field(
             name: fieldName,
-            cornerA: FieldCorner(latitude: coordinates[0].latitude, longitude: coordinates[0].longitude),
-            cornerB: FieldCorner(latitude: coordinates[1].latitude, longitude: coordinates[1].longitude),
-            cornerC: FieldCorner(latitude: coordinates[2].latitude, longitude: coordinates[2].longitude),
-            cornerD: FieldCorner(latitude: coordinates[3].latitude, longitude: coordinates[3].longitude)
+            cornerA: FieldCorner(latitude: corrected[0].latitude, longitude: corrected[0].longitude),
+            cornerB: FieldCorner(latitude: corrected[1].latitude, longitude: corrected[1].longitude),
+            cornerC: FieldCorner(latitude: corrected[2].latitude, longitude: corrected[2].longitude),
+            cornerD: FieldCorner(latitude: corrected[3].latitude, longitude: corrected[3].longitude),
+            rawCornerA: FieldCorner(latitude: rawCoordinates[0].latitude, longitude: rawCoordinates[0].longitude),
+            rawCornerB: FieldCorner(latitude: rawCoordinates[1].latitude, longitude: rawCoordinates[1].longitude),
+            rawCornerC: FieldCorner(latitude: rawCoordinates[2].latitude, longitude: rawCoordinates[2].longitude),
+            rawCornerD: FieldCorner(latitude: rawCoordinates[3].latitude, longitude: rawCoordinates[3].longitude)
         )
         modelContext.insert(field)
         try? modelContext.save()
@@ -158,7 +169,7 @@ struct FieldNamingView: View {
 
 #Preview {
     NavigationStack {
-        FieldNamingView(coordinates: [
+        FieldNamingView(rawCoordinates: [
             CLLocationCoordinate2D(latitude: 37.5, longitude: 127.0),
             CLLocationCoordinate2D(latitude: 37.5, longitude: 127.001),
             CLLocationCoordinate2D(latitude: 37.501, longitude: 127.001),

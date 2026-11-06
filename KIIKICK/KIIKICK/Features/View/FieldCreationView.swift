@@ -8,7 +8,8 @@
 //
 //  DESIGN-GAP: 골대 박스의 정확한 치수(폭/깊이 비율)는 Figma 목업(526:3137 "Match Map
 //  Viewer")이 단순화된 미리보기라 실측값이 없어, 실제 축구 페널티 박스 비율(가로 약
-//  59%, 세로 약 16%)을 근사해 하드코딩했다.
+//  59%, 세로 약 16%)을 근사해 하드코딩했다. 지도 위치를 검색하는 searchbar(256:1027)는
+//  이번 범위에 포함하지 않았다 — 별도 기능(주소 검색)이라 "추가" 버튼 중심으로만 구현.
 //
 
 import MapKit
@@ -17,13 +18,16 @@ import SwiftUI
 
 struct FieldCreationView: View {
 
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
+    /// 등록(저장 또는 취소)이 끝나 이 플로우 전체를 닫아야 할 때 호출된다.
+    var onFinish: () -> Void = {}
+
     @State private var rect = CGRect(x: 100, y: 200, width: 200, height: 150)
-    @State private var fieldName: String = ""
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var locationManager = CLLocationManager()
+    @State private var coordinates: [CLLocationCoordinate2D] = []
+    @State private var goNext = false
 
     /// 사각형 네 꼭짓점을 위경도로 변환할 때의 기준 순서. 저장되는 cornerA~D도 항상
     /// 이 시계방향 순서를 따른다 (AGENTS.md: 핀 순서를 일관된 규칙으로 저장).
@@ -40,38 +44,43 @@ struct FieldCreationView: View {
 
                 ResizableRectangleView(rect: $rect)
 
-                VStack(spacing: 12) {
-                    TextField("경기장 이름을 지어주세요", text: $fieldName)
-                        .textFieldStyle(.roundedBorder)
-
-                    Button("저장") { save(using: proxy) }
-                        .disabled(fieldName.trimmingCharacters(in: .whitespaces).isEmpty)
-                        .buttonStyle(.borderedProminent)
+                VStack {
+                    infoBanner
+                    Spacer()
                 }
-                .padding()
-                .background(.ultraThinMaterial)
+
+                CtaView(text: "추가", type: .primary, size: .large) {
+                    coordinates = cornerOrder.compactMap { proxy.convert($0.point(in: rect), from: .local) }
+                    goNext = coordinates.count == 4
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
             }
         }
         .navigationTitle("경기장 등록")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .tabBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismiss() } label: { Image(systemName: "chevron.backward") }
+            }
+        }
         .onAppear {
             locationManager.requestWhenInUseAuthorization()
         }
+        .navigationDestination(isPresented: $goNext) {
+            FieldNamingView(coordinates: coordinates, onFinish: onFinish)
+        }
     }
 
-    private func save(using proxy: MapProxy) {
-        let coordinates = cornerOrder.compactMap { proxy.convert($0.point(in: rect), from: .local) }
-        guard coordinates.count == 4 else { return }
-        let field = Field(
-            name: fieldName,
-            cornerA: FieldCorner(latitude: coordinates[0].latitude, longitude: coordinates[0].longitude),
-            cornerB: FieldCorner(latitude: coordinates[1].latitude, longitude: coordinates[1].longitude),
-            cornerC: FieldCorner(latitude: coordinates[2].latitude, longitude: coordinates[2].longitude),
-            cornerD: FieldCorner(latitude: coordinates[3].latitude, longitude: coordinates[3].longitude)
-        )
-        modelContext.insert(field)
-        try? modelContext.save()
-        dismiss()
+    private var infoBanner: some View {
+        Text("경기장을 사각형에 맞추어 조정해주세요")
+            .font(.body3R)
+            .foregroundStyle(.gray50)
+            .frame(maxWidth: .infinity)
+            .padding(10)
+            .background(Color.gray950)
     }
 }
 
@@ -321,5 +330,7 @@ extension CGSize {
 }
 
 #Preview {
-    FieldCreationView()
+    NavigationStack {
+        FieldCreationView()
+    }
 }

@@ -10,16 +10,13 @@ import SwiftUI
 struct ListFriendView: View {
     let name: String
     var profileImage: Image? = nil
+    var avatarUrl: URL? = nil
     var isWaiting: Bool = false
 
     var body: some View {
         HStack(spacing: 8) {
             HStack(spacing: 12) {
-                (profileImage ?? Image("img_profile_default"))
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 48, height: 48)
-                    .clipShape(Circle())
+                ProfilePhotoView(url: avatarUrl, size: 48, preview: profileImage)
                 Text(name)
                     .font(.body1M)
                     .foregroundStyle(.gray50)

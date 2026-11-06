@@ -17,11 +17,13 @@ enum FriendshipStatus: Hashable {
 struct UserProfile: Identifiable, Hashable {
     let id: UUID
     let nickname: String
+    let avatarUrl: URL?
     var status: FriendshipStatus
 
-    init(id: UUID = UUID(), nickname: String, status: FriendshipStatus) {
+    init(id: UUID = UUID(), nickname: String, status: FriendshipStatus, avatarUrl: URL? = nil) {
         self.id = id
         self.nickname = nickname
         self.status = status
+        self.avatarUrl = avatarUrl
     }
 }

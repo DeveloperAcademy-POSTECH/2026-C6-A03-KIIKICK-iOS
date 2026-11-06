@@ -13,17 +13,22 @@ protocol Requestable {
     var method: HTTPMethod { get }
     var queryParameters: Encodable? { get }
     var bodyParameters: Encodable? { get }
+    var bodyData: Data? { get }
     var headers: [String: String]? { get }
     var sampleData: Data? { get }
 }
 
 extension Requestable {
+    var bodyData: Data? { nil }
+
     func getUrlRequest() throws -> URLRequest {
         let url = try url()
         var urlRequest = URLRequest(url: url)
         
         // httpBody
-        if let bodyParameters = try bodyParameters?.toDictionary() {
+        if let bodyData {
+            urlRequest.httpBody = bodyData
+        } else if let bodyParameters = try bodyParameters?.toDictionary() {
             if !bodyParameters.isEmpty {
                 urlRequest.httpBody = try? JSONSerialization.data(withJSONObject: bodyParameters)
             }

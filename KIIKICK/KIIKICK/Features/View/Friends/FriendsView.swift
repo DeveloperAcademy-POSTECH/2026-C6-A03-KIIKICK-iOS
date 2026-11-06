@@ -35,7 +35,7 @@ struct FriendsView: View {
                         Button {
                             pushedProfile = friend
                         } label: {
-                            ListFriendView(name: friend.nickname)
+                            ListFriendView(name: friend.nickname, avatarUrl: friend.avatarUrl)
                         }
                         .buttonStyle(.plain)
                     }

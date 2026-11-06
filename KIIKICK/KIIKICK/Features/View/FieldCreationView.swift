@@ -8,8 +8,11 @@
 //
 //  DESIGN-GAP: 골대 박스의 정확한 치수(폭/깊이 비율)는 Figma 목업(526:3137 "Match Map
 //  Viewer")이 단순화된 미리보기라 실측값이 없어, 실제 축구 페널티 박스 비율(가로 약
-//  59%, 세로 약 16%)을 근사해 하드코딩했다. 지도 위치를 검색하는 searchbar(256:1027)는
-//  이번 범위에 포함하지 않았다 — 별도 기능(주소 검색)이라 "추가" 버튼 중심으로만 구현.
+//  59%, 세로 약 16%)을 근사해 하드코딩했다.
+//
+//  DESIGN-GAP: "운동시설만" 검색되게 거르는 기준은 Figma에 명시가 없어, MapKit의
+//  POI 카테고리 중 운동 시설에 해당하는 .stadium / .fitnessCenter 두 개로 좁혔다.
+//  (.park는 범위가 너무 넓어 제외)
 //
 
 import MapKit
@@ -29,9 +32,15 @@ struct FieldCreationView: View {
     @State private var coordinates: [CLLocationCoordinate2D] = []
     @State private var goNext = false
 
+    @State private var searchQuery: String = ""
+    @State private var searchResults: [MKMapItem] = []
+    @State private var searchTask: Task<Void, Never>?
+
     /// 사각형 네 꼭짓점을 위경도로 변환할 때의 기준 순서. 저장되는 cornerA~D도 항상
     /// 이 시계방향 순서를 따른다 (AGENTS.md: 핀 순서를 일관된 규칙으로 저장).
     private let cornerOrder: [Corner] = [.topLeading, .topTrailing, .bottomTrailing, .bottomLeading]
+
+    private let sportsFacilityFilter = MKPointOfInterestFilter(including: [.stadium, .fitnessCenter])
 
     var body: some View {
         MapReader { proxy in
@@ -44,8 +53,25 @@ struct FieldCreationView: View {
 
                 ResizableRectangleView(rect: $rect)
 
-                VStack {
+                VStack(spacing: 0) {
+                    VStack(spacing: 8) {
+                        SearchBarView(
+                            text: $searchQuery,
+                            placeholder: "운동장 검색",
+                            state: searchQuery.isEmpty ? .default : .writing,
+                            onClear: { searchQuery = ""; searchResults = [] }
+                        )
+
+                        if !searchResults.isEmpty {
+                            searchResultsList
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
                     infoBanner
+                        .padding(.top, 12)
+
                     Spacer()
                 }
 
@@ -69,6 +95,9 @@ struct FieldCreationView: View {
         .onAppear {
             locationManager.requestWhenInUseAuthorization()
         }
+        .onChange(of: searchQuery) { _, newValue in
+            search(for: newValue)
+        }
         .navigationDestination(isPresented: $goNext) {
             FieldNamingView(coordinates: coordinates, onFinish: onFinish)
         }
@@ -81,6 +110,63 @@ struct FieldCreationView: View {
             .frame(maxWidth: .infinity)
             .padding(10)
             .background(Color.gray950)
+    }
+
+    private var searchResultsList: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(searchResults.enumerated()), id: \.offset) { index, item in
+                Button {
+                    select(item)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.name ?? "")
+                            .font(.body1M)
+                            .foregroundStyle(.gray50)
+                        if let address = item.placemark.title {
+                            Text(address)
+                                .font(.caption1M)
+                                .foregroundStyle(.gray400)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+
+                if index != searchResults.count - 1 {
+                    Rectangle().fill(Color.gray800).frame(height: 1)
+                }
+            }
+        }
+        .background(Color.gray900, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func search(for query: String) {
+        searchTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
+            searchResults = []
+            return
+        }
+        searchTask = Task {
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = trimmed
+            request.resultTypes = .pointOfInterest
+            request.pointOfInterestFilter = sportsFacilityFilter
+            guard let response = try? await MKLocalSearch(request: request).start(),
+                  !Task.isCancelled else { return }
+            searchResults = response.mapItems
+        }
+    }
+
+    private func select(_ item: MKMapItem) {
+        withAnimation {
+            cameraPosition = .region(
+                MKCoordinateRegion(center: item.placemark.coordinate, latitudinalMeters: 300, longitudinalMeters: 300)
+            )
+        }
+        searchQuery = item.name ?? ""
+        searchResults = []
     }
 }
 
@@ -136,7 +222,7 @@ private extension CGRect {
 
 private func centerLinePath(in rect: CGRect) -> Path {
     var path = Path()
-    let (a, b) = rect.goalEdges
+    let (a, _) = rect.goalEdges
     // 중앙선은 골대가 있는 변과 수직인, 골대가 없는 변의 중점끼리 잇는다.
     let (from, to) = a.isHorizontal
         ? (Edge.leading.point(in: rect), Edge.trailing.point(in: rect))

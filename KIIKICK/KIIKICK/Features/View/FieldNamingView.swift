@@ -4,13 +4,12 @@
 //
 //  Figma node 256:1094 "newfield_03"(경기장 이름 입력) / 259:1467 "Alert"(등록 취소 확인) — iOS 화면
 //
-//  DESIGN-GAP: "selected field" 썸네일(256:1132)은 배경 이미지를 많이 확대/크롭해서
-//  쓰는데, 정확한 확대/크롭 비율이 Figma 목업에만 있고 디자인 토큰으로 노출되어 있지
-//  않아 재현하지 않았다. 대신 같은 자산(img_field)을 썸네일 전체에 채우는 것으로
-//  근사했다.
+//  "selected field" 썸네일(256:1132)은 방금 그린 사각형 영역을 실제 지도 스냅샷으로
+//  렌더링해서 보여준다(MKMapSnapshotter). 스냅샷 위에 운동장 경계선도 같이 그린다.
 //
 
 import CoreLocation
+import MapKit
 import SwiftData
 import SwiftUI
 
@@ -23,6 +22,9 @@ struct FieldNamingView: View {
 
     @State private var fieldName: String = ""
     @State private var isPresentingLeaveConfirm = false
+    @State private var snapshotImage: UIImage?
+
+    private let thumbnailSize = CGSize(width: 354, height: 138)
 
     private var canSave: Bool {
         !fieldName.trimmingCharacters(in: .whitespaces).isEmpty
@@ -64,24 +66,21 @@ struct FieldNamingView: View {
         } message: {
             Text("입력한 내용은 저장되지 않아요.")
         }
+        .task {
+            snapshotImage = await Self.renderSnapshot(for: coordinates, size: thumbnailSize)
+        }
     }
 
     private var thumbnail: some View {
         ZStack {
-            Image("img_field")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-
-            HStack(spacing: 8) {
-                Image(systemName: "soccerball")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.mint500)
-                    .padding(6)
-                    .background(Color.gray950, in: Circle())
-                    .overlay(Circle().stroke(Color.mint500, lineWidth: 1))
-                Text("축구장")
-                    .font(.title4SB)
-                    .foregroundStyle(.gray50)
+            if let snapshotImage {
+                Image(uiImage: snapshotImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Color.gray800
+                ProgressView()
+                    .tint(.mint500)
             }
         }
         .frame(height: 138)
@@ -111,6 +110,49 @@ struct FieldNamingView: View {
         modelContext.insert(field)
         try? modelContext.save()
         onFinish()
+    }
+
+    /// 네 꼭짓점이 모두 보이는 영역을 지도 스냅샷으로 렌더링하고, 그 위에 운동장 경계선을
+    /// 겹쳐 그린다.
+    private static func renderSnapshot(for coordinates: [CLLocationCoordinate2D], size: CGSize) async -> UIImage? {
+        guard coordinates.count == 4 else { return nil }
+
+        let lats = coordinates.map(\.latitude)
+        let lons = coordinates.map(\.longitude)
+        let center = CLLocationCoordinate2D(
+            latitude: (lats.min()! + lats.max()!) / 2,
+            longitude: (lons.min()! + lons.max()!) / 2
+        )
+        let paddingFactor = 2.2
+        let span = MKCoordinateSpan(
+            latitudeDelta: max((lats.max()! - lats.min()!) * paddingFactor, 0.0012),
+            longitudeDelta: max((lons.max()! - lons.min()!) * paddingFactor, 0.0012)
+        )
+
+        let options = MKMapSnapshotter.Options()
+        options.region = MKCoordinateRegion(center: center, span: span)
+        options.size = size
+        options.mapType = .satellite
+        options.showsBuildings = true
+
+        guard let snapshot = try? await MKMapSnapshotter(options: options).start() else { return nil }
+
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            snapshot.image.draw(at: .zero)
+
+            let points = coordinates.map { snapshot.point(for: $0) }
+            guard let first = points.first else { return }
+            let path = UIBezierPath()
+            path.move(to: first)
+            points.dropFirst().forEach { path.addLine(to: $0) }
+            path.close()
+
+            UIColor.white.withAlphaComponent(0.2).setFill()
+            path.fill()
+            UIColor.white.setStroke()
+            path.lineWidth = 3
+            path.stroke()
+        }
     }
 }
 

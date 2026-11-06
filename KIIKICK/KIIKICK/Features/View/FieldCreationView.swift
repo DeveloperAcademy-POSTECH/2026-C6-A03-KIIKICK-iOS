@@ -40,6 +40,7 @@ struct FieldCreationView: View {
     @State private var searchQuery: String = ""
     @State private var searchResults: [MKMapItem] = []
     @State private var searchTask: Task<Void, Never>?
+    @State private var isPresentingResults = false
 
     /// 사각형 네 꼭짓점을 위경도로 변환할 때의 기준 순서. 저장되는 cornerA~D도 항상
     /// 이 시계방향 순서를 따른다 (AGENTS.md: 핀 순서를 일관된 규칙으로 저장).
@@ -68,23 +69,18 @@ struct FieldCreationView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    VStack(spacing: 8) {
-                        SearchBarView(
-                            text: $searchQuery,
-                            placeholder: "운동장 검색",
-                            state: searchQuery.isEmpty ? .default : .writing,
-                            onClear: { searchQuery = ""; searchResults = [] }
-                        )
-
-                        if !searchResults.isEmpty {
-                            searchResultsList
-                        }
-                    }
+                    SearchBarView(
+                        text: $searchQuery,
+                        placeholder: "운동장 검색",
+                        state: searchQuery.isEmpty ? .default : .writing,
+                        onClear: { searchQuery = ""; searchResults = []; isPresentingResults = false }
+                    )
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
 
-                    infoBanner
-                        .padding(.top, 12)
+                    // TEMP: 사용자 요청으로 임시로 안내 문구를 숨김
+                    // infoBanner
+                    //     .padding(.top, 12)
 
                     Spacer()
                 }
@@ -125,6 +121,12 @@ struct FieldCreationView: View {
         .navigationDestination(isPresented: $goNext) {
             FieldNamingView(coordinates: coordinates, onFinish: onFinish)
         }
+        .sheet(isPresented: $isPresentingResults) {
+            searchResultsSheet
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(Color.gray950)
+        }
     }
 
     private var infoBanner: some View {
@@ -150,33 +152,47 @@ struct FieldCreationView: View {
         .buttonStyle(.plain)
     }
 
-    private var searchResultsList: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(searchResults.enumerated()), id: \.offset) { index, item in
-                Button {
-                    select(item)
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.name ?? "")
-                            .font(.body1M)
-                            .foregroundStyle(.gray50)
-                        if let address = item.placemark.title {
-                            Text(address)
-                                .font(.caption1M)
-                                .foregroundStyle(.gray400)
+    private var searchResultsSheet: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("검색 결과 \(searchResults.count)")
+                .font(.label4SB)
+                .foregroundStyle(.gray400)
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
+                .padding(.bottom, 12)
+
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(Array(searchResults.enumerated()), id: \.offset) { index, item in
+                        Button {
+                            select(item)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.name ?? "")
+                                    .font(.body1M)
+                                    .foregroundStyle(.gray50)
+                                if let address = item.placemark.title {
+                                    Text(address)
+                                        .font(.caption1M)
+                                        .foregroundStyle(.gray400)
+                                }
+                            }
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 16)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+
+                        if index != searchResults.count - 1 {
+                            Rectangle().fill(Color.gray800).frame(height: 1)
+                                .padding(.horizontal, 16)
                         }
                     }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-
-                if index != searchResults.count - 1 {
-                    Rectangle().fill(Color.gray800).frame(height: 1)
                 }
             }
         }
-        .background(Color.gray900, in: RoundedRectangle(cornerRadius: 12))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color.gray950)
     }
 
     private func search(for query: String) {
@@ -184,6 +200,7 @@ struct FieldCreationView: View {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else {
             searchResults = []
+            isPresentingResults = false
             return
         }
         searchTask = Task {
@@ -196,11 +213,14 @@ struct FieldCreationView: View {
                   !Task.isCancelled else { return }
             // region은 결과를 "그쪽으로 치우치게" 할 뿐 한국 밖 결과를 완전히 막지는
             // 않아서, countryCode로 한 번 더 걸러 한국 내 결과만 남긴다.
-            searchResults = response.mapItems.filter { $0.placemark.countryCode == "KR" }
+            let results = response.mapItems.filter { $0.placemark.countryCode == "KR" }
+            searchResults = results
+            isPresentingResults = !results.isEmpty
         }
     }
 
     private func select(_ item: MKMapItem) {
+        isPresentingResults = false
         withAnimation {
             cameraPosition = .region(
                 MKCoordinateRegion(center: item.placemark.coordinate, latitudinalMeters: 300, longitudinalMeters: 300)

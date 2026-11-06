@@ -14,6 +14,11 @@
 //  POI 카테고리 중 운동 시설에 해당하는 .stadium / .fitnessCenter 두 개로 좁혔다.
 //  (.park는 범위가 너무 넓어 제외)
 //
+//  DESIGN-GAP: MKLocalSearch.Request에는 검색 결과 언어를 강제하는 파라미터가 없다.
+//  대신 검색 영역을 한국으로 한정해서(region 힌트 + countryCode 필터) 한국 내
+//  운동시설만 나오게 했고, 그 데이터 자체가 한글 이름으로 등록돼 있어 실질적으로
+//  한글 결과가 나온다.
+//
 
 import MapKit
 import SwiftData
@@ -41,6 +46,10 @@ struct FieldCreationView: View {
     private let cornerOrder: [Corner] = [.topLeading, .topTrailing, .bottomTrailing, .bottomLeading]
 
     private let sportsFacilityFilter = MKPointOfInterestFilter(including: [.stadium, .fitnessCenter])
+    private let southKoreaRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 35.9, longitude: 128.2),
+        span: MKCoordinateSpan(latitudeDelta: 6.0, longitudeDelta: 7.5)
+    )
 
     var body: some View {
         MapReader { proxy in
@@ -51,7 +60,12 @@ struct FieldCreationView: View {
                 .mapStyle(.imagery(elevation: .realistic))
                 .ignoresSafeArea()
 
+                // Map이 ignoresSafeArea라서 이것도 똑같이 걸어둬야 한다 — 그렇지 않으면
+                // 이 뷰의 로컬 좌표 원점이 safe area(상태바+네비바)만큼 Map과 어긋나서,
+                // proxy.convert(_:from: .local)이 사각형의 실제 화면 위치와 다른 엉뚱한
+                // 위경도를 돌려준다(저장/스냅샷에서 "좌표가 밀린" 것처럼 보이는 원인).
                 ResizableRectangleView(rect: $rect)
+                    .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     VStack(spacing: 8) {
@@ -74,6 +88,16 @@ struct FieldCreationView: View {
 
                     Spacer()
                 }
+
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        myLocationButton
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 88)
 
                 CtaView(text: "추가", type: .primary, size: .large) {
                     coordinates = cornerOrder.compactMap { proxy.convert($0.point(in: rect), from: .local) }
@@ -110,6 +134,20 @@ struct FieldCreationView: View {
             .frame(maxWidth: .infinity)
             .padding(10)
             .background(Color.gray950)
+    }
+
+    private var myLocationButton: some View {
+        Button {
+            withAnimation { cameraPosition = .userLocation(fallback: .automatic) }
+        } label: {
+            Image(systemName: "location.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(.gray50)
+                .frame(width: 44, height: 44)
+                .background(Color.gray900, in: Circle())
+                .overlay(Circle().stroke(Color.gray700, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     private var searchResultsList: some View {
@@ -153,9 +191,12 @@ struct FieldCreationView: View {
             request.naturalLanguageQuery = trimmed
             request.resultTypes = .pointOfInterest
             request.pointOfInterestFilter = sportsFacilityFilter
+            request.region = southKoreaRegion
             guard let response = try? await MKLocalSearch(request: request).start(),
                   !Task.isCancelled else { return }
-            searchResults = response.mapItems
+            // region은 결과를 "그쪽으로 치우치게" 할 뿐 한국 밖 결과를 완전히 막지는
+            // 않아서, countryCode로 한 번 더 걸러 한국 내 결과만 남긴다.
+            searchResults = response.mapItems.filter { $0.placemark.countryCode == "KR" }
         }
     }
 

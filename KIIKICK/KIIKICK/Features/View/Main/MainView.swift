@@ -25,7 +25,7 @@ struct MainView: View {
             }
                 .tabItem { Label("친구", systemImage: "person.2.fill") }
                 .tag(AppRouter.AppTab.friends)
-            
+
             NavigationStack(path: router.path(for: .analysis)) {
                 AnalysisView()
             }

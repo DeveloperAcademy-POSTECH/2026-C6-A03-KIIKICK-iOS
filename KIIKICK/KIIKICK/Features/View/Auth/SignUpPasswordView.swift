@@ -4,14 +4,16 @@
 //
 //  Figma node 575:9724 "signup_02" (iOS 화면, 2/4단계) — 비밀번호 설정 + 확인
 //
-//  DESIGN-GAP: 비밀번호를 서버에 저장하는 API가 아직 없어(Auth API 변경 예정),
-//  복잡도 검사는 전부 클라이언트에서만 이뤄지고 실제로 어디에도 전송되지 않는다.
+//  비밀번호 자체는 이 단계에서 서버로 보내지 않는다 — registrationToken과 함께
+//  맨 마지막 단계(SignUpProfileView)에서 AuthEndpoints.signup으로 한 번에 제출된다.
 //
 
 import SwiftUI
 
 struct SignUpPasswordView: View {
     @Environment(\.dismiss) private var dismiss
+
+    let registrationToken: String
 
     @State private var password: String = ""
     @State private var confirmPassword: String = ""
@@ -72,7 +74,7 @@ struct SignUpPasswordView: View {
             }
         }
         .navigationDestination(isPresented: $goNext) {
-            SignUpNicknameView()
+            SignUpNicknameView(registrationToken: registrationToken, password: password)
         }
     }
 
@@ -132,7 +134,7 @@ struct SignUpPasswordView: View {
 
 #Preview {
     NavigationStack {
-        SignUpPasswordView()
+        SignUpPasswordView(registrationToken: "preview-token")
             .environment(AppRouter())
     }
 }

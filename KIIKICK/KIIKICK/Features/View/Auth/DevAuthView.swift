@@ -29,6 +29,11 @@ struct DevAuthView: View {
             }
             .buttonStyle(.bordered)
 
+            NavigationLink("API 테스트") {
+                NetworkTestView()
+            }
+            .buttonStyle(.bordered)
+
             Spacer()
         }
         .padding()

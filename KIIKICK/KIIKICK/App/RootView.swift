@@ -23,6 +23,7 @@ struct RootView: View {
             }
         }
         .animation(.default, value: router.flow)
+        .dismissKeyboardOnTap()
         .onAppear {
             Task {
                 // sleep(1)

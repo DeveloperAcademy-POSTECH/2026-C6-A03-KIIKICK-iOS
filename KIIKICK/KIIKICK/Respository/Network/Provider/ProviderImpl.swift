@@ -55,7 +55,7 @@ final class ProviderImpl: Provider {
             throw NetworkError.unknownError
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            let message = (try? JSONDecoder().decode(ServerErrorBody.self, from: data))?.message
+            let message = (try? JSONDecoder().decode(ServerErrorBody.self, from: data))?.error.message
                 ?? String(data: data, encoding: .utf8)
             throw NetworkError.invalidHttpStatusCode(httpResponse.statusCode, message: message)
         }
@@ -96,6 +96,10 @@ final class ProviderImpl: Provider {
     }()
 }
 
+/// 공통 오류 응답은 {"error": {"message": ...}, "meta": {...}} 형태로 message가
+/// error 아래 중첩돼 있다(common.md). 과거엔 message가 최상위에 있다고 잘못 가정해서
+/// 디코딩이 항상 실패하고 원문 JSON이 그대로 에러 메시지로 쓰였다.
 private struct ServerErrorBody: Decodable {
-    let message: String
+    struct ErrorDetail: Decodable { let message: String }
+    let error: ErrorDetail
 }

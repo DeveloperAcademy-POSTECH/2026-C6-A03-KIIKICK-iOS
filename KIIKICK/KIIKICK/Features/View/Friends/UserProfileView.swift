@@ -20,11 +20,13 @@ struct UserProfileView: View {
     @State private var year = Calendar.current.component(.year, from: Date())
     @State private var month = Calendar.current.component(.month, from: Date())
     let nickname: String
+    let avatarUrl: URL?
     var onAddFriend: () -> Void = {}
     var onRemoveFriend: () -> Void = {}
 
     init(user: UserProfile, onAddFriend: @escaping () -> Void = {}, onRemoveFriend: @escaping () -> Void = {}) {
         self.nickname = user.nickname
+        self.avatarUrl = user.avatarUrl
         self._status = State(initialValue: user.status)
         self.onAddFriend = onAddFriend
         self.onRemoveFriend = onRemoveFriend
@@ -34,11 +36,7 @@ struct UserProfileView: View {
         ScrollView {
             VStack(spacing: 0) {
                 VStack(spacing: 24) {
-                    Image("img_profile_default")
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 100, height: 100)
-                        .clipShape(Circle())
+                    ProfilePhotoView(url: avatarUrl, size: 100)
                     Text(nickname)
                         .font(.head2SB)
                         .foregroundStyle(.gray50)

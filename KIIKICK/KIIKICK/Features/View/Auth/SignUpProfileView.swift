@@ -4,12 +4,6 @@
 //
 //  Figma node 575:9884 "signup_04"(사진 설정, 4/4단계) / 575:9916 "signup_05"(환영 메시지) — iOS 화면
 //
-//  DESIGN-GAP: 사진은 EditProfileView와 동일하게 로컬 PhotosPicker 미리보기만 가능하고
-//  서버에 업로드되지 않는다(UserResponse에 사진 필드가 없음). 회원가입 API도 아직 없어
-//  (Auth API 변경 예정) "가입 완료"는 실제 계정을 만들지 않고, 환영 화면을 보여준 뒤
-//  로그인과 동일하게 mock 토큰만 저장하고 메인으로 진입시킨다.
-//
-
 import SwiftUI
 import PhotosUI
 
@@ -19,7 +13,11 @@ struct SignUpProfileView: View {
     let nickname: String
 
     @State private var selectedPhotoItem: PhotosPickerItem?
-    @State private var selectedPhoto: Image?
+    @State private var selectedPhoto: ProfilePhoto?
+    @State private var avatarUrl: URL?
+    @State private var isLoadingPhoto = false
+    @State private var isSubmitting = false
+    @State private var photoError: String?
     @State private var isWelcoming = false
 
     var body: some View {
@@ -32,12 +30,19 @@ struct SignUpProfileView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: isWelcoming ? .center : .top)
         .background(Color.gray950)
-        .onChange(of: selectedPhotoItem) { _, newItem in
-            Task {
-                guard let newItem, let data = try? await newItem.loadTransferable(type: Data.self),
-                      let uiImage = UIImage(data: data) else { return }
-                selectedPhoto = Image(uiImage: uiImage)
+        .task(id: selectedPhotoItem) {
+            guard let item = selectedPhotoItem else { return }
+            isLoadingPhoto = true
+            do {
+                let photo = try await ProfilePhoto.load(item)
+                guard !Task.isCancelled else { return }
+                selectedPhoto = photo
+                photoError = nil
+            } catch {
+                guard !Task.isCancelled else { return }
+                photoError = "선택한 사진을 불러오지 못했어요"
             }
+            isLoadingPhoto = false
         }
     }
 
@@ -57,20 +62,13 @@ struct SignUpProfileView: View {
 
             VStack(spacing: 20) {
                 PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                    ZStack {
-                        if let selectedPhoto {
-                            selectedPhoto
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } else {
-                            Image("img_profile_default")
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        }
-                    }
-                    .frame(width: 112, height: 112)
-                    .clipShape(Circle())
+                    ProfilePhotoView(
+                        url: avatarUrl,
+                        size: 112,
+                        preview: selectedPhoto.map { Image(uiImage: $0.image) }
+                    )
                 }
+                .disabled(isSubmitting)
 
                 VStack(spacing: 8) {
                     Text("사진 선택")
@@ -85,12 +83,23 @@ struct SignUpProfileView: View {
 
             Spacer()
 
-            CtaView(text: "가입 완료", type: .primary, size: .large) {
-                withAnimation { isWelcoming = true }
-                Task {
-                    try? await Task.sleep(for: .seconds(1.2))
-                    completeSignUp()
+            if let message = photoError {
+                Text(message)
+                    .font(.caption1M)
+                    .foregroundStyle(.red)
+
+                if selectedPhoto != nil {
+                    Button("사진 없이 계속") {
+                        selectedPhotoItem = nil
+                        selectedPhoto = nil
+                        photoError = nil
+                    }
+                    .disabled(isSubmitting)
                 }
+            }
+
+            CtaView(text: "가입 완료", type: .primary, size: .large, isActive: !isSubmitting && !isLoadingPhoto) {
+                Task { await completeSignUp() }
             }
         }
         .padding(.horizontal, 24)
@@ -103,25 +112,18 @@ struct SignUpProfileView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button { dismiss() } label: { Image(systemName: "chevron.backward") }
+                    .disabled(isSubmitting)
             }
         }
     }
 
     private var welcomeContent: some View {
         VStack(spacing: 40) {
-            ZStack {
-                if let selectedPhoto {
-                    selectedPhoto
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } else {
-                    Image("img_profile_default")
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                }
-            }
-            .frame(width: 112, height: 112)
-            .clipShape(Circle())
+            ProfilePhotoView(
+                url: avatarUrl,
+                size: 112,
+                preview: selectedPhoto.map { Image(uiImage: $0.image) }
+            )
 
             Text("환영합니다\n\(nickname)!")
                 .font(.head1B)
@@ -133,9 +135,30 @@ struct SignUpProfileView: View {
         .navigationBarBackButtonHidden(true)
     }
 
-    private func completeSignUp() {
-        UserSession.saveToken(UUID().uuidString)
+    private func completeSignUp() async {
+        guard !isSubmitting, !isLoadingPhoto else { return }
+        isSubmitting = true
+        photoError = nil
+        defer { isSubmitting = false }
+
+        if let token = UserSession.accessToken {
+            if let selectedPhoto {
+                do {
+                    let response = try await NetworkService.provider.request(with: ProfileEndpoints.uploadAvatar(selectedPhoto.jpeg, token: token))
+                    avatarUrl = response.data.avatarUrl
+                } catch {
+                    photoError = "프로필 사진을 저장하지 못했어요. 다시 시도해 주세요"
+                    return
+                }
+            }
+        } else {
+            // 실제 가입 API가 연결되기 전에는 사진을 선택 화면에서만 미리 본다.
+            UserSession.saveToken(UUID().uuidString)
+        }
+
         UserSession.nickname = nickname
+        withAnimation { isWelcoming = true }
+        try? await Task.sleep(for: .seconds(1.2))
         router.didLogIn()
     }
 }

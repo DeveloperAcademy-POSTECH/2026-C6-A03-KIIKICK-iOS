@@ -4,10 +4,6 @@
 //
 //  Figma node 392:4477 "editProfile", 392:4629 "Alert"(나가기 확인) — iOS 화면
 //
-//  DESIGN-GAP: 프로필 사진은 로컬 PhotosPicker로 미리보기만 가능하다. 서버에 사진을 올리는
-//  API가 아직 없어(UserResponse에 사진 필드 자체가 없음) 선택한 사진은 저장되지 않는다.
-//
-
 import SwiftUI
 import PhotosUI
 
@@ -19,17 +15,22 @@ struct EditProfileView: View {
     @State private var saveErrorMessage: String?
     @State private var isPresentingLeaveConfirm = false
     @State private var selectedPhotoItem: PhotosPickerItem?
-    @State private var selectedPhoto: Image?
+    @State private var selectedPhoto: ProfilePhoto?
+    @State private var avatarUrl: URL?
+    @State private var shouldRemovePhoto = false
+    @State private var isLoadingPhoto = false
 
-    private let originalNickname: String
+    @State private var originalNickname: String
 
     init() {
         let current = UserSession.nickname ?? ""
         _nickname = State(initialValue: current)
-        originalNickname = current
+        _originalNickname = State(initialValue: current)
     }
 
-    private var hasUnsavedChanges: Bool { nickname != originalNickname }
+    private var hasUnsavedChanges: Bool {
+        nickname != originalNickname || selectedPhoto != nil || shouldRemovePhoto
+    }
 
     private var validationError: String? {
         if nickname.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -58,23 +59,28 @@ struct EditProfileView: View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(spacing: 16) {
                 PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                    ZStack {
-                        if let selectedPhoto {
-                            selectedPhoto
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } else {
-                            Image("img_profile_default")
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        }
-                    }
-                    .frame(width: 99, height: 99)
-                    .clipShape(Circle())
+                    ProfilePhotoView(
+                        url: shouldRemovePhoto ? nil : avatarUrl,
+                        size: 99,
+                        preview: selectedPhoto.map { Image(uiImage: $0.image) }
+                    )
                 }
+                .disabled(isSubmitting || UserSession.accessToken == nil)
+
                 Text("프로필 사진 변경")
                     .font(.caption1M)
                     .foregroundStyle(.mint500)
+
+                if selectedPhoto != nil || (avatarUrl != nil && !shouldRemovePhoto) {
+                    Button("사진 제거", role: .destructive) {
+                        selectedPhotoItem = nil
+                        selectedPhoto = nil
+                        isLoadingPhoto = false
+                        shouldRemovePhoto = avatarUrl != nil
+                    }
+                    .font(.caption1M)
+                    .disabled(isSubmitting)
+                }
             }
             .frame(maxWidth: .infinity)
 
@@ -87,12 +93,13 @@ struct EditProfileView: View {
                     state: fieldState,
                     errorMessage: displayedError ?? ""
                 )
+                .disabled(isSubmitting)
                 .onChange(of: nickname) { saveErrorMessage = nil }
             }
 
             Spacer()
 
-            CtaView(text: "저장", type: .primary, isActive: validationError == nil && !isSubmitting) {
+            CtaView(text: "저장", type: .primary, isActive: hasUnsavedChanges && validationError == nil && !isSubmitting && !isLoadingPhoto) {
                 Task { await save() }
             }
         }
@@ -111,6 +118,7 @@ struct EditProfileView: View {
                 } label: {
                     Image(systemName: "chevron.backward")
                 }
+                .disabled(isSubmitting)
             }
         }
         .alert("프로필 수정을 그만둘까요?", isPresented: $isPresentingLeaveConfirm) {
@@ -119,12 +127,26 @@ struct EditProfileView: View {
         } message: {
             Text("변경한 내용은 저장되지 않아요.")
         }
-        .onChange(of: selectedPhotoItem) { _, newItem in
-            Task {
-                guard let newItem, let data = try? await newItem.loadTransferable(type: Data.self),
-                      let uiImage = UIImage(data: data) else { return }
-                selectedPhoto = Image(uiImage: uiImage)
+        .task {
+            guard let token = UserSession.accessToken,
+                  let response = try? await NetworkService.provider.request(with: ProfileEndpoints.get(token: token)),
+                  !Task.isCancelled else { return }
+            avatarUrl = response.data.avatarUrl
+        }
+        .task(id: selectedPhotoItem) {
+            guard let item = selectedPhotoItem else { return }
+            isLoadingPhoto = true
+            do {
+                let photo = try await ProfilePhoto.load(item)
+                guard !Task.isCancelled else { return }
+                selectedPhoto = photo
+                shouldRemovePhoto = false
+                saveErrorMessage = nil
+            } catch {
+                guard !Task.isCancelled else { return }
+                saveErrorMessage = "선택한 사진을 불러오지 못했어요"
             }
+            isLoadingPhoto = false
         }
     }
 
@@ -137,19 +159,39 @@ struct EditProfileView: View {
     }
 
     private func save() async {
-        guard let userId = UserSession.userId, validationError == nil else { return }
+        guard hasUnsavedChanges, validationError == nil, !isSubmitting, !isLoadingPhoto else { return }
         isSubmitting = true
         saveErrorMessage = nil
         defer { isSubmitting = false }
 
         do {
-            let user = try await NetworkService.provider.request(with: UserEndpoints.update(userId: userId, nickname: nickname))
-            UserSession.nickname = user.nickname
+            let token = UserSession.accessToken
+            if nickname != originalNickname {
+                if let token {
+                    _ = try await NetworkService.provider.request(with: ProfileEndpoints.updateNickname(nickname, token: token))
+                    UserSession.nickname = nickname
+                } else if let userId = UserSession.userId {
+                    let user = try await NetworkService.provider.request(with: UserEndpoints.update(userId: userId, nickname: nickname))
+                    UserSession.nickname = user.nickname
+                } else {
+                    saveErrorMessage = "다시 로그인한 뒤 저장해 주세요"
+                    return
+                }
+                originalNickname = nickname
+            }
+
+            if let token, let selectedPhoto {
+                let response = try await NetworkService.provider.request(with: ProfileEndpoints.uploadAvatar(selectedPhoto.jpeg, token: token))
+                avatarUrl = response.data.avatarUrl
+            } else if let token, shouldRemovePhoto {
+                try await NetworkService.provider.requestWithoutResponse(with: ProfileEndpoints.removeAvatar(token: token))
+                avatarUrl = nil
+            }
             dismiss()
-        } catch let NetworkError.invalidHttpStatusCode(_, message) {
-            saveErrorMessage = message ?? "닉네임을 저장하지 못했어요. 다시 시도해 주세요"
+        } catch NetworkError.invalidHttpStatusCode(401, _) {
+            saveErrorMessage = "다시 로그인한 뒤 저장해 주세요"
         } catch {
-            saveErrorMessage = "닉네임을 저장하지 못했어요. 다시 시도해 주세요"
+            saveErrorMessage = "프로필을 저장하지 못했어요. 다시 시도해 주세요"
         }
     }
 }

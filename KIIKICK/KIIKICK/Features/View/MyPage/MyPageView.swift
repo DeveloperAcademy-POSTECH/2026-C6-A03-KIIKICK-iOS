@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct MyPageView: View {
-    private let nickname = UserSession.nickname ?? ""
+    @State private var nickname = UserSession.nickname ?? ""
+    @State private var avatarUrl: URL?
 
     var body: some View {
         ScrollView {
@@ -22,11 +23,7 @@ struct MyPageView: View {
                         EditProfileView()
                     } label: {
                         HStack(spacing: 16) {
-                            Image("img_profile_default")
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 56, height: 56)
-                                .clipShape(Circle())
+                            ProfilePhotoView(url: avatarUrl, size: 56)
 
                             Text(nickname)
                                 .font(.title2SB)
@@ -88,6 +85,17 @@ struct MyPageView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.gray950)
         .navigationTitle("마이페이지")
+        .task {
+            nickname = UserSession.nickname ?? ""
+            guard let token = UserSession.accessToken else {
+                avatarUrl = nil
+                return
+            }
+            if let response = try? await NetworkService.provider.request(with: ProfileEndpoints.get(token: token)),
+               !Task.isCancelled {
+                avatarUrl = response.data.avatarUrl
+            }
+        }
     }
 }
 

@@ -21,6 +21,12 @@ enum UserSession {
     /// 로그인/회원가입 API가 아직 없어(변경 예정) 실제 토큰이 아니라 mock 값이 저장된다.
     static var token: String? { KeychainService.get(key: tokenKey) }
 
+    /// 기존 화면은 UUID를 임시 토큰으로 저장한다. 아바타 API는 실제 인증 세션에서만 사용한다.
+    static var accessToken: String? {
+        guard let token, token.split(separator: ".").count == 3 else { return nil }
+        return token
+    }
+
     static var isLoggedIn: Bool { userId != nil || token != nil }
 
     static var nickname: String? {

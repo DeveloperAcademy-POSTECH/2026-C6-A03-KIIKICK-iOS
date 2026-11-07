@@ -1,0 +1,9 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="189.499" height="189.499" viewBox="0 0 189.499 189.499" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path id="progress" d="M189.499 94.7497C189.499 147.078 147.078 189.499 94.7497 189.499C42.4209 189.499 0 147.078 0 94.7497C0 42.4209 42.4209 0 94.7497 0C147.078 0 189.499 42.4209 189.499 94.7497ZM20.8449 94.7497C20.8449 135.566 53.9332 168.654 94.7497 168.654C135.566 168.654 168.654 135.566 168.654 94.7497C168.654 53.9332 135.566 20.8449 94.7497 20.8449C53.9332 20.8449 20.8449 53.9332 20.8449 94.7497Z" fill="url(#paint0_radial_0_4)"/>
+<defs>
+<radialGradient id="paint0_radial_0_4" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(94.7497 94.7497) rotate(-90.3581) scale(94.7515)">
+<stop offset="0.778846" stop-color="#DFFF3F"/>
+<stop offset="1" stop-color="#00DAC3"/>
+</radialGradient>
+</defs>
+</svg>

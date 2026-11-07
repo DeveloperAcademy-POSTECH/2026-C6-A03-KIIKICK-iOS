@@ -12,7 +12,10 @@ import SwiftUI
 extension Color {
     /// Figma `color-text-primary` / `icon/default` → `gray50`
     static var colorTextPrimary: Color { .gray50 }
-    
+
+    /// Figma `color-text-secondary`(node 733:9112 "overall" 프레임에서 실측) → `gray400`
+    static var colorTextSecondary: Color { .gray400 }
+
     /// Figma `color-surface-primary` → `gray850`
     static var colorSurfacePrimary: Color { .gray850 }
     
@@ -44,6 +47,7 @@ extension Color {
 // leading-dot으로 쓰려면 `ShapeStyle` 쪽에도 별도로 선언해야 한다 — `Color` extension만으로는 안 된다.
 extension ShapeStyle where Self == Color {
     static var colorTextPrimary: Color { .colorTextPrimary }
+    static var colorTextSecondary: Color { .colorTextSecondary }
     static var colorSurfacePrimary: Color { .colorSurfacePrimary }
     static var colorBackgroundSecondary: Color { .colorBackgroundSecondary }
     static var surfaceDarken: Color { .surfaceDarken }

@@ -70,7 +70,8 @@ struct WorkoutDetailView: View {
             points: record.points,
             heartRateSamples: record.heartRateSamples,
             totalCalories: record.totalCalories,
-            totalDistance: record.totalDistance
+            totalDistance: record.totalDistance,
+            events: record.events
         )
         
         do {

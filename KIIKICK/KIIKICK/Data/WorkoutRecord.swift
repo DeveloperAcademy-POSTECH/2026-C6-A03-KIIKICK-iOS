@@ -14,6 +14,7 @@ final class WorkoutRecord {
     var totalDistance: Double
     var points: [TrackPoint]
     var heartRateSamples: [HeartRateSample]
+    var events: [MatchEvent]
     var field: Field?
 
     init(payload: WorkoutPayload) {
@@ -23,6 +24,7 @@ final class WorkoutRecord {
         self.totalDistance = payload.totalDistance
         self.points = payload.points
         self.heartRateSamples = payload.heartRateSamples
+        self.events = payload.events
     }
 }
 
@@ -51,14 +53,20 @@ extension WorkoutPayload {
             ))
             heartRateSamples.append(HeartRateSample(timestamp: timestamp, bpm: Double.random(in: 90...170)))
         }
-        
+
+        let events: [MatchEvent] = [
+            MatchEvent(type: .goal, location: points[sampleCount / 3]),
+            MatchEvent(type: .assist, location: points[sampleCount * 2 / 3]),
+        ]
+
         return WorkoutPayload(
             startDate: start,
             endDate: start.addingTimeInterval(Double(sampleCount) * 5),
             points: points,
             heartRateSamples: heartRateSamples,
             totalCalories: Double.random(in: 300...600),
-            totalDistance: Double.random(in: 2000...4000)
+            totalDistance: Double.random(in: 2000...4000),
+            events: events
         )
     }
 }

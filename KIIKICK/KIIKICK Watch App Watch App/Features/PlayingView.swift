@@ -24,6 +24,8 @@ struct PlayingView: View {
 
     /// 지금 쿼터가 시작된 시각 — 라이브 타이머용.
     let quarterStartDate: Date
+    /// 골/어시스트를 누른 순간의 위치를 기록하는 데 쓴다.
+    let workoutManager: WorkoutManager
     /// 쿼터 종료 시 지금까지 기록된 득점/어시스트 개수를 넘겨준다.
     var action: (_ goalCount: Int, _ assistCount: Int) -> Void
 
@@ -32,8 +34,8 @@ struct PlayingView: View {
 
     var body: some View {
         TabView {
-            RecordEditView(type: .goal, count: $goalCount, quarterStartDate: quarterStartDate)
-            RecordEditView(type: .assist, count: $assistCount, quarterStartDate: quarterStartDate)
+            RecordEditView(type: .goal, count: $goalCount, quarterStartDate: quarterStartDate, workoutManager: workoutManager)
+            RecordEditView(type: .assist, count: $assistCount, quarterStartDate: quarterStartDate, workoutManager: workoutManager)
             QuarterSetView(action: { action(goalCount, assistCount) })
         }.tabViewStyle(.verticalPage)
     }
@@ -44,6 +46,9 @@ struct PlayingView: View {
         @State var type: ScoreType
         @Binding var count: Int
         let quarterStartDate: Date
+        let workoutManager: WorkoutManager
+
+        private var eventType: MatchEventType { type == .goal ? .goal : .assist }
 
         var body: some View {
             GeometryReader { geo in
@@ -67,8 +72,12 @@ struct PlayingView: View {
                     }
                     .padding(.horizontal, 16)
                     Spacer()
-                    StepperWatchView(count: $count)
-                        .frame(width: geo.size.width - 32)
+                    StepperWatchView(
+                        count: $count,
+                        onIncrement: { workoutManager.recordEvent(type: eventType) },
+                        onDecrement: { workoutManager.removeLastEvent(type: eventType) }
+                    )
+                    .frame(width: geo.size.width - 32)
                 }
                 .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
             }

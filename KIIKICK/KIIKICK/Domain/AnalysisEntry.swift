@@ -7,11 +7,35 @@
 //
 
 import Foundation
+import SwiftUI
 
 struct AnalysisStat: Hashable {
     let label: String
     let value: String
     let unit: String
+}
+
+enum TimelineEventType {
+    case goal, assist
+
+    var iconName: String { self == .goal ? "ic_goal" : "ic_assist" }
+    var label: String { self == .goal ? "Goal" : "Assist" }
+}
+
+/// TimelineView(이슈 #43)의 지도 위에 찍을 골/어시스트 한 건. `position`은 지도 뷰 안에서의
+/// 상대 좌표(0...1, 왼쪽위가 원점)다 — 실제 위치 변환 로직이 없어 목업 좌표를 그대로 쓴다.
+struct AnalysisMatchEvent: Identifiable, Hashable {
+    let id: UUID
+    let type: TimelineEventType
+    let timeText: String
+    let position: UnitPoint
+
+    init(id: UUID = UUID(), type: TimelineEventType, timeText: String, position: UnitPoint) {
+        self.id = id
+        self.type = type
+        self.timeText = timeText
+        self.position = position
+    }
 }
 
 struct AnalysisQuarter: Identifiable, Hashable {
@@ -21,22 +45,20 @@ struct AnalysisQuarter: Identifiable, Hashable {
     let position: String
     /// 실제 히트맵 이미지가 아직 없어서 캐러셀 페이지 수만 갖고 있다 — DESIGN-GAP.
     let heatmapPageCount: Int
-    /// TimelineView(이슈 #43)용 — 쿼터별 골/어시스트 개수. 실제 타임스탬프 데이터가
-    /// 없어 목록은 전부 "00:00"으로 보여준다(Figma 목업 자체도 00:00 고정값).
-    let goalCount: Int
-    let assistCount: Int
+    /// TimelineView(이슈 #43)용 — 쿼터 동안의 골/어시스트. 실제 타임스탬프/위치 데이터가
+    /// 없어 목록은 전부 "00:00"과 목업 좌표로 보여준다(Figma 목업 자체도 00:00 고정값).
+    let events: [AnalysisMatchEvent]
 
     init(
         id: UUID = UUID(), quarterNumber: Int, durationText: String, position: String,
-        heatmapPageCount: Int, goalCount: Int = 0, assistCount: Int = 0
+        heatmapPageCount: Int, events: [AnalysisMatchEvent] = []
     ) {
         self.id = id
         self.quarterNumber = quarterNumber
         self.durationText = durationText
         self.position = position
         self.heatmapPageCount = heatmapPageCount
-        self.goalCount = goalCount
-        self.assistCount = assistCount
+        self.events = events
     }
 }
 

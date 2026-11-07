@@ -16,13 +16,6 @@
 
 import SwiftUI
 
-enum TimelineEventType {
-    case goal, assist
-
-    var iconName: String { self == .goal ? "ic_goal" : "ic_assist" }
-    var label: String { self == .goal ? "Goal" : "Assist" }
-}
-
 struct ListEventView: View {
     let type: TimelineEventType
     let number: Int

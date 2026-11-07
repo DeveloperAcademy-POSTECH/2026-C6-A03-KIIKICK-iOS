@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 enum AnalysisMockData {
     static let entries: [AnalysisEntry] = [
@@ -21,9 +22,20 @@ enum AnalysisMockData {
             detail: AnalysisDetail(
                 title: "10월 28일",
                 quarters: [
-                    AnalysisQuarter(quarterNumber: 1, durationText: "26:03", position: "CM", heatmapPageCount: 3, goalCount: 1, assistCount: 1),
+                    AnalysisQuarter(
+                        quarterNumber: 1, durationText: "26:03", position: "CM", heatmapPageCount: 3,
+                        events: [
+                            AnalysisMatchEvent(type: .goal, timeText: "00:00", position: UnitPoint(x: 0.72, y: 0.72)),
+                            AnalysisMatchEvent(type: .assist, timeText: "00:00", position: UnitPoint(x: 0.33, y: 0.42)),
+                        ]
+                    ),
                     AnalysisQuarter(quarterNumber: 2, durationText: "24:51", position: "CM", heatmapPageCount: 2),
-                    AnalysisQuarter(quarterNumber: 3, durationText: "25:10", position: "RW", heatmapPageCount: 3, goalCount: 1),
+                    AnalysisQuarter(
+                        quarterNumber: 3, durationText: "25:10", position: "RW", heatmapPageCount: 3,
+                        events: [
+                            AnalysisMatchEvent(type: .goal, timeText: "00:00", position: UnitPoint(x: 0.6, y: 0.3)),
+                        ]
+                    ),
                     AnalysisQuarter(quarterNumber: 4, durationText: "23:40", position: "RW", heatmapPageCount: 2),
                 ],
                 keyStats: [

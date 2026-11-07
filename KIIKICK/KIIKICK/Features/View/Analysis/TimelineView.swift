@@ -8,8 +8,13 @@
 //
 //  DESIGN-GAP: 슬라이더는 실제 쿼터 재생/트랙포인트 데이터와 연동돼 있지 않다 — 그런
 //  시계열 데이터 자체가 아직 없다(AGENTS.md "구간 재생" 기능은 범위 밖). 지금은 보여주기
-//  용 정적 값이고, 맵 위의 골/어시스트 핀 위치도 Figma 목업과 같은 장식용 좌표다.
-//  이벤트 목록의 "00:00"도 실제 타임스탬프가 없어 Figma 목업 그대로 고정값이다.
+//  용 정적 값이다. 이벤트 목록의 "00:00"도 실제 타임스탬프가 없어 Figma 목업 그대로
+//  고정값이다.
+//
+//  골/어시스트 핀은 node 735:11275처럼 맵 위 실제 좌표(AnalysisMatchEvent.position,
+//  0...1 상대 좌표)에 찍는다 — 워치 쪽은 이미 골/어시스트를 누른 순간의 실제 위치를
+//  MatchEvent로 기록해서 보내지만(WorkoutManager.recordEvent), Analysis 화면은 여전히
+//  AnalysisMockData 목업만 보여주므로(WorkoutRecord 연동은 이 이슈 범위 밖) 좌표도 목업값.
 //
 
 import SwiftUI
@@ -22,9 +27,19 @@ struct TimelineView: View {
 
     @State private var sliderValue: Double = 0.42
 
-    private var events: [(type: TimelineEventType, number: Int)] {
-        (1...max(quarter.goalCount, 1)).compactMap { quarter.goalCount >= $0 ? (.goal, $0) : nil }
-            + (1...max(quarter.assistCount, 1)).compactMap { quarter.assistCount >= $0 ? (.assist, $0) : nil }
+    private var numberedEvents: [(event: AnalysisMatchEvent, number: Int)] {
+        var goalIndex = 0
+        var assistIndex = 0
+        return quarter.events.map { event in
+            switch event.type {
+            case .goal:
+                goalIndex += 1
+                return (event, goalIndex)
+            case .assist:
+                assistIndex += 1
+                return (event, assistIndex)
+            }
+        }
     }
 
     var body: some View {
@@ -50,14 +65,14 @@ struct TimelineView: View {
                     timeStat(label: "현재 속도", value: "22.6", unit: "km/h")
                 }
 
-                if events.isEmpty {
+                if numberedEvents.isEmpty {
                     Text("이 쿼터엔 골·어시스트 기록이 없어요")
                         .font(.body4R)
                         .foregroundStyle(.gray500)
                 } else {
                     VStack(spacing: 12) {
-                        ForEach(Array(events.enumerated()), id: \.offset) { _, event in
-                            ListEventView(type: event.type, number: event.number, timeText: "00:00")
+                        ForEach(numberedEvents, id: \.event.id) { item in
+                            ListEventView(type: item.event.type, number: item.number, timeText: item.event.timeText)
                         }
                     }
                 }
@@ -86,24 +101,26 @@ struct TimelineView: View {
     }
 
     private var mapViewer: some View {
-        RoundedRectangle(cornerRadius: 4)
-            .fill(Color.gray850)
-            .frame(height: 236)
-            .overlay(
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray850)
                 Image(systemName: "map")
                     .font(.system(size: 32))
                     .foregroundStyle(.gray500)
-            )
-            .overlay(alignment: .topTrailing) {
-                if quarter.goalCount > 0 {
-                    Image("ic_goal").renderingMode(.original).resizable().frame(width: 28, height: 28).padding(12)
+                    .frame(width: geo.size.width, height: geo.size.height)
+
+                ForEach(quarter.events) { event in
+                    Image(event.type.iconName)
+                        .renderingMode(.original)
+                        .resizable()
+                        .frame(width: 28, height: 28)
+                        .position(x: event.position.x * geo.size.width, y: event.position.y * geo.size.height)
                 }
             }
-            .overlay(alignment: .topLeading) {
-                if quarter.assistCount > 0 {
-                    Image("ic_assist").renderingMode(.original).resizable().frame(width: 28, height: 28).padding(12)
-                }
-            }
+        }
+        .frame(height: 236)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 
     private func timeStat(label: String, value: String, unit: String) -> some View {
@@ -128,7 +145,13 @@ struct TimelineView: View {
     NavigationStack {
         TimelineView(
             dateTitle: "10월 28일",
-            quarter: AnalysisQuarter(quarterNumber: 1, durationText: "26:03", position: "CM", heatmapPageCount: 3, goalCount: 1, assistCount: 1)
+            quarter: AnalysisQuarter(
+                quarterNumber: 1, durationText: "26:03", position: "CM", heatmapPageCount: 3,
+                events: [
+                    AnalysisMatchEvent(type: .goal, timeText: "00:00", position: UnitPoint(x: 0.72, y: 0.72)),
+                    AnalysisMatchEvent(type: .assist, timeText: "00:00", position: UnitPoint(x: 0.33, y: 0.42)),
+                ]
+            )
         )
     }
 }

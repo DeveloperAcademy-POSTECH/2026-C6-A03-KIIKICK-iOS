@@ -18,7 +18,7 @@ struct QuarterSelectorView: View {
     let onNext: () -> Void
 
     var body: some View {
-        HStack(spacing: 64) {
+        HStack {
             Button(action: onPrevious) {
                 Image("ic_triangle_l")
                     .resizable()
@@ -27,16 +27,21 @@ struct QuarterSelectorView: View {
             }
             .buttonStyle(.plain)
             .disabled(!canGoPrevious)
-
+            
+            Spacer()
+            
             VStack(spacing: 8) {
                 Text("\(quarterNumber) 쿼터")
+                    .lineLimit(1)
                     .font(.title2SB)
                 Text(durationText)
                     .font(.body3R)
             }
+            .frame(maxWidth: .infinity)
             .foregroundStyle(.colorTextPrimary)
-            .frame(width: 44)
-
+            
+            Spacer()
+            
             Button(action: onNext) {
                 Image("ic_triangle_r")
                     .resizable()
@@ -46,6 +51,7 @@ struct QuarterSelectorView: View {
             .buttonStyle(.plain)
             .disabled(!canGoNext)
         }
+        .frame(width: 220)
     }
 }
 

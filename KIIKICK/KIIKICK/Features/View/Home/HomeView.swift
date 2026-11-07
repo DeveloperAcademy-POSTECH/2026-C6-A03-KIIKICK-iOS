@@ -25,14 +25,14 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SessionManager.self) private var sessionManager
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
-
+    
     @State private var preparedField: Field?
     @State private var isSelectingField = false
     @State private var selectedMetric: PerformanceMetric = .overall
-
+    
     // TODO: 서버 Overall API 연동 전까지는 항상 비어있다. OverallStat.swift 참고.
     @State private var overallStat: OverallStat = .empty
-
+    
     private var matchState: HomeMatchState {
         if sessionManager.isMatchInProgress {
             return .inProgress
@@ -51,22 +51,22 @@ struct HomeView: View {
         }
         return .idle
     }
-
+    
     private var totalDistanceKm: Double {
         records.reduce(0) { $0 + $1.totalDistance } / 1000
     }
-
+    
     private var avgCalories: Int {
         guard !records.isEmpty else { return 0 }
         let total = records.reduce(0) { $0 + $1.totalCalories }
         return Int(total / Double(records.count))
     }
-
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 headerBar
-
+                
                 MatchStatusHeaderView(
                     state: matchState,
                     onPrepareMatch: { isSelectingField = true },
@@ -75,7 +75,7 @@ struct HomeView: View {
                     }
                 )
                 .padding(.horizontal, 24)
-
+                
                 OverallSummaryView(
                     stat: overallStat,
                     matchCount: records.count,
@@ -83,7 +83,7 @@ struct HomeView: View {
                     avgCalories: avgCalories
                 )
                 .padding(.horizontal, 24)
-
+                
                 if !records.isEmpty {
                     PerformanceTrendsView(
                         selectedMetric: $selectedMetric,
@@ -118,33 +118,34 @@ struct HomeView: View {
                 }
         }
     }
-
+    
     private var headerBar: some View {
         HStack {
             Image("LogoFull")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(height: 22)
-
+            
             Spacer()
-
+            
             Button { isSelectingField = true } label: {
                 Image("ic_plus")
                     .resizable()
-                    .frame(width: 20, height: 20)
-                    .foregroundStyle(.gray50)
-                    .frame(width: 36, height: 36)
-                    .background(Color.gray900, in: Circle())
+                    .frame(width: 30, height: 30)
+                    .foregroundStyle(.brandPrimary)
+                    .frame(width: 44, height: 44)
+                    .glassCircleBackground()
             }
             .buttonStyle(.plain)
-
+            .padding(.horizontal, 12)
+            
             NavigationLink(destination: NotificationListView()) {
                 Image("ic_bell")
                     .resizable()
-                    .foregroundStyle(.gray50)
-                    .frame(width: 20, height: 20)
-                    .frame(width: 36, height: 36)
-                    .background(Color.gray900, in: Circle())
+                    .frame(width: 24, height: 24)
+                    .foregroundStyle(.colorTextPrimary)
+                    .frame(width: 44, height: 44)
+                    .glassCircleBackground()
             }
         }
         .padding(.horizontal, 24)

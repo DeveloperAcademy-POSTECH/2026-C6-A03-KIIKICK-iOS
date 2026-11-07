@@ -72,8 +72,6 @@ struct MatchStatusHeaderView: View {
         }
         .padding(.top, 12)
         .padding(.bottom, 20)
-        .padding(.horizontal, 24)
-        .background(.colorBackgroundSecondary)
     }
     
     private var watchInfoRow: some View {

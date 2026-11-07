@@ -18,6 +18,7 @@ struct AnalysisDetailView: View {
     @State private var commentText = ""
     @State private var pushedFriendsPlayedTogether = false
     @State private var pushedTimeline = false
+    @State private var commentSheetDetent: PresentationDetent = .height(140)
 
     private var currentQuarter: AnalysisQuarter? {
         guard entry.detail.quarters.indices.contains(selectedQuarterIndex) else { return nil }
@@ -60,12 +61,16 @@ struct AnalysisDetailView: View {
         // 보이고 끌어올리면 전체 목록이 보인다. 닫을 수 없는 permanent 시트라
         // isPresented를 상수 true로 고정했다.
         .sheet(isPresented: .constant(true)) {
-            CommentsSheetContent(comments: $comments, commentText: $commentText)
-                .presentationDetents([.height(140), .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackgroundInteraction(.enabled)
-                .presentationBackground(Color.gray900)
-                .interactiveDismissDisabled()
+            CommentsSheetContent(
+                comments: $comments,
+                commentText: $commentText,
+                isExpanded: commentSheetDetent == .large
+            )
+            .presentationDetents([.height(140), .large], selection: $commentSheetDetent)
+            .presentationDragIndicator(.visible)
+            .presentationBackgroundInteraction(.enabled)
+            .presentationBackground(Color.gray900)
+            .interactiveDismissDisabled()
         }
     }
 }
@@ -280,6 +285,7 @@ private struct AnalysisTabContent: View {
 private struct CommentsSheetContent: View {
     @Binding var comments: [Comment]
     @Binding var commentText: String
+    let isExpanded: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -298,11 +304,15 @@ private struct CommentsSheetContent: View {
                 .padding(.horizontal, 16)
             }
 
-            CommentComposerView(text: $commentText) {
-                let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { return }
-                comments.append(Comment(authorNickname: "나", content: trimmed, timestamp: "방금"))
-                commentText = ""
+            // 시트가 접혀 있을 땐("댓글 N" 헤더만 보이는 상태) 입력창을 숨긴다 —
+            // 끝까지 끌어올려 .large 상태가 됐을 때만 댓글을 쓸 수 있게 한다.
+            if isExpanded {
+                CommentComposerView(text: $commentText) {
+                    let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    comments.append(Comment(authorNickname: "나", content: trimmed, timestamp: "방금"))
+                    commentText = ""
+                }
             }
         }
     }

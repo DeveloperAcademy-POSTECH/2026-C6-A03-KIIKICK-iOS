@@ -9,11 +9,16 @@
 //  DESIGN-GAP: 핀치/팬/포인트 탭 상호작용은 아직 구현하지 않았다 — 정적 데이터 기준
 //  라인차트 렌더링까지만. 제스처는 별도 작업으로 분리.
 //
+//  이슈 #42: 홈 화면(OverallSummaryView)에서 쓰려고 `.overall`("오버롤") 탭을 맨 앞에
+//  추가했다. Overall 점수 자체는 서버 API 연동 전이라(OverallStat.swift 참고) 이 탭을
+//  고르면 보여줄 포인트 데이터가 아직 없다 — 호출부가 points를 빈 배열로 넘기면 된다.
+//
 
 import SwiftUI
 import Charts
 
 enum PerformanceMetric: String, CaseIterable {
+    case overall = "오버롤"
     case speed = "최고속도"
     case distance = "이동거리"
     case calories = "칼로리"

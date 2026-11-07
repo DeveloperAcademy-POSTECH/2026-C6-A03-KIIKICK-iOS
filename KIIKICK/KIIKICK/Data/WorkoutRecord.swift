@@ -14,7 +14,7 @@ final class WorkoutRecord {
     var totalDistance: Double
     var points: [TrackPoint]
     var heartRateSamples: [HeartRateSample]
-    var events: [MatchEvent]
+    var events: [MatchEvent] = []
     var field: Field?
 
     init(payload: WorkoutPayload) {

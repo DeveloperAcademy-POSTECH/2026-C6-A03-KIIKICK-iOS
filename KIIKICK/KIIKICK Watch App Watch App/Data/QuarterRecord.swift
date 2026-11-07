@@ -20,7 +20,7 @@ final class QuarterRecord {
     var heartRateSamples: [HeartRateSample]
     var goalCount: Int
     var assistCount: Int
-    var events: [MatchEvent]
+    var events: [MatchEvent] = []
 
     init(
         id: UUID = UUID(),

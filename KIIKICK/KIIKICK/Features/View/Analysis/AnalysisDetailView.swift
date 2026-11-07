@@ -2,47 +2,36 @@
 //  AnalysisDetailView.swift
 //  KIIKICK
 //
-//  Figma node 367:1711 "detail" / 371:2951 "comment" (이슈 #17) — 둘은 같은 화면에서
-//  세그먼트 컨트롤(분석/댓글)로 내용만 바뀌는 구조라 한 파일에서 같이 구현한다.
+//  Figma node 367:1711 "detail" / 735:11387 "detail"(이슈 #43 갱신본) — 이슈 #43에서
+//  "분석"/"댓글" 세그먼트 컨트롤을 없애고, 댓글은 화면 아래 항상 떠 있는 바텀시트로
+//  바꿨다(접힌 상태에서도 "댓글 N" 헤더가 보이고, 끌어올리면 전체 목록이 보임).
+//  히트맵 위에는 "타임라인 보기" 버튼을 추가해 TimelineView로 넘어간다.
 //
 
 import SwiftUI
 
-enum AnalysisSegment: String, CaseIterable, Hashable {
-    case analysis = "분석"
-    case comments = "댓글"
-}
-
 struct AnalysisDetailView: View {
     let entry: AnalysisEntry
 
-    @State private var segment: AnalysisSegment = .analysis
     @State private var selectedQuarterIndex = 0
     @State private var comments: [Comment] = CommentMockData.threads
     @State private var commentText = ""
     @State private var pushedFriendsPlayedTogether = false
+    @State private var pushedTimeline = false
+
+    private var currentQuarter: AnalysisQuarter? {
+        guard entry.detail.quarters.indices.contains(selectedQuarterIndex) else { return nil }
+        return entry.detail.quarters[selectedQuarterIndex]
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("", selection: $segment) {
-                ForEach(AnalysisSegment.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-
-            switch segment {
-            case .analysis:
-                AnalysisTabContent(detail: entry.detail, selectedQuarterIndex: $selectedQuarterIndex)
-            case .comments:
-                CommentsTabContent(
-                    comments: $comments,
-                    commentText: $commentText,
-                    friendsCount: AnalysisMockData.friendsPlayedTogether.count,
-                    onShowFriends: { pushedFriendsPlayedTogether = true }
-                )
-            }
-        }
+        AnalysisTabContent(
+            detail: entry.detail,
+            selectedQuarterIndex: $selectedQuarterIndex,
+            friendsCount: AnalysisMockData.friendsPlayedTogether.count,
+            onShowFriends: { pushedFriendsPlayedTogether = true },
+            onShowTimeline: { pushedTimeline = true }
+        )
         .background(Color.gray950)
         .navigationTitle(entry.detail.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -61,12 +50,32 @@ struct AnalysisDetailView: View {
         .navigationDestination(isPresented: $pushedFriendsPlayedTogether) {
             FriendsPlayedTogetherView(friends: AnalysisMockData.friendsPlayedTogether)
         }
+        .navigationDestination(isPresented: $pushedTimeline) {
+            if let currentQuarter {
+                TimelineView(dateTitle: entry.detail.title, quarter: currentQuarter)
+            }
+        }
+        // 댓글은 세그먼트 전환이 아니라, 화면 아래 항상 떠 있는 바텀시트로 보여준다
+        // (Figma "sheet/collapsed", node 735:11489) — 접힌 상태에서도 "댓글 N" 헤더가
+        // 보이고 끌어올리면 전체 목록이 보인다. 닫을 수 없는 permanent 시트라
+        // isPresented를 상수 true로 고정했다.
+        .sheet(isPresented: .constant(true)) {
+            CommentsSheetContent(comments: $comments, commentText: $commentText)
+                .presentationDetents([.height(140), .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackgroundInteraction(.enabled)
+                .presentationBackground(Color.gray900)
+                .interactiveDismissDisabled()
+        }
     }
 }
 
 private struct AnalysisTabContent: View {
     let detail: AnalysisDetail
     @Binding var selectedQuarterIndex: Int
+    let friendsCount: Int
+    var onShowFriends: () -> Void
+    var onShowTimeline: () -> Void
 
     private var currentQuarter: AnalysisQuarter? {
         guard detail.quarters.indices.contains(selectedQuarterIndex) else { return nil }
@@ -76,8 +85,30 @@ private struct AnalysisTabContent: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                Button(action: onShowFriends) {
+                    HStack(spacing: 4) {
+                        Text("함께 뛴 친구 \(friendsCount)명")
+                            .font(.body4R)
+                            .foregroundStyle(.colorTextPrimary)
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.mint500)
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+
                 if let quarter = currentQuarter {
-                    quarterPager(quarter)
+                    QuarterSelectorView(
+                        quarterNumber: quarter.quarterNumber,
+                        durationText: quarter.durationText,
+                        canGoPrevious: selectedQuarterIndex > 0,
+                        canGoNext: selectedQuarterIndex < detail.quarters.count - 1,
+                        onPrevious: { selectedQuarterIndex = max(0, selectedQuarterIndex - 1) },
+                        onNext: { selectedQuarterIndex = min(detail.quarters.count - 1, selectedQuarterIndex + 1) }
+                    )
+                    .frame(maxWidth: .infinity)
+
                     positionRow(quarter)
                     heatmapCarousel(quarter)
                 }
@@ -106,39 +137,12 @@ private struct AnalysisTabContent: View {
                 ForEach(detail.sections) { section in
                     sectionView(section)
                 }
+
+                // 바텀시트가 접혀 있어도 마지막 섹션이 가리지 않게 여유 공간을 둔다.
+                Color.clear.frame(height: 140)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
-        }
-    }
-
-    private func quarterPager(_ quarter: AnalysisQuarter) -> some View {
-        HStack {
-            Button {
-                selectedQuarterIndex = max(0, selectedQuarterIndex - 1)
-            } label: {
-                Image(systemName: "chevron.left")
-                    .foregroundStyle(selectedQuarterIndex == 0 ? .gray700 : .gray50)
-            }
-            .buttonStyle(.plain)
-            .disabled(selectedQuarterIndex == 0)
-
-            Spacer()
-
-            Text("\(quarter.quarterNumber) 쿼터 \(quarter.durationText)")
-                .font(.title1SB)
-                .foregroundStyle(.gray50)
-
-            Spacer()
-
-            Button {
-                selectedQuarterIndex = min(detail.quarters.count - 1, selectedQuarterIndex + 1)
-            } label: {
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(selectedQuarterIndex == detail.quarters.count - 1 ? .gray700 : .gray50)
-            }
-            .buttonStyle(.plain)
-            .disabled(selectedQuarterIndex == detail.quarters.count - 1)
         }
     }
 
@@ -150,15 +154,7 @@ private struct AnalysisTabContent: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(Color.gray850, in: Capsule())
-
             Spacer()
-
-            Button(action: {}) {
-                Text("타임스탬프 보러가기")
-                    .font(.label3M)
-                    .foregroundStyle(.mint500)
-            }
-            .buttonStyle(.plain)
         }
     }
 
@@ -178,6 +174,24 @@ private struct AnalysisTabContent: View {
         }
         .tabViewStyle(.page)
         .frame(height: 220)
+        .overlay(alignment: .bottomTrailing) {
+            Button(action: onShowTimeline) {
+                HStack(spacing: 0) {
+                    Text("타임라인 보기")
+                        .font(.caption1M)
+                        .foregroundStyle(.colorTextPrimary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.colorTextPrimary)
+                }
+                .padding(.leading, 12)
+                .padding(.trailing, 8)
+                .padding(.vertical, 8)
+                .background(Color.colorSurfacePrimary, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(16)
+        }
     }
 
     private var keyStatsSection: some View {
@@ -263,36 +277,25 @@ private struct AnalysisTabContent: View {
     }
 }
 
-private struct CommentsTabContent: View {
+private struct CommentsSheetContent: View {
     @Binding var comments: [Comment]
     @Binding var commentText: String
-    let friendsCount: Int
-    var onShowFriends: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Button(action: onShowFriends) {
-                        HStack {
-                            Text("함께 뛴 친구 \(friendsCount)명")
-                                .font(.label2SB)
-                                .foregroundStyle(.gray50)
-                            Spacer()
-                            Image("ic_arrow")
-                                .resizable()
-                                .frame(width: 20, height: 20)
-                        }
-                        .padding(16)
-                        .background(Color.gray900, in: RoundedRectangle(cornerRadius: 16))
-                    }
-                    .buttonStyle(.plain)
+            Text("댓글 \(comments.count)")
+                .font(.title3M)
+                .foregroundStyle(.colorTextPrimary)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
 
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
                     ForEach(comments) { comment in
                         CommentThreadView(comment: comment)
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
             }
 
             CommentComposerView(text: $commentText) {

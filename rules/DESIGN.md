@@ -109,6 +109,8 @@ Exact hex values read from the rendered color swatches. No semantic/alias layer 
 | `text/brand` | `#00DAC3` | `mint500` | `Color.textBrand` |
 | `text/secondary` | `#A3A3A3` | `gray400` | `Color.colorTextSecondary` (읽은 방법: `get_variable_defs`를 `313:2` 자체가 아니라 그 값을 실제로 쓰는 컴포넌트 인스턴스(node `733:9112`, "overall" 프레임)에 돌려서 확인 — 위 각주의 "컴포넌트 인스턴스 방식은 실패한다"는 전제가 이 케이스에선 틀렸다, `var(--color-text-secondary)`로 정상 반환됨) |
 | `action/destructive` | `#FF3737` | `red500` | `Color.actionDestructive` |
+| `feedback/info` | `#DFFF3F` | `lime500` | `Color.feedbackInfo` (읽은 방법: `get_design_context`를 node `732:6852` "OverallScore" 컴포넌트에 돌려서 확인 — 양수 증감 배지 색) |
+| `feedback/error` | `#FF3737` | `red500` | `Color.feedbackError` (같은 컴포넌트의 음수 증감 배지 색. `action/destructive`와 값은 같지만 Figma 이름이 달라 별도 alias로 유지) |
 | `brand/primary` | `#00DAC3` | `mint500` | `Color.brandPrimary` (same value as `text/brand`, kept as a separate name for non-text uses like borders) |
 | `brand/pressed` | `#009989` | `mint700` | — (not yet aliased) |
 | `brand/subtle` | `#004139` | `mint900` | — (not yet aliased) |

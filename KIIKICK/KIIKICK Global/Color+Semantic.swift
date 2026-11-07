@@ -30,6 +30,14 @@ extension Color {
     
     /// Figma `action/destructive` → `red500`
     static var actionDestructive: Color { .red500 }
+
+    /// Figma `feedback/info`(node 732:6852 "OverallScore"의 양수 증감 배지) → `lime500`
+    static var feedbackInfo: Color { .lime500 }
+
+    /// Figma `feedback/error`(같은 컴포넌트의 음수 증감 배지) → `red500`.
+    /// `actionDestructive`와 값은 같지만 Figma에서 별도 이름(파괴적 동작 vs. 부정적 피드백)이라
+    /// 분리해서 둔다 — `brandPrimary`/`textBrand` 쌍과 같은 패턴.
+    static var feedbackError: Color { .red500 }
     
     /// Figma `brand/gray` (중립 브랜드 변형) → `gray500`
     static var brandGray: Color { .gray500 }
@@ -53,6 +61,8 @@ extension ShapeStyle where Self == Color {
     static var surfaceDarken: Color { .surfaceDarken }
     static var textBrand: Color { .textBrand }
     static var actionDestructive: Color { .actionDestructive }
+    static var feedbackInfo: Color { .feedbackInfo }
+    static var feedbackError: Color { .feedbackError }
     static var brandGray: Color { .brandGray }
     static var colorBackgroundPrimary: Color { .colorBackgroundPrimary }
     static var brandPrimary: Color { .brandPrimary }

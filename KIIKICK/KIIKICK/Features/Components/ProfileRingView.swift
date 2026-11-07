@@ -21,24 +21,24 @@ struct ProfileRingView: View {
     var isOverdrive: Bool
     var profileImage: Image = Image("img_profile_default")
     var size: CGFloat = 190
-
+    
     /// Figma 기준 가운데 원 지름 비율. get_design_context가 돌려준 CSS는
     /// `aspect-[121.93/121.93] left-[11.64%] right-[11.64%]`인데, 그 aspect-ratio 숫자는
     /// 레이어의 "원래" 치수를 그대로 실어나른 것일 뿐 190 기준 절대값이 아니다 — 실제
     /// 렌더링 지름은 left/right 11.64% 인셋으로 정해진다: 190 × (1 − 2×0.1164) ≈ 145.8,
     /// 비율로는 ≈ 0.77. (121.93/190 ≈ 0.64로 잘못 계산했던 적이 있음 — 틀린 값이었다.)
     private var profileDiameter: CGFloat { size * 0.77 }
-
+    
     var body: some View {
         ZStack {
             Image("ic_ring_track")
                 .resizable()
                 .frame(width: size, height: size)
-
+            
             Image(isOverdrive ? "ic_ring_progress_overdrive" : "ic_ring_progress")
                 .resizable()
                 .frame(width: size, height: size)
-
+            
             profileImage
                 .resizable()
                 .aspectRatio(contentMode: .fill)

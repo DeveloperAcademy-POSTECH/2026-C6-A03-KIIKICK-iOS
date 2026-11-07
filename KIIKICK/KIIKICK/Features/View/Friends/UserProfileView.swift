@@ -17,8 +17,10 @@ struct UserProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var status: FriendshipStatus
     @State private var isPresentingRemoveConfirm = false
-    @State private var year = Calendar.current.component(.year, from: Date())
-    @State private var month = Calendar.current.component(.month, from: Date())
+    // 이슈 #43: DatePickerView가 "기록이 있는 연도/월"만 선택 가능하게 바뀌어서,
+    // 초깃값도 오늘 날짜가 아니라 목업에 실제로 있는 값으로 맞춰야 한다.
+    @State private var year = 2026
+    @State private var month = 10
     let nickname: String
     var onAddFriend: () -> Void = {}
     var onRemoveFriend: () -> Void = {}
@@ -48,7 +50,13 @@ struct UserProfileView: View {
                 switch status {
                 case .friend:
                     VStack(alignment: .leading, spacing: 24) {
-                        DatePickerView(year: $year, month: $month)
+                        DatePickerView(
+                            year: $year, month: $month,
+                            availableYearMonths: Array(Set(AnalysisMockData.entries.map {
+                                let comps = Calendar.current.dateComponents([.year, .month], from: $0.date)
+                                return YearMonth(year: comps.year!, month: comps.month!)
+                            }))
+                        )
 
                         VStack(spacing: 24) {
                             ForEach(AnalysisMockData.entries) { entry in

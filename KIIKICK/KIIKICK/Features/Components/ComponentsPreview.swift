@@ -76,7 +76,10 @@ struct ComponentsPreview: View {
                 }
 
                 section("DatePicker") {
-                    DatePickerView(year: $year, month: $month)
+                    DatePickerView(
+                        year: $year, month: $month,
+                        availableYearMonths: [YearMonth(year: 2025, month: 9), YearMonth(year: 2026, month: 10)]
+                    )
                 }
 
                 section("CardSummary") {

@@ -10,6 +10,7 @@ import Foundation
 enum AnalysisMockData {
     static let entries: [AnalysisEntry] = [
         AnalysisEntry(
+            date: DateComponents(calendar: .current, year: 2026, month: 10, day: 28).date!,
             dateAndQuarter: "10월 28일 • 총 4Q",
             fieldName: "우리 집 앞 풋살장",
             stats: [
@@ -20,9 +21,9 @@ enum AnalysisMockData {
             detail: AnalysisDetail(
                 title: "10월 28일",
                 quarters: [
-                    AnalysisQuarter(quarterNumber: 1, durationText: "26:03", position: "CM", heatmapPageCount: 3),
+                    AnalysisQuarter(quarterNumber: 1, durationText: "26:03", position: "CM", heatmapPageCount: 3, goalCount: 1, assistCount: 1),
                     AnalysisQuarter(quarterNumber: 2, durationText: "24:51", position: "CM", heatmapPageCount: 2),
-                    AnalysisQuarter(quarterNumber: 3, durationText: "25:10", position: "RW", heatmapPageCount: 3),
+                    AnalysisQuarter(quarterNumber: 3, durationText: "25:10", position: "RW", heatmapPageCount: 3, goalCount: 1),
                     AnalysisQuarter(quarterNumber: 4, durationText: "23:40", position: "RW", heatmapPageCount: 2),
                 ],
                 keyStats: [
@@ -53,6 +54,7 @@ enum AnalysisMockData {
             )
         ),
         AnalysisEntry(
+            date: DateComponents(calendar: .current, year: 2026, month: 10, day: 21).date!,
             dateAndQuarter: "10월 21일 • 총 2Q",
             fieldName: "포스텍 풋살장",
             stats: [

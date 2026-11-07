@@ -16,11 +16,11 @@ import SwiftUI
 
 struct ReadyForDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppRouter.self) private var router
 
     let entry: AnalysisEntry
     @State private var positions: [String]
     @State private var flips: [Bool]
-    @State private var pushedAnalyzing = false
 
     private var quarters: [AnalysisQuarter] { entry.detail.quarters }
 
@@ -54,7 +54,7 @@ struct ReadyForDetailView: View {
                         .font(.caption1M)
                         .foregroundStyle(.colorTextSecondary)
                     CtaView(text: "분석 보기", type: .primary, size: .large) {
-                        pushedAnalyzing = true
+                        router.paths[.analysis, default: .init()].append(AnalysisRoute.analyzing(entry))
                     }
                 }
             }
@@ -74,9 +74,6 @@ struct ReadyForDetailView: View {
                     .font(.head3B)
                     .foregroundStyle(.colorTextPrimary)
             }
-        }
-        .navigationDestination(isPresented: $pushedAnalyzing) {
-            AnalyzingView(entry: entry)
         }
     }
 
@@ -99,4 +96,5 @@ struct ReadyForDetailView: View {
     NavigationStack {
         ReadyForDetailView(entry: AnalysisMockData.entries[0])
     }
+    .environment(AppRouter())
 }

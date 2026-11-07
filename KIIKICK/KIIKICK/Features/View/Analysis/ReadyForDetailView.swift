@@ -6,11 +6,10 @@
 //  포지션/공격 방향(좌우반전)을 확인·수정하는 확인 화면. CardQuarterView를 쿼터 수만큼
 //  반복한다.
 //
-//  DESIGN-GAP: "분석 보기"를 누르면 실제로 어디(AnalyzingView? AnalysisDetailView
-//  직행?)로 넘어가고 수정값을 어떻게 저장하는지는 아직 안 정해졌다 — 워치에서 경기가
-//  막 도착했을 때 이 화면으로 들어오는 진입점 자체도 이번 범위 밖(이슈 #43은 "이 화면
-//  구현 전에 컴포넌트만 먼저 준비"로 범위가 한정돼 있었다). 그래서 CTA는 아직 아무
-//  데도 연결돼 있지 않다.
+//  분석 플로우: AnalysisView(목록) → ReadyForDetailView(여기) → AnalyzingView →
+//  AnalysisDetailView → TimelineView. 실제 분석 API가 아직 없어서 "분석 보기"를
+//  누르면 수정한 포지션/반전 값을 저장하지 않고 AnalyzingView로 그대로 넘어간다 —
+//  저장 API 연동은 범위 밖.
 //
 
 import SwiftUI
@@ -18,23 +17,23 @@ import SwiftUI
 struct ReadyForDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
-    let dateAndQuarterText: String
-    let quarters: [AnalysisQuarter]
-
+    let entry: AnalysisEntry
     @State private var positions: [String]
     @State private var flips: [Bool]
+    @State private var pushedAnalyzing = false
 
-    init(dateAndQuarterText: String, quarters: [AnalysisQuarter]) {
-        self.dateAndQuarterText = dateAndQuarterText
-        self.quarters = quarters
-        _positions = State(initialValue: quarters.map(\.position))
-        _flips = State(initialValue: quarters.map { _ in false })
+    private var quarters: [AnalysisQuarter] { entry.detail.quarters }
+
+    init(entry: AnalysisEntry) {
+        self.entry = entry
+        _positions = State(initialValue: entry.detail.quarters.map(\.position))
+        _flips = State(initialValue: entry.detail.quarters.map { _ in false })
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text(dateAndQuarterText)
+                Text(entry.dateAndQuarter)
                     .font(.head2SB)
                     .foregroundStyle(.colorTextPrimary)
 
@@ -55,7 +54,7 @@ struct ReadyForDetailView: View {
                         .font(.caption1M)
                         .foregroundStyle(.colorTextSecondary)
                     CtaView(text: "분석 보기", type: .primary, size: .large) {
-                        // TODO: 저장 API/다음 화면 연결은 범위 밖 — 헤더 주석 참고.
+                        pushedAnalyzing = true
                     }
                 }
             }
@@ -76,6 +75,9 @@ struct ReadyForDetailView: View {
                     .foregroundStyle(.colorTextPrimary)
             }
         }
+        .navigationDestination(isPresented: $pushedAnalyzing) {
+            AnalyzingView(entry: entry)
+        }
     }
 
     private var directionGuide: some View {
@@ -95,13 +97,6 @@ struct ReadyForDetailView: View {
 
 #Preview {
     NavigationStack {
-        ReadyForDetailView(
-            dateAndQuarterText: "10월 30일 · 총 3쿼터",
-            quarters: [
-                AnalysisQuarter(quarterNumber: 1, durationText: "00:00", position: "CM", heatmapPageCount: 1),
-                AnalysisQuarter(quarterNumber: 2, durationText: "00:00", position: "CM", heatmapPageCount: 1),
-                AnalysisQuarter(quarterNumber: 3, durationText: "00:00", position: "CM", heatmapPageCount: 1),
-            ]
-        )
+        ReadyForDetailView(entry: AnalysisMockData.entries[0])
     }
 }

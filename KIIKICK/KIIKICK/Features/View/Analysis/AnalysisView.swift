@@ -5,6 +5,10 @@
 //  Figma node 331:2810 "analysis" (이슈 #17), 541:3658 "analysis_empty"(이슈 #43) —
 //  목업 데이터(AnalysisMockData)로 구현. 실제 WorkoutRecord 연동은 이 이슈 범위 밖.
 //
+//  경기 카드를 누르면 분석 상세로 바로 가지 않고, 분석 플로우대로
+//  ReadyForDetailView(포지션/반전 확인) → AnalyzingView(분석 중) → AnalysisDetailView
+//  순서를 거친다.
+//
 
 import SwiftUI
 
@@ -12,7 +16,7 @@ struct AnalysisView: View {
     @State private var year = 2026
     @State private var month = 10
     @State private var entries: [AnalysisEntry] = AnalysisMockData.entries
-    @State private var pushedDetail: AnalysisEntry?
+    @State private var pushedReady: AnalysisEntry?
 
     private var availableYearMonths: [YearMonth] {
         Array(Set(entries.map {
@@ -56,7 +60,7 @@ struct AnalysisView: View {
                                 dateAndQuarter: entry.dateAndQuarter,
                                 fieldName: entry.fieldName,
                                 stats: entry.stats.map { CardSummaryView.Stat(label: $0.label, value: $0.value, unit: $0.unit) },
-                                action: { pushedDetail = entry }
+                                action: { pushedReady = entry }
                             )
                         }
                     }
@@ -67,8 +71,8 @@ struct AnalysisView: View {
         }
         .background(Color.gray950)
         .navigationBarHidden(true)
-        .navigationDestination(item: $pushedDetail) { entry in
-            AnalysisDetailView(entry: entry)
+        .navigationDestination(item: $pushedReady) { entry in
+            ReadyForDetailView(entry: entry)
         }
         .onAppear {
             if let first = availableYearMonths.sorted().last {

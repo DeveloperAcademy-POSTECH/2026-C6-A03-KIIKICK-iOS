@@ -6,6 +6,9 @@
 //  "분석"/"댓글" 세그먼트 컨트롤을 없애고, 댓글은 화면 아래 항상 떠 있는 바텀시트로
 //  바꿨다(접힌 상태에서도 "댓글 N" 헤더가 보이고, 끌어올리면 전체 목록이 보임).
 //  히트맵 위에는 "타임라인 보기" 버튼을 추가해 TimelineView로 넘어간다.
+//  node 735:11387의 toolbar는 뒤로가기 + 제목 + 우측 상단 공유 버튼 하나뿐이라
+//  기존 ellipsis 메뉴(공유하기/삭제하기)를 없애고 공유 버튼만 남겼다. "삭제하기"는
+//  Figma에서도 툴바가 아니라 본문 하단에 별도 버튼으로 있어서 그 자리로 옮겼다.
 //
 
 import SwiftUI
@@ -39,11 +42,8 @@ struct AnalysisDetailView: View {
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("공유하기", action: {})
-                    Button("삭제하기", role: .destructive, action: {})
-                } label: {
-                    Image(systemName: "ellipsis")
+                Button(action: {}) {
+                    Image(systemName: "square.and.arrow.up")
                         .foregroundStyle(.gray50)
                 }
             }
@@ -66,7 +66,7 @@ struct AnalysisDetailView: View {
                 commentText: $commentText,
                 isExpanded: commentSheetDetent == .large
             )
-            .presentationDetents([.height(140), .large], selection: $commentSheetDetent)
+            .presentationDetents([.height(70), .large], selection: $commentSheetDetent)
             .presentationDragIndicator(.visible)
             .presentationBackgroundInteraction(.enabled)
             .presentationBackground(Color.gray900)
@@ -143,8 +143,10 @@ private struct AnalysisTabContent: View {
                     sectionView(section)
                 }
 
+                CtaView(text: "삭제하기", type: .destructive, size: .small) {}
+
                 // 바텀시트가 접혀 있어도 마지막 섹션이 가리지 않게 여유 공간을 둔다.
-                Color.clear.frame(height: 140)
+                Color.clear.frame(height: 20)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
@@ -288,7 +290,8 @@ private struct CommentsSheetContent: View {
     let isExpanded: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 20) {
+            VStack { }.frame(height: 4)
             Text("댓글 \(comments.count)")
                 .font(.title3M)
                 .foregroundStyle(.colorTextPrimary)
@@ -301,9 +304,9 @@ private struct CommentsSheetContent: View {
                         CommentThreadView(comment: comment)
                     }
                 }
-                .padding(.horizontal, 16)
             }
-
+            .padding(.horizontal, 24)
+            
             // 시트가 접혀 있을 땐("댓글 N" 헤더만 보이는 상태) 입력창을 숨긴다 —
             // 끝까지 끌어올려 .large 상태가 됐을 때만 댓글을 쓸 수 있게 한다.
             if isExpanded {

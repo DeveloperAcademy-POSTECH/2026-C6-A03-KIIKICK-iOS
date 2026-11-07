@@ -9,6 +9,8 @@
 //  node 735:11387의 toolbar는 뒤로가기 + 제목 + 우측 상단 공유 버튼 하나뿐이라
 //  기존 ellipsis 메뉴(공유하기/삭제하기)를 없애고 공유 버튼만 남겼다. "삭제하기"는
 //  Figma에서도 툴바가 아니라 본문 하단에 별도 버튼으로 있어서 그 자리로 옮겼다.
+//  우측 상단 공유 버튼과 본문의 "내 플레이 공유하기" 버튼은 둘 다 ShareImageView
+//  (node 750:5505/750:5684, 이미지로 내보내서 사진 앱에 저장)로 연결된다.
 //
 
 import SwiftUI
@@ -21,6 +23,7 @@ struct AnalysisDetailView: View {
     @State private var commentText = ""
     @State private var pushedFriendsPlayedTogether = false
     @State private var pushedTimeline = false
+    @State private var pushedShare = false
     @State private var commentSheetDetent: PresentationDetent = .height(140)
 
     private var currentQuarter: AnalysisQuarter? {
@@ -34,7 +37,8 @@ struct AnalysisDetailView: View {
             selectedQuarterIndex: $selectedQuarterIndex,
             friendsCount: AnalysisMockData.friendsPlayedTogether.count,
             onShowFriends: { pushedFriendsPlayedTogether = true },
-            onShowTimeline: { pushedTimeline = true }
+            onShowTimeline: { pushedTimeline = true },
+            onShare: { pushedShare = true }
         )
         .background(Color.gray950)
         .navigationTitle(entry.detail.title)
@@ -42,7 +46,7 @@ struct AnalysisDetailView: View {
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(action: {}) {
+                Button(action: { pushedShare = true }) {
                     Image(systemName: "square.and.arrow.up")
                         .foregroundStyle(.gray50)
                 }
@@ -55,6 +59,9 @@ struct AnalysisDetailView: View {
             if let currentQuarter {
                 TimelineView(dateTitle: entry.detail.title, quarter: currentQuarter)
             }
+        }
+        .navigationDestination(isPresented: $pushedShare) {
+            ShareImageView(keyStats: entry.detail.keyStats)
         }
         // 댓글은 세그먼트 전환이 아니라, 화면 아래 항상 떠 있는 바텀시트로 보여준다
         // (Figma "sheet/collapsed", node 735:11489) — 접힌 상태에서도 "댓글 N" 헤더가
@@ -81,6 +88,7 @@ private struct AnalysisTabContent: View {
     let friendsCount: Int
     var onShowFriends: () -> Void
     var onShowTimeline: () -> Void
+    var onShare: () -> Void
 
     private var currentQuarter: AnalysisQuarter? {
         guard detail.quarters.indices.contains(selectedQuarterIndex) else { return nil }
@@ -123,7 +131,7 @@ private struct AnalysisTabContent: View {
                     .foregroundStyle(.gray500)
                     .frame(maxWidth: .infinity, alignment: .center)
 
-                Button(action: {}) {
+                Button(action: onShare) {
                     Text("내 플레이 공유하기")
                         .font(.title2SB)
                         .gradientForeground()

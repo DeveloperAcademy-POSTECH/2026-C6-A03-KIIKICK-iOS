@@ -3,7 +3,7 @@
 //  KIIKICK
 //
 //  Figma node 371:2951 "comment" 안의 comment_thread 컴포넌트(이슈 #17).
-//  답글의 L자 커넥터는 실제 SVG 대신 들여쓰기 + 세로선으로 근사했다 — DESIGN-GAP.
+//  답글 커넥터는 node 742:12867의 reply_connector SVG(ic_reply_connector)를 그대로 쓴다.
 //
 
 import SwiftUI
@@ -33,10 +33,11 @@ struct CommentThreadView: View {
 
             ForEach(comment.replies) { reply in
                 HStack(alignment: .top, spacing: 8) {
-                    Rectangle()
-                        .fill(Color.gray700)
-                        .frame(width: 1)
-                        .padding(.leading, 20)
+                    Image("ic_reply_connector")
+                        .renderingMode(.template)
+                        .resizable()
+                        .frame(width: 12, height: 20)
+                        .foregroundStyle(.gray700)
                     row(
                         avatarImageName: reply.avatarImageName,
                         nickname: reply.authorNickname,
@@ -47,6 +48,7 @@ struct CommentThreadView: View {
                 .padding(.leading, 20)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func row(avatarImageName: String?, nickname: String, content: String, timestamp: String) -> some View {
@@ -70,6 +72,7 @@ struct CommentThreadView: View {
                     .font(.body4R)
                     .foregroundStyle(.gray50)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

@@ -63,59 +63,64 @@ struct HomeView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                headerBar
-                
-                MatchStatusHeaderView(
-                    state: matchState,
-                    onPrepareMatch: { isSelectingField = true },
-                    onForceEndMatch: {
-                        // TODO: 워치 쪽에 "강제 종료"를 전달하는 API가 아직 없어 UI만 구현.
-                    }
-                )
-                .padding(.horizontal, 24)
-                
-                OverallSummaryView(
-                    stat: overallStat,
-                    matchCount: records.count,
-                    totalDistanceKm: totalDistanceKm,
-                    avgCalories: avgCalories
-                )
-                .padding(.horizontal, 24)
-                
-                if !records.isEmpty {
-                    PerformanceTrendsView(
-                        selectedMetric: $selectedMetric,
-                        // TODO: 쿼터별 추세 집계가 아직 없어 항상 빈 배열 — 그래프 자리만 보여준다.
-                        points: [],
-                        unit: selectedMetric == .overall ? "OVR" : "",
-                        dateLabel: "",
-                        yAxisValues: [0, 25, 50, 75, 100]
+        ZStack(alignment: .top) {
+            ScrollView {
+                VStack {
+                    
+                }
+                .frame(height: 50)
+                VStack(spacing: 20) {
+                    MatchStatusHeaderView(
+                        state: matchState,
+                        onPrepareMatch: { isSelectingField = true },
+                        onForceEndMatch: {
+                            // TODO: 워치 쪽에 "강제 종료"를 전달하는 API가 아직 없어 UI만 구현.
+                        }
                     )
                     .padding(.horizontal, 24)
-                }
-            }
-            .padding(.bottom, 24)
-        }
-        .background(Color.gray950)
-        .navigationDestination(isPresented: $isSelectingField) {
-            FieldListView(onSelect: { field in
-                preparedField = field
-                isSelectingField = false
-            })
-        }
-        .onChange(of: sessionManager.isMatchInProgress) { _, isInProgress in
-            if isInProgress { preparedField = nil }
-        }
-        .navigationDestination(for: WorkoutRecord.self) { record in
-            WorkoutDetailView(record: record)
-                .toolbar(.hidden, for: .tabBar)
-                .onAppear {
-                    if sessionManager.justArrivedRecord?.persistentModelID == record.persistentModelID {
-                        sessionManager.justArrivedRecord = nil
+                    
+                    OverallSummaryView(
+                        stat: overallStat,
+                        matchCount: records.count,
+                        totalDistanceKm: totalDistanceKm,
+                        avgCalories: avgCalories
+                    )
+                    .padding(.horizontal, 24)
+                    
+                    if !records.isEmpty {
+                        PerformanceTrendsView(
+                            selectedMetric: $selectedMetric,
+                            // TODO: 쿼터별 추세 집계가 아직 없어 항상 빈 배열 — 그래프 자리만 보여준다.
+                            points: [],
+                            unit: selectedMetric == .overall ? "OVR" : "",
+                            dateLabel: "",
+                            yAxisValues: [0, 25, 50, 75, 100]
+                        )
+                        .padding(.horizontal, 24)
                     }
                 }
+                .padding(.bottom, 24)
+            }
+            .background(Color.gray950)
+            .navigationDestination(isPresented: $isSelectingField) {
+                FieldListView(onSelect: { field in
+                    preparedField = field
+                    isSelectingField = false
+                })
+            }
+            .onChange(of: sessionManager.isMatchInProgress) { _, isInProgress in
+                if isInProgress { preparedField = nil }
+            }
+            .navigationDestination(for: WorkoutRecord.self) { record in
+                WorkoutDetailView(record: record)
+                    .toolbar(.hidden, for: .tabBar)
+                    .onAppear {
+                        if sessionManager.justArrivedRecord?.persistentModelID == record.persistentModelID {
+                            sessionManager.justArrivedRecord = nil
+                        }
+                    }
+            }
+            headerBar
         }
     }
     

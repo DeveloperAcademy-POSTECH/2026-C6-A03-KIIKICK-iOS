@@ -9,8 +9,9 @@
 //  node 735:11387의 toolbar는 뒤로가기 + 제목 + 우측 상단 공유 버튼 하나뿐이라
 //  기존 ellipsis 메뉴(공유하기/삭제하기)를 없애고 공유 버튼만 남겼다. "삭제하기"는
 //  Figma에서도 툴바가 아니라 본문 하단에 별도 버튼으로 있어서 그 자리로 옮겼다.
-//  우측 상단 공유 버튼과 본문의 "내 플레이 공유하기" 버튼은 둘 다 ShareImageView
-//  (node 750:5505/750:5684, 이미지로 내보내서 사진 앱에 저장)로 연결된다.
+//  우측 상단 공유 버튼은 ShareImageView(node 750:5505/750:5684, 이미지로 내보내서
+//  사진 앱에 저장)로 연결된다. 기존에 본문에 있던 "내 플레이 공유하기" 버튼은
+//  삭제하고 그 자리에 "Key Stats" 제목(node 742:11966, 버튼 아님)을 넣었다.
 //
 
 import SwiftUI
@@ -37,8 +38,7 @@ struct AnalysisDetailView: View {
             selectedQuarterIndex: $selectedQuarterIndex,
             friendsCount: AnalysisMockData.friendsPlayedTogether.count,
             onShowFriends: { pushedFriendsPlayedTogether = true },
-            onShowTimeline: { pushedTimeline = true },
-            onShare: { pushedShare = true }
+            onShowTimeline: { pushedTimeline = true }
         )
         .background(Color.gray950)
         .navigationTitle(entry.detail.title)
@@ -88,7 +88,6 @@ private struct AnalysisTabContent: View {
     let friendsCount: Int
     var onShowFriends: () -> Void
     var onShowTimeline: () -> Void
-    var onShare: () -> Void
 
     private var currentQuarter: AnalysisQuarter? {
         guard detail.quarters.indices.contains(selectedQuarterIndex) else { return nil }
@@ -131,18 +130,13 @@ private struct AnalysisTabContent: View {
                     .foregroundStyle(.gray500)
                     .frame(maxWidth: .infinity, alignment: .center)
 
-                Button(action: onShare) {
-                    Text("내 플레이 공유하기")
-                        .font(.title2SB)
-                        .gradientForeground()
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.mint500, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
+                // node 742:11966 — "내 플레이 공유하기" 버튼이 있던 자리에 이제 "Key Stats"
+                // 제목이 들어간다(버튼이 아니라 그냥 텍스트). head1B(28pt Bold) + 단색
+                // mint500(#00DAC3), gradientForeground 아님.
+                Text("Key Stats")
+                    .font(.head1B)
+                    .foregroundStyle(.mint500)
+                    .frame(maxWidth: .infinity, alignment: .center)
 
                 keyStatsSection
                 goalAssistSection
@@ -211,10 +205,6 @@ private struct AnalysisTabContent: View {
 
     private var keyStatsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Key Stats")
-                .font(.title2SB)
-                .gradientForeground()
-
             HStack(spacing: 28) {
                 ForEach(detail.keyStats, id: \.label) { stat in
                     VStack(spacing: 12) {

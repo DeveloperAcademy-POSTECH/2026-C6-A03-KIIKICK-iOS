@@ -3,9 +3,15 @@
 //  KIIKICK
 //
 //  Figma node 750:5601(세로형)/750:5653(가로형) "instagram" — ShareImageView가 이미지로
-//  내보내는 카드 자체. 치수는 get_metadata로 실측한 값 그대로(세로 301×415, 가로
-//  302×415, 히트맵 109×72) — 두 레이아웃 모두 히트맵 폭은 109로 고정이다(가로형도
-//  Figma 레이어 자체가 flex-grow가 아니라 109 고정폭으로 측정됨).
+//  내보내는 카드 자체. annotation에 "투명 배경 .png 형태로 다운로드"라고 돼 있어서
+//  카드 자체엔 배경을 안 칠한다(ShareImageView 쪽 화면 배경이 어차피 어두워서
+//  화면에서 보일 땐 차이가 없고, ImageRenderer로 내보낼 때만 알파 채널이 살아있다).
+//
+//  카드 폭은 Figma 실측값(301/302)을 그대로 박지 않고 콘텐츠에 맞춰 hug한다 —
+//  고정폭(109)에 "22.6 km/h" 같은 값을 넣으면 이 프로젝트에 번들된 Kanit-SemiBold의
+//  실제 글자폭이 Figma가 가정한 폭보다 넓어서 줄바꿈 + 세로로 고정해둔 높이 때문에
+//  "22.6 km/..."처럼 말줄임표로 잘렸다 — 값 Text에 .fixedSize()를 줘서 항상 한 줄
+//  그대로 그리고, 그 폭에 맞춰 카드 전체가 커지도록 바꿨다.
 //
 //  DESIGN-GAP: 실제 히트맵 이미지가 없어서 다른 화면과 같은 gray850+map 아이콘
 //  placeholder를 쓴다. 라벨 폰트는 Figma가 Kanit-Medium 8pt인데 프로젝트엔
@@ -33,11 +39,11 @@ struct ShareCardView: View {
                 VStack(spacing: 20) {
                     statsColumn
                     heatmapPlaceholder
-                        .frame(width: 109, height: 72)
+                        .frame(height: 72)
+                        .frame(maxWidth: .infinity)
                 }
-                .padding(.horizontal, 96)
-                .padding(.vertical, 74)
-                .frame(width: 301, height: 415)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 32)
 
             case .horizontal:
                 HStack(spacing: 20) {
@@ -45,12 +51,9 @@ struct ShareCardView: View {
                     heatmapPlaceholder
                         .frame(width: 109, height: 72)
                 }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 120)
-                .frame(width: 302, height: 415)
+                .padding(32)
             }
         }
-        .background(Color.gray950)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray700, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
@@ -62,10 +65,11 @@ struct ShareCardView: View {
                     Text(Self.englishLabels[stat.label] ?? stat.label)
                         .font(.custom("Kanit-SemiBold", size: 8))
                         .foregroundStyle(.colorTextPrimary)
+                        .fixedSize()
                     Text("\(stat.value) \(stat.unit)")
                         .font(.display3SB)
                         .foregroundStyle(.colorTextPrimary)
-                        .frame(height: 29)
+                        .fixedSize()
                 }
             }
         }

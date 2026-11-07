@@ -84,8 +84,13 @@ struct ShareImageView: View {
         let orientation: ShareCardView.Orientation = selectedLayout == 0 ? .vertical : .horizontal
         let renderer = ImageRenderer(content: ShareCardView(keyStats: keyStats, orientation: orientation))
         renderer.scale = UIScreen.main.scale
+        // 카드 자체가 배경을 안 칠해서 투명하다 — isOpaque를 꺼야 알파 채널이 살아남는다.
+        renderer.isOpaque = false
 
-        guard let uiImage = renderer.uiImage else {
+        // PHAssetChangeRequest.creationRequestForAsset(from:)은 UIImage를 JPEG로
+        // 변환해버려서 투명도가 날아간다 — PNG Data를 직접 만들어 addResource로 넣어야
+        // 투명 배경이 사진 앱에도 그대로 저장된다.
+        guard let uiImage = renderer.uiImage, let pngData = uiImage.pngData() else {
             saveState = .failure("이미지를 만들지 못했어요")
             return
         }
@@ -98,7 +103,8 @@ struct ShareImageView: View {
                     return
                 }
                 PHPhotoLibrary.shared().performChanges {
-                    PHAssetChangeRequest.creationRequestForAsset(from: uiImage)
+                    let request = PHAssetCreationRequest.forAsset()
+                    request.addResource(with: .photo, data: pngData, options: nil)
                 } completionHandler: { success, error in
                     DispatchQueue.main.async {
                         saveState = success ? .success : .failure(error?.localizedDescription ?? "저장 실패")

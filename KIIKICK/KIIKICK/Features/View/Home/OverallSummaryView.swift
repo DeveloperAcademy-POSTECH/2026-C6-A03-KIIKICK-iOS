@@ -22,13 +22,13 @@ struct OverallSummaryView: View {
     let avgCalories: Int
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 32) {
             HStack(alignment: .center, spacing: 36) {
                 OverallScoreView(score: stat.score, delta: stat.delta)
                 ProfileRingView(score: stat.score ?? 0, size: 190)
             }
             
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 CardStatView(label: "총 경기 수", value: "\(matchCount)", unit: "회")
                 CardStatView(label: "총 이동거리", value: String(format: "%.1f", totalDistanceKm), unit: "km")
                 CardStatView(label: "평균 소모 칼로리", value: "\(avgCalories)", unit: "kcal")

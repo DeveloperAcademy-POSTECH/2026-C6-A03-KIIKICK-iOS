@@ -153,6 +153,9 @@ private struct AnalysisTabContent: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
         }
+        // 댓글 시트가 .presentationBackgroundInteraction(.enabled)이라 시트 뒤
+        // 본문도 탭할 수 있다 — 여기를 눌러도 키보드가 내려가야 한다.
+        .dismissKeyboardOnTap()
     }
 
     private func positionRow(_ quarter: AnalysisQuarter) -> some View {
@@ -308,7 +311,8 @@ private struct CommentsSheetContent: View {
                 }
             }
             .padding(.horizontal, 24)
-            
+            .scrollDismissesKeyboard(.interactively)
+
             // 시트가 접혀 있을 땐("댓글 N" 헤더만 보이는 상태) 입력창을 숨긴다 —
             // 끝까지 끌어올려 .large 상태가 됐을 때만 댓글을 쓸 수 있게 한다.
             if isExpanded {
@@ -320,6 +324,8 @@ private struct CommentsSheetContent: View {
                 }
             }
         }
+        // 입력창 바깥(댓글 목록, 헤더 등)을 탭하면 키보드가 내려간다.
+        .dismissKeyboardOnTap()
     }
 }
 

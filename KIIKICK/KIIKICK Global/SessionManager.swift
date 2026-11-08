@@ -16,6 +16,9 @@ final class SessionManager: NSObject {
     
     var isReachable: Bool = false
     var isMatchInProgress: Bool = false
+    /// iOS에서 경기를 생성할 때(운동장을 고를 때) 채워지고, 경기가 끝나면 다시 nil로
+    /// 돌아간다 — 워치의 "경기 시작" 화면이 다음 경기 전까지는 대기 화면을 보여주는 데 쓴다.
+    var preparedFieldName: String?
 
     #if os(iOS)
     var modelContext: ModelContext?
@@ -39,29 +42,11 @@ final class SessionManager: NSObject {
         DispatchQueue.main.async { self.transferStatus = .sending(pointCount: pointCount) }
     }
 
-    /// 경기 시작/종료 시점에 호출해서 iPhone 쪽에 현재 경기 진행 여부를 알린다.
-    /// `updateApplicationContext`만으로는(백그라운드 상태에서) 전달이 늦거나 유실되는 걸로
-    /// 보여서, reachable일 때는 `sendMessage`로 즉시 한 번 더 보낸다 — 두 경로 모두
-    /// iOS 쪽의 같은 키("isMatchInProgress")를 읽는다.
+    /// 경기 시작/종료 시점에 호출해서 iPhone 쪽에 현재 경기 진행 여부를 알린다. 두 경로
+    /// 모두 iOS 쪽의 같은 키("isMatchInProgress")를 읽는다.
     func updateMatchStatus(isInProgress: Bool) {
         isMatchInProgress = isInProgress
-        let payload = ["isMatchInProgress": isInProgress]
-
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(payload, replyHandler: nil) { error in
-                #if DEBUG
-                print("[SessionManager] sendMessage(경기 상태) 실패 - \(error)")
-                #endif
-            }
-        }
-
-        do {
-            try WCSession.default.updateApplicationContext(payload)
-        } catch {
-            #if DEBUG
-            print("[SessionManager] updateApplicationContext(경기 상태) 실패 - \(error)")
-            #endif
-        }
+        sendContextUpdate(["isMatchInProgress": isInProgress])
     }
 
     /// `recordID`를 넘기면, 이 전송이 성공했을 때 같은 id의 `QuarterRecord`만 지운다.
@@ -81,7 +66,39 @@ final class SessionManager: NSObject {
         }
     }
     #endif
-    
+
+    #if os(iOS)
+    /// 운동장을 골라 경기를 "생성"할 때(또는 취소/경기 시작으로 비울 때) 호출해서 워치에
+    /// 알린다. `fieldName`이 nil이면 "아직 준비 안 됨" — 워치 StartView가 대기 화면을 보여준다.
+    func updateMatchPrepared(fieldName: String?) {
+        preparedFieldName = fieldName
+        sendContextUpdate(["preparedFieldName": fieldName ?? ""])
+    }
+    #endif
+
+    /// `sendMessage`(reachable일 때 즉시) + `updateApplicationContext`(백그라운드에서도 전달)
+    /// 둘 다로 보낸다. `updateApplicationContext`는 컨텍스트 전체를 통째로 덮어쓰기 때문에,
+    /// 기존 컨텍스트에 새 값만 합쳐서 보내야 다른 키(예: isMatchInProgress)가 안 날아간다.
+    private func sendContextUpdate(_ payload: [String: Any]) {
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(payload, replyHandler: nil) { error in
+                #if DEBUG
+                print("[SessionManager] sendMessage 실패 - \(error)")
+                #endif
+            }
+        }
+
+        var context = WCSession.default.applicationContext
+        for (key, value) in payload { context[key] = value }
+        do {
+            try WCSession.default.updateApplicationContext(context)
+        } catch {
+            #if DEBUG
+            print("[SessionManager] updateApplicationContext 실패 - \(error)")
+            #endif
+        }
+    }
+
     private override init() {
         super.init()
         guard WCSession.isSupported() else {
@@ -108,6 +125,12 @@ extension SessionManager: WCSessionDelegate {
         // 앱이 늦게 켜져서 activate 전에 이미 워치가 context를 갱신해놨을 수 있으니 시작 시점에 한 번 읽어둔다.
         if let isInProgress = session.receivedApplicationContext["isMatchInProgress"] as? Bool {
             DispatchQueue.main.async { self.isMatchInProgress = isInProgress }
+        }
+        #endif
+        #if os(watchOS)
+        // 반대 방향 — 워치 앱이 늦게 켜져서 activate 전에 이미 iOS가 경기를 준비해놨을 수 있다.
+        if let fieldName = session.receivedApplicationContext["preparedFieldName"] as? String {
+            DispatchQueue.main.async { self.preparedFieldName = fieldName.isEmpty ? nil : fieldName }
         }
         #endif
         #if DEBUG
@@ -159,12 +182,21 @@ extension SessionManager: WCSessionDelegate {
     }
 
     private func applyMatchStatus(from payload: [String: Any]) {
-        guard let isInProgress = payload["isMatchInProgress"] as? Bool else { return }
-        DispatchQueue.main.async {
-            #if DEBUG
-            print("[SessionManager] isMatchInProgress 수신 - \(isInProgress)")
-            #endif
-            self.isMatchInProgress = isInProgress
+        if let isInProgress = payload["isMatchInProgress"] as? Bool {
+            DispatchQueue.main.async {
+                #if DEBUG
+                print("[SessionManager] isMatchInProgress 수신 - \(isInProgress)")
+                #endif
+                self.isMatchInProgress = isInProgress
+            }
+        }
+        if let fieldName = payload["preparedFieldName"] as? String {
+            DispatchQueue.main.async {
+                #if DEBUG
+                print("[SessionManager] preparedFieldName 수신 - \(fieldName)")
+                #endif
+                self.preparedFieldName = fieldName.isEmpty ? nil : fieldName
+            }
         }
     }
 

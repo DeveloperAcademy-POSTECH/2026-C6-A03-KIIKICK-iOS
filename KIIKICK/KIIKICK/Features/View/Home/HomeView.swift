@@ -110,10 +110,18 @@ struct HomeView: View {
                 FieldListView(onSelect: { field in
                     preparedField = field
                     isSelectingField = false
+                    // 워치에 경기가 준비됐다고 알린다 — StartView가 대기 화면 대신
+                    // "경기 시작" 버튼을 보여주게 된다.
+                    sessionManager.updateMatchPrepared(fieldName: field.name)
                 })
             }
             .onChange(of: sessionManager.isMatchInProgress) { _, isInProgress in
-                if isInProgress { preparedField = nil }
+                if isInProgress {
+                    preparedField = nil
+                    // 경기가 시작되면 "준비됨" 신호를 꺼서, 다음 경기 전까지는 워치가
+                    // 다시 대기 화면(Default 상태)을 보여주게 한다.
+                    sessionManager.updateMatchPrepared(fieldName: nil)
+                }
             }
             .navigationDestination(for: WorkoutRecord.self) { record in
                 WorkoutDetailView(record: record)

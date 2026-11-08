@@ -8,16 +8,20 @@
 //  홈 좌상단 아이콘에서 들어오는 진입점은 홈 UI가 아직 끝나지 않아 이 화면에서는 연결하지 않는다
 //  (이슈 #14 작성자 확인 사항).
 //
+//  목록 자체는 로컬 @State가 아니라 SessionManager.notifications(공용 저장소)를 그대로
+//  쓴다 — 경기 분석 결과가 도착하면(SessionManager.didReceive(file:)) 홈 화면 벨 아이콘과
+//  이 목록이 같은 데이터를 보고 즉시 같이 반영돼야 하기 때문이다.
+//
 
 import SwiftUI
 
 struct NotificationListView: View {
-    @State private var items: [NotificationItem] = NotificationMockData.items
+    @Environment(SessionManager.self) private var sessionManager
     @State private var filter: NotificationFilter = .all
     @State private var pushedAnalysisEntry: AnalysisEntry?
 
     private var filteredItems: [NotificationItem] {
-        filter == .all ? items : items.filter { $0.filterCategory == filter }
+        filter == .all ? sessionManager.notifications : sessionManager.notifications.filter { $0.filterCategory == filter }
     }
 
     private var groupedSections: [(label: String, items: [NotificationItem])] {
@@ -109,9 +113,12 @@ struct NotificationListView: View {
     }
 
     private func updateStatus(of item: NotificationItem, to status: FriendRequestStatus) {
-        guard let index = items.firstIndex(where: { $0.id == item.id }),
-              case .friendRequest(_, let nickname) = items[index].kind else { return }
-        items[index] = NotificationItem(id: item.id, date: item.date, kind: .friendRequest(status: status, nickname: nickname), isRead: items[index].isRead)
+        guard let index = sessionManager.notifications.firstIndex(where: { $0.id == item.id }),
+              case .friendRequest(_, let nickname) = sessionManager.notifications[index].kind else { return }
+        sessionManager.notifications[index] = NotificationItem(
+            id: item.id, date: item.date, kind: .friendRequest(status: status, nickname: nickname),
+            isRead: sessionManager.notifications[index].isRead
+        )
     }
 }
 
@@ -131,4 +138,5 @@ private extension View {
     NavigationStack {
         NotificationListView()
     }
+    .environment(SessionManager.shared)
 }

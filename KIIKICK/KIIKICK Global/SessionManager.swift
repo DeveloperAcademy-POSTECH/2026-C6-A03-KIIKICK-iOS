@@ -22,8 +22,12 @@ final class SessionManager: NSObject {
 
     #if os(iOS)
     var modelContext: ModelContext?
-    /// 워치가 가장 최근에 보내온, 아직 홈 화면에서 확인하지 않은 기록. 상세 화면을 열면 nil로 비운다.
+    /// 워치가 가장 최근에 보내온 기록. didReceive(file:)에서 .myPlay 알림을 만드는 데 쓴다.
     var justArrivedRecord: WorkoutRecord?
+    /// 알림 목록 — NotificationMockData로 시드해두고, 경기 분석 결과가 도착하면(아래
+    /// didReceive(file:)) .myPlay 알림을 맨 앞에 추가한다. 실제 서버/로컬 저장소가 없어서
+    /// 앱을 다시 켜면 시드값으로 되돌아간다 — DESIGN-GAP.
+    var notifications: [NotificationItem] = NotificationMockData.items
     #endif
 
     #if os(watchOS)
@@ -169,6 +173,11 @@ extension SessionManager: WCSessionDelegate {
             self.modelContext?.insert(record)
             try? self.modelContext?.save()
             self.justArrivedRecord = record
+            // 홈 화면에 배너를 따로 띄우지 않고, 알림으로만 "분석 결과가 도착했어요"를 알린다.
+            self.notifications.insert(
+                NotificationItem(date: Date(), kind: .myPlay(matchDate: record.date), isRead: false),
+                at: 0
+            )
         }
         #endif
     }

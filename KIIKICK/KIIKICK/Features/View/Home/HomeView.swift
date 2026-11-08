@@ -37,9 +37,8 @@ struct HomeView: View {
         if sessionManager.isMatchInProgress {
             return .inProgress
         }
-        if let record = sessionManager.justArrivedRecord {
-            return .justFinished(record: record)
-        }
+        // 경기가 막 도착했을 때도 더 이상 배너를 안 띄운다 — 그 이벤트는 알림으로 간다
+        // (SessionManager.didReceive(file:) 참고). 바로 다음 상태로 넘어간다.
         if let preparedField {
             return .prepared(fieldName: preparedField.name)
         }
@@ -63,7 +62,7 @@ struct HomeView: View {
     }
 
     private var hasUnreadNotifications: Bool {
-        NotificationMockData.items.contains { !$0.isRead }
+        sessionManager.notifications.contains { !$0.isRead }
     }
     
     var body: some View {
@@ -123,15 +122,6 @@ struct HomeView: View {
                     sessionManager.updateMatchPrepared(fieldName: nil)
                 }
             }
-            .navigationDestination(for: WorkoutRecord.self) { record in
-                WorkoutDetailView(record: record)
-                    .toolbar(.hidden, for: .tabBar)
-                    .onAppear {
-                        if sessionManager.justArrivedRecord?.persistentModelID == record.persistentModelID {
-                            sessionManager.justArrivedRecord = nil
-                        }
-                    }
-            }
             headerBar
         }
     }
@@ -157,8 +147,9 @@ struct HomeView: View {
             .padding(.horizontal, 12)
             
             // 이슈 #42 "Remind" 댓글 — 안 읽은 알림이 있으면 벨 아이콘이 바뀐다.
-            // DESIGN-GAP: 읽음 처리 자체가 아직 없어서(NotificationItem.isRead 참고)
-            // NotificationMockData의 고정값만 본다 — 알림 화면에 들어갔다 나와도 안 바뀐다.
+            // sessionManager.notifications가 공용 저장소라서 경기 분석 결과가 도착하면
+            // (SessionManager.didReceive(file:)) 바로 반영된다. DESIGN-GAP: "읽음 처리"
+            // 자체는 아직 없어서 — 알림 화면에 들어갔다 나와도 안 바뀐다.
             NavigationLink(destination: NotificationListView()) {
                 if hasUnreadNotifications {
                     // ic_bell_new는 민트색 점이 박힌 2톤 에셋이라(ic_goal/ic_assist와 같은

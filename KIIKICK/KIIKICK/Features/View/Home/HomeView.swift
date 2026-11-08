@@ -61,6 +61,10 @@ struct HomeView: View {
         let total = records.reduce(0) { $0 + $1.totalCalories }
         return Int(total / Double(records.count))
     }
+
+    private var hasUnreadNotifications: Bool {
+        NotificationMockData.items.contains { !$0.isRead }
+    }
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -144,13 +148,28 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .padding(.horizontal, 12)
             
+            // 이슈 #42 "Remind" 댓글 — 안 읽은 알림이 있으면 벨 아이콘이 바뀐다.
+            // DESIGN-GAP: 읽음 처리 자체가 아직 없어서(NotificationItem.isRead 참고)
+            // NotificationMockData의 고정값만 본다 — 알림 화면에 들어갔다 나와도 안 바뀐다.
             NavigationLink(destination: NotificationListView()) {
-                Image("ic_bell")
-                    .resizable()
-                    .frame(width: 24, height: 24)
-                    .foregroundStyle(.colorTextPrimary)
-                    .frame(width: 44, height: 44)
-                    .glassCircleBackground()
+                if hasUnreadNotifications {
+                    // ic_bell_new는 민트색 점이 박힌 2톤 에셋이라(ic_goal/ic_assist와 같은
+                    // 패턴) .renderingMode(.original)로 카탈로그의 template 설정을 덮어써야
+                    // 점 색이 산다.
+                    Image("ic_bell_new")
+                        .renderingMode(.original)
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                        .frame(width: 44, height: 44)
+                        .glassCircleBackground()
+                } else {
+                    Image("ic_bell")
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                        .foregroundStyle(.colorTextPrimary)
+                        .frame(width: 44, height: 44)
+                        .glassCircleBackground()
+                }
             }
         }
         .padding(.horizontal, 24)

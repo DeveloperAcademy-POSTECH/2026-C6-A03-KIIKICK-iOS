@@ -18,14 +18,15 @@ enum NotificationMockData {
         }
 
         return [
-            NotificationItem(date: date(daysAgo: 0, hour: 9), kind: .friendRequest(status: .pending, nickname: "갱아")),
-            NotificationItem(date: date(daysAgo: 0, hour: 11), kind: .friendRequest(status: .accepted, nickname: "루디")),
-            NotificationItem(date: date(daysAgo: 0, hour: 14), kind: .comment(nickname: "곤", preview: "댓글 내용내용내용")),
-            NotificationItem(date: date(daysAgo: 0, hour: 16), kind: .withFriend(nickname: "애셔", matchDate: date(daysAgo: 0, hour: 0))),
-            NotificationItem(date: date(daysAgo: 1, hour: 10), kind: .friendRequest(status: .rejected, nickname: "애셔")),
-            NotificationItem(date: date(daysAgo: 1, hour: 18), kind: .comment(nickname: "조승연", preview: "오늘 경기 어땠어?")),
-            NotificationItem(date: date(daysAgo: 3, hour: 9), kind: .friendRequest(status: .pending, nickname: "조승연아")),
-            NotificationItem(date: date(daysAgo: 10, hour: 9), kind: .comment(nickname: "조승연이", preview: "다음에 또 보자")),
+            NotificationItem(date: date(daysAgo: 0, hour: 17), kind: .myPlay(matchDate: date(daysAgo: 0, hour: 0)), isRead: false),
+            NotificationItem(date: date(daysAgo: 0, hour: 9), kind: .friendRequest(status: .pending, nickname: "갱아"), isRead: false),
+            NotificationItem(date: date(daysAgo: 0, hour: 11), kind: .friendRequest(status: .accepted, nickname: "루디"), isRead: true),
+            NotificationItem(date: date(daysAgo: 0, hour: 14), kind: .comment(nickname: "곤", preview: "댓글 내용내용내용"), isRead: true),
+            NotificationItem(date: date(daysAgo: 0, hour: 16), kind: .withFriend(nickname: "애셔", matchDate: date(daysAgo: 0, hour: 0)), isRead: true),
+            NotificationItem(date: date(daysAgo: 1, hour: 10), kind: .friendRequest(status: .rejected, nickname: "애셔"), isRead: true),
+            NotificationItem(date: date(daysAgo: 1, hour: 18), kind: .comment(nickname: "조승연", preview: "오늘 경기 어땠어?"), isRead: true),
+            NotificationItem(date: date(daysAgo: 3, hour: 9), kind: .friendRequest(status: .pending, nickname: "조승연아"), isRead: true),
+            NotificationItem(date: date(daysAgo: 10, hour: 9), kind: .comment(nickname: "조승연이", preview: "다음에 또 보자"), isRead: true),
         ]
     }()
 }

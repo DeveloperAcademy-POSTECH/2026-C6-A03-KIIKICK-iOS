@@ -3,7 +3,7 @@
 //  KIIKICK
 //
 //  Figma node 317:2153 "notification" (이슈 #25로 갱신: 함께 뛴 경기 칩/알림 추가,
-//  선택한 칩이 앞으로 오는 정책, 빈 상태 뷰), 317:2362 "Scroll Edge Effect - Soft"
+//  빈 상태 뷰), 317:2362 "Scroll Edge Effect - Soft"
 //
 //  홈 좌상단 아이콘에서 들어오는 진입점은 홈 UI가 아직 끝나지 않아 이 화면에서는 연결하지 않는다
 //  (이슈 #14 작성자 확인 사항).
@@ -14,9 +14,6 @@ import SwiftUI
 struct NotificationListView: View {
     @State private var items: [NotificationItem] = NotificationMockData.items
     @State private var filter: NotificationFilter = .all
-    /// 칩이 화면에 그려지는 순서. 기본값은 `전체 - 내 플레이 - 함께 뛴 경기 - 댓글 - 친구`
-    /// (= `NotificationFilter.allCases` 선언 순서)이고, 칩을 선택할 때마다 그 칩이 맨 앞으로 온다.
-    @State private var chipOrder: [NotificationFilter] = NotificationFilter.allCases
     @State private var pushedAnalysisEntry: AnalysisEntry?
 
     private var filteredItems: [NotificationItem] {
@@ -41,9 +38,9 @@ struct NotificationListView: View {
                 // 텍스트가 줄바꿈되며 찌그러진다 — 가로 ScrollView로 감쌌다.
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(chipOrder) { option in
+                        ForEach(NotificationFilter.allCases) { option in
                             Button {
-                                select(option)
+                                filter = option
                             } label: {
                                 FilterChipView(text: option.rawValue, isSelected: filter == option)
                             }
@@ -83,12 +80,6 @@ struct NotificationListView: View {
         .navigationDestination(item: $pushedAnalysisEntry) { entry in
             AnalysisDetailView(entry: entry)
         }
-    }
-
-    private func select(_ option: NotificationFilter) {
-        filter = option
-        chipOrder.removeAll { $0 == option }
-        chipOrder.insert(option, at: 0)
     }
 
     @ViewBuilder

@@ -7,10 +7,28 @@
 //  득점/어시스트처럼 의미 있는 이벤트가 발생한 시점 하나만 가리키기 때문이다.
 //
 
-import Foundation
+import SwiftUI
 
 enum MatchEventType: String, Codable, Hashable {
     case goal, assist
+    
+    var name: String {
+        switch self {
+        case .goal:
+            "골"
+        case .assist:
+            "어시스트"
+        }
+    }
+    
+    var image: Image {
+        switch self {
+        case .goal:
+            Image("img_goal")
+        case .assist:
+            Image("img_assist")
+        }
+    }
 }
 
 struct MatchEvent: Codable {

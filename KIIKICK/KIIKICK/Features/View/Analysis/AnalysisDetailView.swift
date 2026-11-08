@@ -228,34 +228,35 @@ private struct AnalysisTabContent: View {
 
     private var goalAssistSection: some View {
         HStack(spacing: 24) {
-            statBadge(icon: "soccerball.inverse", label: "골", count: detail.goalCount)
-            statBadge(icon: "shoe.running.and.shadow.fill", label: "어시스트", count: detail.assistCount)
+            statBadge(.goal, count: 2)
+            statBadge(.assist, count: 3)
         }
         .frame(maxWidth: .infinity)
     }
-
-    private func statBadge(icon: String, label: String, count: Int) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 28))
-                .foregroundStyle(.mint500)
-            Text("\(count)")
-                .font(.display3SB)
-                .foregroundStyle(.gray50)
-            Text(label)
-                .font(.caption1M)
-                .foregroundStyle(.gray400)
+    
+    private func statBadge(_ type: MatchEventType, count: Int) -> some View {
+        VStack(spacing: 4) {
+            Text(type.name)
+                .font(.label3M)
+            ZStack {
+                type.image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 80)
+                Text(String(count))
+                    .font(.display2SB)
+                    .padding(.bottom, 40)
+            }
         }
-        .frame(width: 80, height: 80)
-        .background(Color.gray900, in: Circle())
     }
 
     private func sectionView(_ section: AnalysisSection) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(section.title)
                 .font(.title2SB)
+            
                 .gradientForeground()
-
+            
             VStack(spacing: 0) {
                 ForEach(section.rows, id: \.label) { row in
                     HStack {
@@ -268,7 +269,7 @@ private struct AnalysisTabContent: View {
                             .foregroundStyle(.gray50)
                     }
                     .padding(.vertical, 12)
-
+                    
                     if row != section.rows.last {
                         Rectangle()
                             .fill(Color.gray850)

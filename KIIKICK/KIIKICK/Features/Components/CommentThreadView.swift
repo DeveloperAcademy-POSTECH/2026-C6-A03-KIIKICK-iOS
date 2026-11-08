@@ -75,9 +75,20 @@ struct CommentThreadView: View {
 }
 
 #Preview {
-    ScrollView {
+    let threads: [Comment] = [
+        Comment(
+            authorNickname: "갱아",
+            content: "이번 경기 스프린트 진짜 많이 늘었다 ㅋㅋ",
+            timestamp: "3시간 전",
+            replies: [
+                CommentReply(authorNickname: "루디", content: "인정 ㅋㅋㅋ 다음엔 나도 끼워줘", timestamp: "2시간 전"),
+            ]
+        ),
+        Comment(authorNickname: "곤", content: "히트맵 보니까 왼쪽 사이드만 계속 뛰었네 ㅋㅋ", timestamp: "1시간 전"),
+    ]
+    return ScrollView {
         VStack(alignment: .leading, spacing: 20) {
-            ForEach(CommentMockData.threads) { CommentThreadView(comment: $0) }
+            ForEach(threads) { CommentThreadView(comment: $0) }
         }
         .padding()
     }

@@ -24,10 +24,10 @@ final class SessionManager: NSObject {
     var modelContext: ModelContext?
     /// 워치가 가장 최근에 보내온 기록. didReceive(file:)에서 .myPlay 알림을 만드는 데 쓴다.
     var justArrivedRecord: WorkoutRecord?
-    /// 알림 목록 — NotificationMockData로 시드해두고, 경기 분석 결과가 도착하면(아래
-    /// didReceive(file:)) .myPlay 알림을 맨 앞에 추가한다. 실제 서버/로컬 저장소가 없어서
-    /// 앱을 다시 켜면 시드값으로 되돌아간다 — DESIGN-GAP.
-    var notifications: [NotificationItem] = NotificationMockData.items
+    /// 알림 목록 — 비어서 시작하고, 경기 분석 결과가 도착하면(아래 didReceive(file:))
+    /// .myPlay 알림을 맨 앞에 추가한다. 실제 서버/로컬 저장소가 없어서 앱을 다시 켜면
+    /// 그동안 쌓인 알림도 같이 사라진다 — DESIGN-GAP.
+    var notifications: [NotificationItem] = []
     #endif
 
     #if os(watchOS)
@@ -175,7 +175,7 @@ extension SessionManager: WCSessionDelegate {
             self.justArrivedRecord = record
             // 홈 화면에 배너를 따로 띄우지 않고, 알림으로만 "분석 결과가 도착했어요"를 알린다.
             self.notifications.insert(
-                NotificationItem(date: Date(), kind: .myPlay(matchDate: record.date), isRead: false),
+                NotificationItem(date: Date(), kind: .myPlay(record: record), isRead: false),
                 at: 0
             )
         }

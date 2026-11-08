@@ -18,7 +18,7 @@ import SwiftUI
 struct NotificationListView: View {
     @Environment(SessionManager.self) private var sessionManager
     @State private var filter: NotificationFilter = .all
-    @State private var pushedAnalysisEntry: AnalysisEntry?
+    @State private var pushedRecord: WorkoutRecord?
 
     private var filteredItems: [NotificationItem] {
         filter == .all ? sessionManager.notifications : sessionManager.notifications.filter { $0.filterCategory == filter }
@@ -81,8 +81,9 @@ struct NotificationListView: View {
         .navigationTitle("알림")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .navigationDestination(item: $pushedAnalysisEntry) { entry in
-            AnalysisDetailView(entry: entry)
+        .navigationDestination(item: $pushedRecord) { record in
+            WorkoutDetailView(record: record)
+                .toolbar(.hidden, for: .tabBar)
         }
     }
 
@@ -100,14 +101,13 @@ struct NotificationListView: View {
             NotificationCommentView(nickname: nickname, commentPreview: preview)
         case .withFriend(let nickname, let matchDate):
             NotificationWithFriendView(nickname: nickname, matchDate: matchDate)
-        case .myPlay(let matchDate):
+        case .myPlay(let record):
             // DESIGN-GAP: Figma annotation대로라면 첫 진입/이후를 나눠서 분석 준비
-            // (ReadyForDetailView) vs 분석 결과(AnalysisDetailView)로 갈라야 하는데,
+            // (ReadyForDetailView) vs 분석 결과(WorkoutDetailView)로 갈라야 하는데,
             // ReadyForDetailView/AnalyzingView(이슈 #43)가 이 브랜치엔 없어서 지금은
-            // 항상 결과 화면으로 바로 보낸다. 어떤 경기 분석인지 알림 자체엔 식별자가
-            // 없어서 목업 중 첫 번째 entry로 고정했다.
-            NotificationMyPlayView(matchDate: matchDate) {
-                pushedAnalysisEntry = AnalysisMockData.entries.first
+            // 항상 결과 화면으로 바로 보낸다.
+            NotificationMyPlayView(matchDate: record.date) {
+                pushedRecord = record
             }
         }
     }

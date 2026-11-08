@@ -7,8 +7,8 @@
 //
 //  DESIGN-GAP: 스크롤하면 상단 타이틀이 "프로필"에서 닉네임으로 바뀌는 variant(575:5868)가
 //  있지만, 이 앱에 그런 스크롤 연동 타이틀 패턴이 아직 없어 "프로필" 고정으로 구현했다.
-//  경기 기록은 AnalysisMockData를 그대로 재사용한다(이슈 #26도 뷰 구현만 범위, 실제 "함께 뛴
-//  경기"만 걸러내는 데이터 연동은 없음).
+//  "함께 뛴 경기" 기록을 보여줄 실제 데이터 연동이 없어서(이슈 #26도 뷰 구현만 범위) 지금은
+//  빈 목록이다.
 //
 
 import SwiftUI
@@ -51,7 +51,7 @@ struct UserProfileView: View {
                         DatePickerView(year: $year, month: $month)
 
                         VStack(spacing: 24) {
-                            ForEach(AnalysisMockData.entries) { entry in
+                            ForEach([AnalysisEntry]()) { entry in
                                 CardSummaryView(
                                     dateAndQuarter: entry.dateAndQuarter,
                                     fieldName: entry.fieldName,

@@ -2,8 +2,8 @@
 //  AnalysisView.swift
 //  KIIKICK
 //
-//  Figma node 331:2810 "analysis" (이슈 #17). 목업 데이터(AnalysisMockData)로 구현 —
-//  실제 WorkoutRecord 연동은 이 이슈 범위 밖.
+//  Figma node 331:2810 "analysis" (이슈 #17). 실제 WorkoutRecord 연동은 이 이슈 범위
+//  밖이라 목업 데이터를 치워서 당장은 빈 목록으로 시작한다.
 //
 
 import SwiftUI
@@ -11,7 +11,7 @@ import SwiftUI
 struct AnalysisView: View {
     @State private var year = 2026
     @State private var month = 10
-    @State private var entries: [AnalysisEntry] = AnalysisMockData.entries
+    @State private var entries: [AnalysisEntry] = []
     @State private var pushedDetail: AnalysisEntry?
 
     var body: some View {

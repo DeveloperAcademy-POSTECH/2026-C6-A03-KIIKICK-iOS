@@ -25,7 +25,15 @@ struct MainView: View {
         ZStack {
             switch step {
             case .start:
-                StartView() { step = .countDown }
+                // iOS에서 운동장을 골라 경기를 생성하기 전까진(SessionManager.
+                // preparedFieldName == nil) "경기 시작" 버튼 대신 대기 화면을 보여준다.
+                // 경기가 끝나고 돌아왔을 때도 다음 경기가 준비되기 전까진 이 Default
+                // 상태 그대로다(HomeView가 경기 시작 시점에 이미 비워서 보내준다).
+                if SessionManager.shared.preparedFieldName != nil {
+                    StartView() { step = .countDown }
+                } else {
+                    WaitingForMatchView()
+                }
             case .countDown:
                 CountDownView {
                     Task {

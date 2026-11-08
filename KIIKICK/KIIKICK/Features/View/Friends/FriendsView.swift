@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct FriendsView: View {
-    @State private var friends: [UserProfile] = FriendMockData.myFriends
+    @State private var friends: [UserProfile] = []
     @State private var pushedProfile: UserProfile?
     @State private var pushedAddFriend = false
 
@@ -56,7 +56,7 @@ struct FriendsView: View {
             )
         }
         .navigationDestination(isPresented: $pushedAddFriend) {
-            AddFriendView(users: FriendMockData.searchPool)
+            AddFriendView(users: [])
         }
     }
 }

@@ -91,6 +91,10 @@ struct AddFriendView: View {
 
 #Preview {
     NavigationStack {
-        AddFriendView(users: FriendMockData.searchPool)
+        AddFriendView(users: [
+            UserProfile(nickname: "갱아", status: .friend),
+            UserProfile(nickname: "조승연", status: .requestSent),
+            UserProfile(nickname: "조승연아", status: .none),
+        ])
     }
 }

@@ -18,7 +18,7 @@ struct AnalysisDetailView: View {
 
     @State private var segment: AnalysisSegment = .analysis
     @State private var selectedQuarterIndex = 0
-    @State private var comments: [Comment] = CommentMockData.threads
+    @State private var comments: [Comment] = []
     @State private var commentText = ""
     @State private var pushedFriendsPlayedTogether = false
 
@@ -38,7 +38,7 @@ struct AnalysisDetailView: View {
                 CommentsTabContent(
                     comments: $comments,
                     commentText: $commentText,
-                    friendsCount: AnalysisMockData.friendsPlayedTogether.count,
+                    friendsCount: 0,
                     onShowFriends: { pushedFriendsPlayedTogether = true }
                 )
             }
@@ -59,7 +59,7 @@ struct AnalysisDetailView: View {
             }
         }
         .navigationDestination(isPresented: $pushedFriendsPlayedTogether) {
-            FriendsPlayedTogetherView(friends: AnalysisMockData.friendsPlayedTogether)
+            FriendsPlayedTogetherView(friends: [])
         }
     }
 }
@@ -307,6 +307,35 @@ private struct CommentsTabContent: View {
 
 #Preview {
     NavigationStack {
-        AnalysisDetailView(entry: AnalysisMockData.entries[0])
+        AnalysisDetailView(
+            entry: AnalysisEntry(
+                dateAndQuarter: "10월 28일 • 총 4Q",
+                fieldName: "우리 집 앞 풋살장",
+                stats: [
+                    AnalysisStat(label: "최고속도", value: "22.6", unit: "km/h"),
+                    AnalysisStat(label: "이동거리", value: "2.48", unit: "km"),
+                    AnalysisStat(label: "소모칼로리", value: "245", unit: "kcal"),
+                ],
+                detail: AnalysisDetail(
+                    title: "10월 28일",
+                    quarters: [
+                        AnalysisQuarter(quarterNumber: 1, durationText: "26:03", position: "CM", heatmapPageCount: 3),
+                    ],
+                    keyStats: [
+                        AnalysisStat(label: "최고속도", value: "22.6", unit: "km/h"),
+                        AnalysisStat(label: "이동거리", value: "2.48", unit: "km"),
+                        AnalysisStat(label: "소모칼로리", value: "245", unit: "kcal"),
+                    ],
+                    goalCount: 2,
+                    assistCount: 1,
+                    sections: [
+                        AnalysisSection(title: "Movement", rows: [
+                            AnalysisSectionRow(label: "평균 속력", value: "8.2 km/h"),
+                        ]),
+                    ],
+                    disclaimer: "히트맵과 포지션이 정확한지 확인해주세요"
+                )
+            )
+        )
     }
 }

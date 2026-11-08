@@ -15,10 +15,7 @@ struct AddFriendView: View {
     @State private var pushedProfile: UserProfile?
     let users: [UserProfile]
 
-    private var results: [UserProfile] {
-        guard !query.isEmpty else { return [] }
-        return users.filter { $0.nickname.localizedCaseInsensitiveContains(query) }
-    }
+    @State private var searchModel = FriendSearchModel()
 
     var body: some View {
         // dismissKeyboardOnTap()을 검색 결과 ForEach(매 입력마다 행 개수가 바뀜)와 같은 VStack에
@@ -45,12 +42,15 @@ struct AddFriendView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 48)
                 } else {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("검색 결과 \(results.count)")
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        Text("검색 결과 \(searchModel.results.count)")
                             .font(.label4SB)
                             .foregroundStyle(.gray400)
 
-                        if results.isEmpty {
+                        if searchModel.isSearching {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                        } else if searchModel.results.isEmpty {
                             VStack(spacing: 16) {
                                 Text("검색 결과가 없어요")
                                     .font(.title4SB)
@@ -62,7 +62,7 @@ struct AddFriendView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.top, 80)
                         } else {
-                            ForEach(results) { user in
+                            ForEach(searchModel.results) { user in
                                 Button {
                                     pushedProfile = user
                                 } label: {
@@ -79,6 +79,15 @@ struct AddFriendView: View {
             .padding(.horizontal, 16)
             .padding(.top, 16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .task(id: FriendSearchRequest(query: query, users: users)) {
+            await searchModel.search(FriendSearchRequest(query: query, users: users))
+        }
+        .onChange(of: query) { _, _ in
+            searchModel.prepare(for: query)
+        }
+        .onChange(of: users) { _, _ in
+            searchModel.prepare(for: query)
         }
         .navigationTitle("친구 추가")
         .navigationBarTitleDisplayMode(.inline)

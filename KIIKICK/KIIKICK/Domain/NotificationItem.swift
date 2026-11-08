@@ -2,7 +2,7 @@
 //  NotificationItem.swift
 //  KIIKICK
 //
-//  `FriendRequestStatus`는 Features/Components/NotificationFriendView.swift에 정의되어 있다.
+//  `FriendRequestStatus`는 Domain/FriendRequestStatus.swift에 정의되어 있다.
 //
 
 import Foundation

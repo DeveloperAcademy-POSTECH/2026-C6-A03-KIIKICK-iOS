@@ -12,28 +12,16 @@
 import SwiftUI
 
 struct NotificationListView: View {
-    @State private var items: [NotificationItem] = NotificationMockData.items
+    @State private var model = NotificationListModel()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var filter: NotificationFilter = .all
     /// 칩이 화면에 그려지는 순서. 기본값은 `전체 - 함께 뛴 경기 - 댓글 - 친구`(= `NotificationFilter.allCases`
     /// 선언 순서)이고, 칩을 선택할 때마다 그 칩이 맨 앞으로 온다.
     @State private var chipOrder: [NotificationFilter] = NotificationFilter.allCases
 
-    private var filteredItems: [NotificationItem] {
-        filter == .all ? items : items.filter { $0.filterCategory == filter }
-    }
-
-    private var groupedSections: [(label: String, items: [NotificationItem])] {
-        let calendar = Calendar.current
-        let sorted = filteredItems.sorted { $0.date > $1.date }
-        let groupedByDay = Dictionary(grouping: sorted) { calendar.startOfDay(for: $0.date) }
-        return groupedByDay.keys.sorted(by: >).map { day in
-            (label: day.relativeDayLabel(), items: groupedByDay[day] ?? [])
-        }
-    }
-
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            LazyVStack(alignment: .leading, spacing: 24) {
                 HStack(spacing: 8) {
                     ForEach(chipOrder) { option in
                         Button {
@@ -45,21 +33,21 @@ struct NotificationListView: View {
                     }
                 }
 
-                if groupedSections.isEmpty {
+                if model.sections(for: filter).isEmpty {
                     EmptyStateView(
                         title: "아직 알림이 없어요",
                         subtitle: "친구들과의 활동이 생기면 이곳에서 알려드려요"
                     )
                     .padding(.top, 48)
                 } else {
-                    ForEach(groupedSections, id: \.label) { section in
+                    ForEach(model.sections(for: filter)) { section in
                         VStack(alignment: .leading, spacing: 12) {
-                            Text(section.label)
+                            Text(section.id.relativeDayLabel())
                                 .font(.label4SB)
                                 .foregroundStyle(.gray400)
 
-                            ForEach(section.items) { item in
-                                notificationRow(for: item)
+                            ForEach(section.rows) { row in
+                                notificationRow(for: row.item)
                             }
                         }
                     }
@@ -70,6 +58,16 @@ struct NotificationListView: View {
         .applyingSoftTopScrollEdgeEffect()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.gray950)
+        .task { model.loadIfNeeded(NotificationMockData.items) }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { model.regroup() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
+            model.regroup()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            model.regroup()
+        }
         .navigationTitle("알림")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -99,9 +97,7 @@ struct NotificationListView: View {
     }
 
     private func updateStatus(of item: NotificationItem, to status: FriendRequestStatus) {
-        guard let index = items.firstIndex(where: { $0.id == item.id }),
-              case .friendRequest(_, let nickname) = items[index].kind else { return }
-        items[index] = NotificationItem(id: item.id, date: item.date, kind: .friendRequest(status: status, nickname: nickname))
+        model.updateStatus(id: item.id, to: status)
     }
 }
 

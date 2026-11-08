@@ -7,10 +7,6 @@
 
 import SwiftUI
 
-enum FriendRequestStatus {
-    case pending, accepted, rejected
-}
-
 struct NotificationFriendView: View {
     let nickname: String
     var profileImage: Image? = nil

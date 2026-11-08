@@ -9,8 +9,8 @@
 //  실제 Figma 컴포넌트다.
 //
 //  Overall 점수/증감(delta)은 서버 API 연동 전이라 항상 OverallStat.empty다
-//  (OverallStat.swift 참고) — "00"이 표시된다. 100 이상일 때 Overdrive로 바뀌는 연출은
-//  만들어 뒀지만, 실제 점수가 들어오기 전까지는 확인할 방법이 없다.
+//  (OverallStat.swift 참고) — "00"이 표시된다. ProfileRingView가 score를 그대로 받아서
+//  진행률을 계산하므로 점수와 링이 항상 같이 움직인다(100 이상이면 Overdrive).
 //
 
 import SwiftUI
@@ -25,7 +25,7 @@ struct OverallSummaryView: View {
         VStack(spacing: 16) {
             HStack(alignment: .center, spacing: 36) {
                 OverallScoreView(score: stat.score, delta: stat.delta)
-                ProfileRingView(isOverdrive: (stat.score ?? 0) >= 100, size: 190)
+                ProfileRingView(score: stat.score ?? 0, size: 190)
             }
             
             HStack(spacing: 8) {

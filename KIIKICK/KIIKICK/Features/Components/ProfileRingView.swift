@@ -2,12 +2,15 @@
 //  ProfileRingView.swift
 //  KIIKICK
 //
-//  Figma 컴포넌트 "ProfileRing" (node 732:6891, variants "Property 1" = Default/Overdrive).
-//  get_design_context로 받은 원본 에셋 그대로 가져왔다 — 트랙(ic_ring_track, #303030
-//  도넛)과 진행 글로우(ic_ring_progress/ic_ring_progress_overdrive, 라디얼 그라데이션)는
-//  둘 다 고정 벡터 에셋이고 점수에 따라 직접 그리는 게 아니다. 즉 이 컴포넌트는 숫자를
-//  보고 꽉 채워지는 비율 게이지가 아니라, "평소(민트 글로우)"/"오버드라이브(라임 글로우,
-//  풀 링)" 두 상태만 있는 뱃지에 가깝다 — Overall 100 이상이면 Overdrive로 바뀐다.
+//  Figma 컴포넌트 "ProfileRing" (node 732:6891/733:8741, variants "Property 1" =
+//  Default/Overdrive). 이전엔 트랙/진행 아트웍을 그대로 이미지(ic_ring_track,
+//  ic_ring_progress/_overdrive)로 받아 썼는데, 그 진행 아트웍이 점수와 무관하게 항상
+//  같은 모양이라 "Overall 몇 점인지"와 링이 실제로 안 맞았다. 이제 트랙/진행 둘 다
+//  네이티브 Circle().trim(...)으로 직접 그리고, 진행 비율은 score/100으로 계산한다
+//  (100 이상이면 Overdrive — 풀 링 + 라임/민트 그라데이션).
+//
+//  치수는 기존 이미지 에셋에서 실측한 값 그대로 비율로 옮겼다: 트랙 두께는 지름의
+//  20.9/190(≈11%), 가운데 프로필 원 지름은 지름의 146/190(≈0.77).
 //
 //  가운데 원은 Figma에서 "img_profile" 레이어(실제 유저 프로필 사진이 들어갈 자리)다.
 //  TODO: 지금은 실제 유저 아바타 연동 전이라 img_profile_default 고정 이미지를 쓴다.
@@ -18,27 +21,41 @@
 import SwiftUI
 
 struct ProfileRingView: View {
-    var isOverdrive: Bool
+    var score: Int
     var profileImage: Image = Image("img_profile_default")
     var size: CGFloat = 190
-    
-    /// Figma 기준 가운데 원 지름 비율. get_design_context가 돌려준 CSS는
-    /// `aspect-[121.93/121.93] left-[11.64%] right-[11.64%]`인데, 그 aspect-ratio 숫자는
-    /// 레이어의 "원래" 치수를 그대로 실어나른 것일 뿐 190 기준 절대값이 아니다 — 실제
-    /// 렌더링 지름은 left/right 11.64% 인셋으로 정해진다: 190 × (1 − 2×0.1164) ≈ 145.8,
-    /// 비율로는 ≈ 0.77. (121.93/190 ≈ 0.64로 잘못 계산했던 적이 있음 — 틀린 값이었다.)
-    private var profileDiameter: CGFloat { size * 0.77 }
-    
+
+    private var progress: Double {
+        min(max(Double(score), 0), 100) / 100
+    }
+
+    private var isOverdrive: Bool { score >= 100 }
+
+    private var lineWidth: CGFloat { size * (20.9 / 190) }
+    private var profileDiameter: CGFloat { size * (146.0 / 190.0) }
+
+    private var progressGradientColors: [Color] {
+        isOverdrive ? [.lime500, .mint500] : [.mint500, .mint700]
+    }
+
     var body: some View {
         ZStack {
-            Image("ic_ring_track")
-                .resizable()
-                .frame(width: size, height: size)
-            
-            Image(isOverdrive ? "ic_ring_progress_overdrive" : "ic_ring_progress")
-                .resizable()
-                .frame(width: size, height: size)
-            
+            Circle()
+                .stroke(Color.gray800, lineWidth: lineWidth)
+
+            Circle()
+                .trim(from: 0, to: isOverdrive ? 1 : progress)
+                .stroke(
+                    AngularGradient(
+                        colors: progressGradientColors,
+                        center: .center,
+                        startAngle: .degrees(0),
+                        endAngle: .degrees(360)
+                    ),
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+
             profileImage
                 .resizable()
                 .aspectRatio(contentMode: .fill)
@@ -49,20 +66,26 @@ struct ProfileRingView: View {
     }
 }
 
-#Preview("Default") {
-    ProfileRingView(isOverdrive: false)
+#Preview("45점") {
+    ProfileRingView(score: 45)
         .padding()
         .background(Color.gray950)
 }
 
-#Preview("Overdrive") {
-    ProfileRingView(isOverdrive: true)
+#Preview("Overdrive (100+)") {
+    ProfileRingView(score: 120)
+        .padding()
+        .background(Color.gray950)
+}
+
+#Preview("0점") {
+    ProfileRingView(score: 0)
         .padding()
         .background(Color.gray950)
 }
 
 #Preview("small, Home에서 쓰는 크기") {
-    ProfileRingView(isOverdrive: false, size: 116)
+    ProfileRingView(score: 72, size: 116)
         .padding()
         .background(Color.gray950)
 }

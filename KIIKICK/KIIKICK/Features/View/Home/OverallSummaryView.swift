@@ -43,14 +43,32 @@ struct OverallSummaryView: View {
         .background(Color.gray950)
 }
 
-#Preview("mint (<100)") {
-    OverallSummaryView(stat: OverallStat(score: 90, delta: 2), matchCount: 4, totalDistanceKm: 12.4, avgCalories: 420)
+#Preview("20점 · 증가") {
+    OverallSummaryView(stat: OverallStat(score: 20, delta: 5), matchCount: 1, totalDistanceKm: 2.1, avgCalories: 180)
         .padding()
         .background(Color.gray950)
 }
 
-#Preview("lime (>=100)") {
-    OverallSummaryView(stat: OverallStat(score: 120, delta: 2), matchCount: 9, totalDistanceKm: 28.1, avgCalories: 510)
+#Preview("20점 · 감소") {
+    OverallSummaryView(stat: OverallStat(score: 20, delta: -5), matchCount: 1, totalDistanceKm: 2.1, avgCalories: 180)
+        .padding()
+        .background(Color.gray950)
+}
+
+#Preview("20점 · 변동 없음") {
+    OverallSummaryView(stat: OverallStat(score: 20, delta: 0), matchCount: 1, totalDistanceKm: 2.1, avgCalories: 180)
+        .padding()
+        .background(Color.gray950)
+}
+
+#Preview("100점 · Overdrive 경계") {
+    OverallSummaryView(stat: OverallStat(score: 100, delta: 3), matchCount: 6, totalDistanceKm: 18.7, avgCalories: 460)
+        .padding()
+        .background(Color.gray950)
+}
+
+#Preview("120점 · Overdrive") {
+    OverallSummaryView(stat: OverallStat(score: 120, delta: -4), matchCount: 9, totalDistanceKm: 28.1, avgCalories: 510)
         .padding()
         .background(Color.gray950)
 }

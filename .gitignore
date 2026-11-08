@@ -133,4 +133,5 @@ GoogleService-Info.plist
 # ========================
 # AI
 # ========================
-NETWORK.md.claude/worktrees/
+NETWORK.md
+.claude/worktrees/

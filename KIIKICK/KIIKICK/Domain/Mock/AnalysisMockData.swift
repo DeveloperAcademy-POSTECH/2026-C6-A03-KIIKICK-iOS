@@ -47,19 +47,19 @@ enum AnalysisMockData {
                 assistCount: 1,
                 sections: [
                     AnalysisSection(title: "Movement", rows: [
-                        AnalysisSectionRow(label: "평균 속력", value: "8.2 km/h"),
-                        AnalysisSectionRow(label: "고강도 주행거리", value: "0.62 km"),
-                        AnalysisSectionRow(label: "방향 전환 횟수", value: "38회"),
-                        AnalysisSectionRow(label: "가속 횟수", value: "21회"),
-                        AnalysisSectionRow(label: "감속 횟수", value: "19회"),
+                        AnalysisSectionRow(label: "평균 속력", value: "8.2", unit: "km/h"),
+                        AnalysisSectionRow(label: "고강도 주행거리", value: "620", unit: "m"),
+                        AnalysisSectionRow(label: "방향 전환 횟수", value: "38", unit: "회"),
+                        AnalysisSectionRow(label: "가속 횟수", value: "21", unit: "회"),
+                        AnalysisSectionRow(label: "감속 횟수", value: "19", unit: "회"),
                     ]),
                     AnalysisSection(title: "Physical Activity", rows: [
-                        AnalysisSectionRow(label: "최대 심박수", value: "178 bpm"),
-                        AnalysisSectionRow(label: "평균 심박수", value: "142 bpm"),
+                        AnalysisSectionRow(label: "최대 심박수", value: "178", unit: "bpm"),
+                        AnalysisSectionRow(label: "평균 심박수", value: "142", unit: "bpm"),
                     ]),
                     AnalysisSection(title: "Training Load", rows: [
-                        AnalysisSectionRow(label: "TRIMP", value: "86"),
-                        AnalysisSectionRow(label: "Player Load", value: "312"),
+                        AnalysisSectionRow(label: "TRIMP", value: "86", unit: "AU"),
+                        AnalysisSectionRow(label: "Player Load", value: "312", unit: "AU"),
                     ]),
                 ],
                 disclaimer: "히트맵과 포지션이 정확한지 확인해주세요"
@@ -89,19 +89,19 @@ enum AnalysisMockData {
                 assistCount: 0,
                 sections: [
                     AnalysisSection(title: "Movement", rows: [
-                        AnalysisSectionRow(label: "평균 속력", value: "6.1 km/h"),
-                        AnalysisSectionRow(label: "고강도 주행거리", value: "0.21 km"),
-                        AnalysisSectionRow(label: "방향 전환 횟수", value: "15회"),
-                        AnalysisSectionRow(label: "가속 횟수", value: "9회"),
-                        AnalysisSectionRow(label: "감속 횟수", value: "8회"),
+                        AnalysisSectionRow(label: "평균 속력", value: "6.1", unit: "km/h"),
+                        AnalysisSectionRow(label: "고강도 주행거리", value: "210", unit: "m"),
+                        AnalysisSectionRow(label: "방향 전환 횟수", value: "15", unit: "회"),
+                        AnalysisSectionRow(label: "가속 횟수", value: "9", unit: "회"),
+                        AnalysisSectionRow(label: "감속 횟수", value: "8", unit: "회"),
                     ]),
                     AnalysisSection(title: "Physical Activity", rows: [
-                        AnalysisSectionRow(label: "최대 심박수", value: "156 bpm"),
-                        AnalysisSectionRow(label: "평균 심박수", value: "121 bpm"),
+                        AnalysisSectionRow(label: "최대 심박수", value: "156", unit: "bpm"),
+                        AnalysisSectionRow(label: "평균 심박수", value: "121", unit: "bpm"),
                     ]),
                     AnalysisSection(title: "Training Load", rows: [
-                        AnalysisSectionRow(label: "TRIMP", value: "52"),
-                        AnalysisSectionRow(label: "Player Load", value: "201"),
+                        AnalysisSectionRow(label: "TRIMP", value: "52", unit: "AU"),
+                        AnalysisSectionRow(label: "Player Load", value: "201", unit: "AU"),
                     ]),
                 ],
                 disclaimer: "히트맵과 포지션이 정확한지 확인해주세요"

@@ -145,7 +145,7 @@ private struct AnalysisTabContent: View {
                     sectionView(section)
                 }
 
-                CtaView(text: "삭제하기", type: .destructive, size: .small) {}
+                CtaView(text: "삭제하기", type: .destructive, size: .large) { }
 
                 // 바텀시트가 접혀 있어도 마지막 섹션이 가리지 않게 여유 공간을 둔다.
                 Color.clear.frame(height: 20)
@@ -253,9 +253,7 @@ private struct AnalysisTabContent: View {
     private func sectionView(_ section: AnalysisSection) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(section.title)
-                .font(.title2SB)
-            
-                .gradientForeground()
+                .font(.head2SB)
             
             VStack(spacing: 0) {
                 ForEach(section.rows, id: \.label) { row in
@@ -264,9 +262,14 @@ private struct AnalysisTabContent: View {
                             .font(.body4R)
                             .foregroundStyle(.gray400)
                         Spacer()
-                        Text(row.value)
-                            .font(.body1M)
-                            .foregroundStyle(.gray50)
+                        HStack(spacing: 4) {
+                            Text(row.value)
+                                .font(.body1M)
+                                .foregroundStyle(.gray50)
+                            Text(row.unit)
+                                .font(.body3R)
+                                .foregroundStyle(.gray400)
+                        }
                     }
                     .padding(.vertical, 12)
                     

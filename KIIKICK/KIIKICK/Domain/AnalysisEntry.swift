@@ -62,9 +62,13 @@ struct AnalysisQuarter: Identifiable, Hashable {
     }
 }
 
+/// node 735:11440 등 — 값(value)과 단위(unit)는 Figma에서부터 서로 다른 Text로
+/// 분리돼 있고 색도 다르다(값은 color-text-primary, 단위는 color-text-secondary
+/// 라서 문자열 하나로 합쳐두면 색을 나눠 칠할 수 없다.
 struct AnalysisSectionRow: Hashable {
     let label: String
     let value: String
+    let unit: String
 }
 
 struct AnalysisSection: Identifiable, Hashable {

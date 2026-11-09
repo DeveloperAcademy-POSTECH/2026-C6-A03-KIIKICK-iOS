@@ -79,7 +79,10 @@ struct ComponentsPreview: View {
                 }
 
                 section("DatePicker") {
-                    DatePickerView(year: $year, month: $month)
+                    DatePickerView(
+                        year: $year, month: $month,
+                        availableYearMonths: [YearMonth(year: 2025, month: 9), YearMonth(year: 2026, month: 10)]
+                    )
                 }
 
                 section("CardSummary") {
@@ -111,15 +114,21 @@ struct ComponentsPreview: View {
 
                 section("ListEvent") {
                     VStack(spacing: 0) {
-                        ListEventView(type: .goal, number: 1, time: "00:00")
-                        ListEventView(type: .assist, number: 1, time: "00:00")
+                        ListEventView(type: .goal, number: 1, timeText: "00:00")
+                        ListEventView(type: .assist, number: 1, timeText: "00:00")
                     }
                 }
 
                 section("QuarterSelector") {
                     VStack(spacing: 16) {
-                        QuarterSelectorView(label: "전체", duration: "26:03", canGoPrevious: false)
-                        QuarterSelectorView(label: "1 쿼터", duration: "26:03")
+                        QuarterSelectorView(
+                            quarterNumber: 1, durationText: "26:03",
+                            canGoPrevious: false, canGoNext: true, onPrevious: {}, onNext: {}
+                        )
+                        QuarterSelectorView(
+                            quarterNumber: 2, durationText: "24:51",
+                            canGoPrevious: true, canGoNext: true, onPrevious: {}, onNext: {}
+                        )
                     }
                 }
 

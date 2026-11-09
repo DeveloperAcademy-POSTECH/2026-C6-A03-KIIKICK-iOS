@@ -2,62 +2,65 @@
 //  QuarterSelectorView.swift
 //  KIIKICK
 //
-//  Figma node 519:5514 "quaterSelector" (State=전체/중간/마지막/단일, Assets&Components 페이지)
-//
-//  DESIGN-GAP: Figma는 state별로 좌/우 삼각형 아이콘의 밝기가 다른 변형 asset을 따로
-//  쓰지만(경계에서 더 이동할 수 없음을 표현), 여기서는 같은 아이콘에 opacity만 낮춰서
-//  동일한 의미(비활성)를 표현한다.
+//  Figma "QuaterSelector" (node 519:5512, "분석 상세" 화면 상단) — AnalysisDetailView에
+//  private quarterPager로 인라인돼 있던 걸 공용 컴포넌트로 뺐다. ic/triangle_l·r
+//  24×24, 가운데 "N 쿼터" title2_sb(18pt) + "mm:ss" body3_r(14pt), 양옆 간격 64.
 //
 
 import SwiftUI
 
 struct QuarterSelectorView: View {
-    let label: String
-    let duration: String
-    var canGoPrevious: Bool = true
-    var canGoNext: Bool = true
-    var onPrevious: () -> Void = {}
-    var onNext: () -> Void = {}
+    let quarterNumber: Int
+    let durationText: String
+    let canGoPrevious: Bool
+    let canGoNext: Bool
+    let onPrevious: () -> Void
+    let onNext: () -> Void
 
     var body: some View {
-        HStack(spacing: 64) {
+        HStack {
             Button(action: onPrevious) {
                 Image("ic_triangle_l")
                     .resizable()
                     .frame(width: 24, height: 24)
-                    .opacity(canGoPrevious ? 1 : 0.3)
+                    .foregroundStyle(canGoPrevious ? .colorTextPrimary : .gray700)
             }
             .buttonStyle(.plain)
             .disabled(!canGoPrevious)
-
+            
+            Spacer()
+            
             VStack(spacing: 8) {
-                Text(label)
+                Text("\(quarterNumber) 쿼터")
+                    .lineLimit(1)
                     .font(.title2SB)
-                    .foregroundStyle(.gray50)
-                Text(duration)
-                    .font(.body4R)
-                    .foregroundStyle(.gray50)
+                Text(durationText)
+                    .font(.body3R)
             }
-            .frame(width: 44)
-
+            .frame(maxWidth: .infinity)
+            .foregroundStyle(.colorTextPrimary)
+            
+            Spacer()
+            
             Button(action: onNext) {
                 Image("ic_triangle_r")
                     .resizable()
                     .frame(width: 24, height: 24)
-                    .opacity(canGoNext ? 1 : 0.3)
+                    .foregroundStyle(canGoNext ? .colorTextPrimary : .gray700)
             }
             .buttonStyle(.plain)
             .disabled(!canGoNext)
         }
+        .frame(width: 220)
     }
 }
 
 #Preview {
-    VStack(spacing: 24) {
-        QuarterSelectorView(label: "전체", duration: "26:03", canGoPrevious: false)
-        QuarterSelectorView(label: "1 쿼터", duration: "26:03")
-        QuarterSelectorView(label: "00 쿼터", duration: "26:03", canGoNext: false)
-    }
+    QuarterSelectorView(
+        quarterNumber: 1, durationText: "26:03",
+        canGoPrevious: false, canGoNext: true,
+        onPrevious: {}, onNext: {}
+    )
     .padding()
     .background(Color.gray950)
 }

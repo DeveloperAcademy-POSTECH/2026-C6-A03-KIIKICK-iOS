@@ -11,6 +11,7 @@ struct WorkoutPayload: Codable {
     let endDate: Date
     let points: [TrackPoint]
     let heartRateSamples: [HeartRateSample]
-    let totalCalories: Double 
+    let totalCalories: Double
     let totalDistance: Double
+    let events: [MatchEvent]
 }

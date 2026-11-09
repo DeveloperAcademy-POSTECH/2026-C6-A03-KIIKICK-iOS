@@ -7,8 +7,8 @@
 //
 //  DESIGN-GAP: 스크롤하면 상단 타이틀이 "프로필"에서 닉네임으로 바뀌는 variant(575:5868)가
 //  있지만, 이 앱에 그런 스크롤 연동 타이틀 패턴이 아직 없어 "프로필" 고정으로 구현했다.
-//  "함께 뛴 경기" 기록을 보여줄 실제 데이터 연동이 없어서(이슈 #26도 뷰 구현만 범위) 지금은
-//  빈 목록이다.
+//  "함께 뛴 경기"를 걸러낼 실제 데이터가 없어서(WorkoutRecord는 같이 뛴 사람을 기록하지
+//  않는다. 이슈 #26도 뷰 구현만 범위) 항상 빈 목록이다.
 //
 
 import SwiftUI
@@ -17,6 +17,8 @@ struct UserProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var status: FriendshipStatus
     @State private var isPresentingRemoveConfirm = false
+    // availableYearMonths가 항상 빈 배열이라 DatePickerView가 비활성 상태로 뜬다 —
+    // 초깃값은 아무 의미 없어 오늘 날짜로 둔다.
     @State private var year = Calendar.current.component(.year, from: Date())
     @State private var month = Calendar.current.component(.month, from: Date())
     let nickname: String
@@ -48,7 +50,9 @@ struct UserProfileView: View {
                 switch status {
                 case .friend:
                     VStack(alignment: .leading, spacing: 24) {
-                        DatePickerView(year: $year, month: $month)
+                        // 친구와 "함께 뛴 경기"를 식별할 실제 데이터가 없어(WorkoutRecord는
+                        // 같이 뛴 사람을 기록하지 않는다) 항상 빈 목록이다.
+                        DatePickerView(year: $year, month: $month, availableYearMonths: [])
 
                         VStack(spacing: 24) {
                             ForEach([AnalysisEntry]()) { entry in

@@ -44,7 +44,7 @@ struct MainView: View {
                     }
                 }
             case .playing:
-                PlayingView(quarterStartDate: workoutManager.currentQuarterStartDate ?? Date()) { goalCount, assistCount in
+                PlayingView(quarterStartDate: workoutManager.currentQuarterStartDate ?? Date(), workoutManager: workoutManager) { goalCount, assistCount in
                     pendingGoalCount = goalCount
                     pendingAssistCount = assistCount
                     step = .position

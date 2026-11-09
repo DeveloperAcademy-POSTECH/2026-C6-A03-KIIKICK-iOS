@@ -51,9 +51,6 @@ struct FriendsPlayedTogetherView: View {
 
 #Preview {
     NavigationStack {
-        FriendsPlayedTogetherView(friends: [
-            UserProfile(nickname: "갱아", status: .friend),
-            UserProfile(nickname: "루디", status: .friend),
-        ])
+        FriendsPlayedTogetherView(friends: [])
     }
 }

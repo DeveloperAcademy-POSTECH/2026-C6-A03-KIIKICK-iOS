@@ -367,7 +367,8 @@ struct NetworkTestView: View {
                     points: [],
                     heartRateSamples: [],
                     totalCalories: 0,
-                    totalDistance: 0
+                    totalDistance: 0,
+                    events: []
                 )
                 return try await NetworkService.provider.request(
                     with: QuarterWorkoutEndpoints.uploadPayload(quarterId: qid, payload: payload, ifMatch: ifMatchText)

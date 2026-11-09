@@ -15,7 +15,7 @@ enum KiikickTextStyle {
     case label1M, label2SB, label3M, label4SB
     case body1M, body2R, body3R, body4R
     case caption1M, caption2SB
-    case display1SB, display2SB, display3SB
+    case display0SB, display1SB, display2SB, display3SB
 
     var fontName: String {
         switch self {
@@ -27,7 +27,7 @@ enum KiikickTextStyle {
             return "Pretendard-Medium"
         case .body2R, .body3R, .body4R:
             return "Pretendard-Regular"
-        case .display1SB, .display2SB, .display3SB:
+        case .display0SB, .display1SB, .display2SB, .display3SB:
             return "Kanit-SemiBold"
         }
     }
@@ -51,6 +51,7 @@ enum KiikickTextStyle {
         case .body4R: 14
         case .caption1M: 12
         case .caption2SB: 10
+        case .display0SB: 64
         case .display1SB: 36
         case .display2SB: 32
         case .display3SB: 24
@@ -64,7 +65,7 @@ enum KiikickTextStyle {
             125
         case .label1M, .label2SB, .label3M, .label4SB, .body1M, .body2R, .body3R, .body4R, .caption1M, .caption2SB:
             140
-        case .display1SB, .display2SB, .display3SB:
+        case .display0SB, .display1SB, .display2SB, .display3SB:
             120
         }
     }
@@ -75,7 +76,7 @@ enum KiikickTextStyle {
         case .head1B, .head2SB, .head3B, .title1SB, .title2SB, .title3M, .title4SB,
              .label1M, .label2SB, .label3M, .body1M, .body2R, .body3R, .body4R:
             -1.5
-        case .label4SB, .caption1M, .caption2SB, .display1SB, .display2SB, .display3SB:
+        case .label4SB, .caption1M, .caption2SB, .display0SB, .display1SB, .display2SB, .display3SB:
             0
         }
     }
@@ -131,6 +132,7 @@ extension Font {
     static var body4R: Font { kiikick(.body4R) }
     static var caption1M: Font { kiikick(.caption1M) }
     static var caption2SB: Font { kiikick(.caption2SB) }
+    static var display0SB: Font { kiikick(.display0SB) }
     static var display1SB: Font { kiikick(.display1SB) }
     static var display2SB: Font { kiikick(.display2SB) }
     static var display3SB: Font { kiikick(.display3SB) }

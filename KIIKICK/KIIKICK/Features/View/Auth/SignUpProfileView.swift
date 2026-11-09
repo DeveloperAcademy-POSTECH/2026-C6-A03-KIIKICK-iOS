@@ -5,9 +5,12 @@
 //  Figma node 575:9884 "signup_04"(사진 설정, 4/4단계) / 575:9916 "signup_05"(환영 메시지) — iOS 화면
 //
 //  DESIGN-GAP: 사진은 EditProfileView와 동일하게 로컬 PhotosPicker 미리보기만 가능하고
-//  서버에 업로드되지 않는다(UserResponse에 사진 필드가 없음). 회원가입 API도 아직 없어
-//  (Auth API 변경 예정) "가입 완료"는 실제 계정을 만들지 않고, 환영 화면을 보여준 뒤
-//  로그인과 동일하게 mock 토큰만 저장하고 메인으로 진입시킨다.
+//  서버에 업로드되지 않는다 — avatar 업로드는 multipart/form-data인데 현재 Provider/
+//  Endpoint는 JSON 바디만 지원해서 범위 밖(AuthEndpoints.swift 주석 참고).
+//
+//  "가입 완료"에서 AuthEndpoints.signup(registrationToken, password)으로 실제 계정을
+//  만든다. signup 응답에는 닉네임이 없어(서버가 안 받음) 성공 직후 updateProfile로
+//  닉네임을 한 번 더 저장한다. 둘 다 성공해야 환영 화면으로 넘어간다.
 //
 
 import SwiftUI
@@ -16,11 +19,15 @@ import PhotosUI
 struct SignUpProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppRouter.self) private var router
+    let registrationToken: String
+    let password: String
     let nickname: String
 
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedPhoto: Image?
     @State private var isWelcoming = false
+    @State private var isSubmitting = false
+    @State private var errorMessage: String?
 
     var body: some View {
         Group {
@@ -85,12 +92,15 @@ struct SignUpProfileView: View {
 
             Spacer()
 
-            CtaView(text: "가입 완료", type: .primary, size: .large) {
-                withAnimation { isWelcoming = true }
-                Task {
-                    try? await Task.sleep(for: .seconds(1.2))
-                    completeSignUp()
-                }
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption1M)
+                    .foregroundStyle(.red500)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            CtaView(text: "가입 완료", type: .primary, size: .large, isActive: !isSubmitting) {
+                Task { await completeSignUp() }
             }
         }
         .padding(.horizontal, 24)
@@ -133,16 +143,33 @@ struct SignUpProfileView: View {
         .navigationBarBackButtonHidden(true)
     }
 
-    private func completeSignUp() {
-        UserSession.saveToken(UUID().uuidString)
-        UserSession.nickname = nickname
-        router.didLogIn()
+    private func completeSignUp() async {
+        isSubmitting = true
+        errorMessage = nil
+        defer { isSubmitting = false }
+        do {
+            let session = try await NetworkService.provider.request(
+                with: AuthEndpoints.signup(registrationToken: registrationToken, password: password)
+            )
+            UserSession.save(session: session.data)
+
+            let profile = try await NetworkService.provider.request(with: AuthEndpoints.updateProfile(nickname: nickname))
+            UserSession.nickname = profile.data.nickname ?? nickname
+
+            withAnimation { isWelcoming = true }
+            try? await Task.sleep(for: .seconds(1.2))
+            router.didLogIn()
+        } catch let NetworkError.invalidHttpStatusCode(_, message) {
+            errorMessage = message ?? "회원가입에 실패했어요. 다시 시도해 주세요"
+        } catch {
+            errorMessage = "회원가입에 실패했어요. 다시 시도해 주세요"
+        }
     }
 }
 
 #Preview {
     NavigationStack {
-        SignUpProfileView(nickname: "효자동 조규성")
+        SignUpProfileView(registrationToken: "preview-token", password: "preview-password1!", nickname: "효자동 조규성")
             .environment(AppRouter())
     }
 }

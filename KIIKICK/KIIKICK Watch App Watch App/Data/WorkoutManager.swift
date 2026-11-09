@@ -38,8 +38,11 @@ final class WorkoutManager: NSObject {
     private(set) var currentQuarterStartDate: Date?
     private(set) var currentQuarterPoints: [TrackPoint] = []
     private(set) var currentQuarterHeartRateSamples: [HeartRateSample] = []
+    private(set) var currentQuarterEvents: [MatchEvent] = []
     private var currentQuarterStartActiveEnergy: Double = 0
     private var currentQuarterStartDistance: Double = 0
+    /// 골/어시스트를 기록한 순간 위치로 쓸, 가장 최근에 받은 위치.
+    private var lastLocation: CLLocation?
 
     /// 경기 전체 시작 — 매치당 한 번만 호출. HealthKit 워크아웃 세션을 연다.
     func startMatch() async {
@@ -78,6 +81,7 @@ final class WorkoutManager: NSObject {
     func beginQuarter() {
         currentQuarterPoints = []
         currentQuarterHeartRateSamples = []
+        currentQuarterEvents = []
         currentQuarterStartDate = Date()
         currentQuarterStartActiveEnergy = activeEnergy
         currentQuarterStartDistance = distance
@@ -85,11 +89,27 @@ final class WorkoutManager: NSObject {
         isRecordingQuarter = true
     }
 
+    /// 골/어시스트 스테퍼를 +1 했을 때 그 순간의 위치를 이벤트로 기록한다. 아직 위치를
+    /// 한 번도 못 받았으면(GPS 픽스 전) 조용히 무시한다.
+    func recordEvent(type: MatchEventType) {
+        guard let lastLocation else { return }
+        currentQuarterEvents.append(MatchEvent(type: type, location: TrackPoint(location: lastLocation)))
+    }
+
+    /// 스테퍼를 -1 했을 때(잘못 눌러서 되돌리는 경우) 같은 타입의 가장 최근 이벤트를 지운다.
+    func removeLastEvent(type: MatchEventType) {
+        if let index = currentQuarterEvents.lastIndex(where: { $0.type == type }) {
+            currentQuarterEvents.remove(at: index)
+        }
+    }
+
     /// 쿼터 종료 — 위치 수집을 멈추고, 이번 쿼터 하나를 그대로 나타내는 `QuarterRecord`(로컬
     /// 저장용)와 `WorkoutPayload`(전송용)를 같이 돌려준다. 쿼터 하나 = WorkoutPayload 하나.
+    /// `position`이 nil이면 PositionView를 거치지 않고 강제로 끝난 쿼터라는 뜻이다
+    /// (MainView.handleForceEnd 참고).
     func endQuarter(
         quarterNumber: Int,
-        position: Position,
+        position: Position?,
         goalCount: Int,
         assistCount: Int
     ) -> (record: QuarterRecord, payload: WorkoutPayload) {
@@ -109,7 +129,8 @@ final class WorkoutManager: NSObject {
             points: currentQuarterPoints,
             heartRateSamples: currentQuarterHeartRateSamples,
             goalCount: goalCount,
-            assistCount: assistCount
+            assistCount: assistCount,
+            events: currentQuarterEvents
         )
 
         let payload = WorkoutPayload(
@@ -118,7 +139,8 @@ final class WorkoutManager: NSObject {
             points: currentQuarterPoints,
             heartRateSamples: currentQuarterHeartRateSamples,
             totalCalories: quarterCalories,
-            totalDistance: quarterDistance
+            totalDistance: quarterDistance,
+            events: currentQuarterEvents
         )
 
         return (record, payload)
@@ -209,7 +231,10 @@ extension WorkoutManager: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         let point = TrackPoint(location: location)
-        DispatchQueue.main.async { self.currentQuarterPoints.append(point) }
+        DispatchQueue.main.async {
+            self.currentQuarterPoints.append(point)
+            self.lastLocation = location
+        }
         routeBuilder?.insertRouteData(locations) { success, error in
             if !success {
                 print("[WorkoutManager] 경로 데이터 저장 실패 - \(error?.localizedDescription ?? "unknown")")

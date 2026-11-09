@@ -17,7 +17,10 @@ struct MainView: View {
             NavigationStack(path: router.path(for: .home)) {
                 HomeView()
             }
-            .tabItem { Label("홈", systemImage: "house.fill") }
+            // 이슈 #42: Figma "overall" 프레임부터는 이 탭이 집 아이콘이 아니라
+            // "OVR" 글자 탭으로 바뀌었다. DESIGN-GAP: 실제 탭바 아이콘 에셋을 받지
+            // 못해 SF Symbol(스파크라인 모양)로 대체했다.
+            .tabItem { Label("OVR", systemImage: "chart.line.uptrend.xyaxis") }
             .tag(AppRouter.AppTab.home)
             
             NavigationStack(path: router.path(for: .friends)) {

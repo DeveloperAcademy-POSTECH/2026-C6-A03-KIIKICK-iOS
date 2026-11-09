@@ -44,13 +44,13 @@ struct FriendsPlayedTogetherView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .navigationDestination(isPresented: $pushedAddFriend) {
-            AddFriendView(users: FriendMockData.searchPool)
+            AddFriendView(users: [])
         }
     }
 }
 
 #Preview {
     NavigationStack {
-        FriendsPlayedTogetherView(friends: AnalysisMockData.friendsPlayedTogether)
+        FriendsPlayedTogetherView(friends: [])
     }
 }

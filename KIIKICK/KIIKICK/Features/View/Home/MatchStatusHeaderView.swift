@@ -2,8 +2,17 @@
 //  MatchStatusHeaderView.swift
 //  KIIKICK
 //
-//  홈 화면 상단 "경기 상태" 뷰. Figma node 241:1504(경기 생성 전) / 259:2992(경기 생성 후) /
-//  241:1907(경기중) / 241:1583~1584(경기 후) 4가지 상태를 하나의 컴포넌트로 묶었다.
+//  홈 화면 상단 "경기 상태" 배너. 예전에는 이 컴포넌트가 화면 전체를 차지했지만(이슈 #9),
+//  이슈 #42부터는 Figma "overall" 프레임 계열의 상단 배너 한 조각일 뿐이고 그 아래에
+//  OverallSummaryView(점수/통계)가 이어진다.
+//
+//  node 241:1504/259:2992/241:1907/241:1583~1584(예전 주석에 있던 ID)는 더 이상 파일에
+//  존재하지 않는다 — Figma 쪽에서 재정리된 것으로 보인다. 아래 각 case의 문구는 현재
+//  "overall" 프레임들(예: 733:9278=prepared, 733:9566=inProgress, 733:9112=watchDisconnected,
+//  733:8987=noRecords)에서 다시 확인한 값이다.
+//
+//  경기가 막 도착했을 때 뜨던 justFinished 배너는 없앴다 — 이제 그 이벤트는 알림으로
+//  간다(NotificationMyPlayView 참고). 홈 화면은 바로 idle로 넘어간다.
 //
 
 import SwiftUI
@@ -16,9 +25,17 @@ struct MatchStatusHeaderView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             switch state {
-            case .readyToPrepare:
+            case .idle:
+                EmptyView()
+
+            case .watchDisconnected:
                 watchInfoRow
-                CtaView(text: "경기 준비하기", type: .primary, action: onPrepareMatch)
+
+            case .noRecords:
+                InfoRow(
+                    text: "아직 경기 기록이 없어요\n우측 상단의 + 버튼으로 새로운 경기를 준비하세요",
+                    font: .body3R
+                )
 
             case .prepared(let fieldName):
                 CardInfoView(
@@ -43,22 +60,10 @@ struct MatchStatusHeaderView: View {
                         .background(.colorBackgroundSecondary, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
-
-            case .justFinished(let record):
-                watchInfoRow
-                CtaView(text: "경기 준비하기", type: .primary, action: onPrepareMatch)
-                NavigationLink(value: record) {
-                    NaviRowView(
-                        icon: Image("ic_new"),
-                        text: "새로운 분석지가 도착했어요! 확인해보세요"
-                    )
-                }
             }
         }
         .padding(.top, 12)
         .padding(.bottom, 20)
-        .padding(.horizontal, 24)
-        .background(.colorBackgroundSecondary)
     }
     
     private var watchInfoRow: some View {
@@ -71,7 +76,7 @@ struct MatchStatusHeaderView: View {
 }
 
 private struct InfoRow: View {
-    let icon: Image
+    var icon: Image? = nil
     let text: String
     let font: Font
     var alignment: TextAlignment = .leading
@@ -81,16 +86,15 @@ private struct InfoRow: View {
             switch alignment {
             case .center:
                 VStack(spacing: 8) {
-                    icon
-                        .foregroundStyle(.colorTextPrimary)
+                    icon?.foregroundStyle(.colorTextPrimary)
                     Text(text)
                         .font(font)
                         .foregroundStyle(.colorTextPrimary)
+                        .multilineTextAlignment(.center)
                 }
             default :
                 HStack(alignment: .top, spacing: 12) {
-                    icon
-                        .foregroundStyle(.colorTextPrimary)
+                    icon?.foregroundStyle(.colorTextPrimary)
                     Text(text)
                         .font(font)
                         .foregroundStyle(.colorTextPrimary)
@@ -103,8 +107,16 @@ private struct InfoRow: View {
     }
 }
 
-#Preview("readyToPrepare") {
-    MatchStatusHeaderView(state: .readyToPrepare, onPrepareMatch: {}, onForceEndMatch: {})
+#Preview("watchDisconnected") {
+    MatchStatusHeaderView(state: .watchDisconnected, onPrepareMatch: {}, onForceEndMatch: {})
+}
+
+#Preview("noRecords") {
+    MatchStatusHeaderView(state: .noRecords, onPrepareMatch: {}, onForceEndMatch: {})
+}
+
+#Preview("idle") {
+    MatchStatusHeaderView(state: .idle, onPrepareMatch: {}, onForceEndMatch: {})
 }
 
 #Preview("prepared") {
@@ -114,13 +126,3 @@ private struct InfoRow: View {
 #Preview("inProgress") {
     MatchStatusHeaderView(state: .inProgress, onPrepareMatch: {}, onForceEndMatch: {})
 }
-
-#if DEBUG
-#Preview("justFinished") {
-    MatchStatusHeaderView(
-        state: .justFinished(record: WorkoutRecord(payload: .fake())),
-        onPrepareMatch: {},
-        onForceEndMatch: {}
-    )
-}
-#endif

@@ -10,11 +10,14 @@ import SwiftUI
 struct StepperWatchView: View {
 
     @Binding var count: Int
+    var onIncrement: () -> Void = {}
+    var onDecrement: () -> Void = {}
 
     var body: some View {
         HStack(spacing: 25) {
             Button {
                 count -= 1
+                onDecrement()
             } label: {
                 ZStack {
                     Capsule()
@@ -35,6 +38,7 @@ struct StepperWatchView: View {
             
             Button {
                 count += 1
+                onIncrement()
             } label: {
                 ZStack {
                     Capsule()

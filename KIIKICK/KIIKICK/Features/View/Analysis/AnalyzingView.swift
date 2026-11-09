@@ -7,9 +7,8 @@
 //  + KIIKICK Global/Animations/analyzing.json을 쓴다.
 //
 //  분석 플로우: ReadyForDetailView → 여기 → AnalysisDetailView. 실제 분석 API가 없어서
-//  "API 응답을 기다리는 중"을 Task.sleep으로 흉내 낸다 — 저장 API 연동은 범위 밖이라
-//  ReadyForDetailView에서 바꾼 포지션/반전 값은 반영하지 않는다(AnalysisDetailView는
-//  WorkoutRecord에서 빌드된 entry를 그대로 보여준다).
+//  "API 응답을 기다리는 중"을 Task.sleep으로 흉내 낸다. 분석 준비에서 로컬에 저장한
+//  포지션/공격 방향이 포함된 entry를 분석 상세에 그대로 전달한다.
 //
 //  분석이 끝나면 router.paths[.analysis]에서 ready+analyzing 두 단계를 지우고
 //  detail만 새로 쌓는다 — 그래야 AnalysisDetailView에서 뒤로 갔을 때 이 로딩 화면이나

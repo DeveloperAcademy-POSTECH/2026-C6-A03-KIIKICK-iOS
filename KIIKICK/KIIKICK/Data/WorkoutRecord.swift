@@ -16,6 +16,8 @@ final class WorkoutRecord {
     var heartRateSamples: [HeartRateSample]
     var events: [MatchEvent] = []
     var field: Field?
+    var position: String?
+    var isAttackDirectionReversed: Bool = false
 
     init(payload: WorkoutPayload) {
         self.date = payload.startDate

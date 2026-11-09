@@ -43,10 +43,10 @@ struct AnalysisQuarter: Identifiable, Hashable {
     let id: UUID
     let quarterNumber: Int
     let durationText: String
-    /// 워치 쪽은 쿼터마다 포지션을 기록하지만(QuarterRecord.position), iOS로 보내는
-    /// WorkoutPayload에는 아직 그 값이 실려 있지 않다 — DESIGN-GAP, 실제 값이 생기기
-    /// 전까진 nil(표시 안 함).
+    /// 워치 payload에 아직 없는 포지션은 분석 준비에서 선택해 로컬 기록에 저장한다.
     let position: String?
+    var isAttackDirectionReversed: Bool = false
+    var sourceRecord: WorkoutRecord? = nil
     /// 실제 히트맵을 그릴 수 있는 운동장/경로 — 없으면(운동장 미선택) 히트맵 자리를 비운다.
     let field: Field?
     let points: [TrackPoint]

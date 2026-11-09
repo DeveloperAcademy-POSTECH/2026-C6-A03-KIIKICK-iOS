@@ -1,31 +1,19 @@
-//
-//  FieldCanvasView.swift
-//  KIIKICK
-//
-//  105:68 비율의 검은 배경 + 흰 테두리 운동장 캔버스 -> 히트맵/스프린트맵 등
-//
-
 import SwiftUI
 
+/// img_field 위의 실제 운동장 영역에 히트맵·스프린트 맵을 겹쳐 그린다.
 struct FieldCanvasView: View {
     let draw: (GraphicsContext, CGSize) -> Void
-    
+
     var body: some View {
         Canvas { context, size in
-            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black))
-            
-            // 2~3. 내용 (히트맵, 스프린트, 화살표 등)
-            draw(context, size)
-            
-            // 4. 필드 테두리
-            context.stroke(
-                Path(CGRect(origin: .zero, size: size)),
-                with: .color(.white),
-                lineWidth: 2
-            )
+            context.draw(Image("img_field"), in: CGRect(origin: .zero, size: size))
+            let fieldRect = FieldArtworkLayout.fieldRect(in: size)
+            var overlay = context
+            overlay.clip(to: Path(fieldRect))
+            overlay.translateBy(x: fieldRect.minX, y: fieldRect.minY)
+            draw(overlay, fieldRect.size)
         }
-        .aspectRatio(105.0 / 68.0, contentMode: .fit)
+        .aspectRatio(FieldArtworkLayout.artworkSize.width / FieldArtworkLayout.artworkSize.height, contentMode: .fit)
         .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

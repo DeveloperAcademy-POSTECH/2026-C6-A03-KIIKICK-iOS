@@ -14,7 +14,9 @@ import SwiftUI
 
 struct PositionDropdownView: View {
     @Binding var position: String
-    var options: [String] = ["GK", "CB", "LB", "RB", "CM", "LW", "RW", "ST"]
+    // 하드코딩된 목록이 Position enum(공용, lw/st/rw/lm/cm/rm/lb/cb/rb/gk)과 따로
+    // 있다가 LM/RM이 빠져 있었다 — enum을 그대로 소스로 써서 다시 벌어지지 않게 한다.
+    var options: [String] = Position.allCases.map(\.uppercased)
 
     var body: some View {
         Menu {

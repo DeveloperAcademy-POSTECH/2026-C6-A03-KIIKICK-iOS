@@ -16,8 +16,17 @@ final class WorkoutRecord {
     var heartRateSamples: [HeartRateSample]
     var events: [MatchEvent] = []
     var field: Field?
-    var position: String?
+    /// 워치 PositionView에서 고른 포지션. 강제 종료된 쿼터(이슈 #50)는 nil.
+    var position: Position?
     var isAttackDirectionReversed: Bool = false
+
+    // 이슈 #66: POST /matches/{matchId}/workout-submissions에 보낼 식별자. 서버 매치
+    // 생성 플로우(MatchEndpoints.create 등)가 아직 로컬 녹화와 연결돼 있지 않아서
+    // (DESIGN-GAP) iOS가 직접 만든 UUID를 그대로 보낸다. quarterId는 레코드(쿼터)마다
+    // 새로 만들고, matchId는 같은 경기로 묶인 레코드들끼리
+    // AnalysisEntry.build(from:)에서 맞춰준다(harmonize) — 묶이기 전까지는 레코드마다 다르다.
+    var matchId: UUID = UUID()
+    var quarterId: UUID = UUID()
 
     init(payload: WorkoutPayload) {
         self.date = payload.startDate
@@ -27,6 +36,7 @@ final class WorkoutRecord {
         self.points = payload.points
         self.heartRateSamples = payload.heartRateSamples
         self.events = payload.events
+        self.position = payload.position
     }
 }
 

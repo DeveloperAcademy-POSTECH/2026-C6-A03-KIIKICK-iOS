@@ -20,6 +20,7 @@ xcrun swiftc \
   'KIIKICK/KIIKICK Global/Data/HeartRateSample.swift' \
   'KIIKICK/KIIKICK Global/Data/MatchEvent.swift' \
   'KIIKICK/KIIKICK Global/Data/WorkoutPayload.swift' \
+  'KIIKICK/KIIKICK Global/Data/Position.swift' \
   KIIKICK/KIIKICK/Data/Field.swift \
   KIIKICK/KIIKICK/Data/WorkoutRecord.swift \
   scripts/validation/TrackingSettingsChecks.swift \

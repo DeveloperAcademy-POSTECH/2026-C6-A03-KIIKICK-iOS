@@ -140,7 +140,8 @@ final class WorkoutManager: NSObject {
             heartRateSamples: currentQuarterHeartRateSamples,
             totalCalories: quarterCalories,
             totalDistance: quarterDistance,
-            events: currentQuarterEvents
+            events: currentQuarterEvents,
+            position: position
         )
 
         return (record, payload)

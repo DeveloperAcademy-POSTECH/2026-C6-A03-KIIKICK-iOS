@@ -106,7 +106,9 @@ struct HomeView: View {
             }
             .background(Color.gray950)
             .navigationDestination(isPresented: $isSelectingField) {
-                FieldListView(onSelect: { field in
+                // FieldListView(운동장 선택/등록) → ReadyForMatchView("경기 준비" 확인) →
+                // "준비하기" 눌렀을 때만 여기가 호출된다.
+                FieldListView(onFieldPrepared: { field in
                     preparedField = field
                     isSelectingField = false
                     // 워치에 경기가 준비됐다고 알린다 — StartView가 대기 화면 대신

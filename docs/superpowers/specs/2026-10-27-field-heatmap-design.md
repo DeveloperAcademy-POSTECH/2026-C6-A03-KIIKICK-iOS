@@ -1,5 +1,7 @@
 # 운동장 등록 + 히트맵 Design
 
+> ⚠️ "1. 운동장 등록"과 "2. 좌표 변환 — FieldCoordinateMapper" 섹션은 `2026-11-06-field-rectangle-correction-design.md`로 대체되었다(핀 4개를 순서 무관 사변형으로 bilinear 보간하던 방식 → 등록 시점에 직사각형으로 보정하는 방식). 나머지 섹션(운동장 연결, 히트맵 렌더링)은 그대로 유효.
+
 ## Overview
 
 iPhone에서 위성 지도에 핀 4개를 찍어 운동장을 등록하고, 측정 기록(`WorkoutRecord`)을 등록된 운동장에 연결하면, GPS 경로를 운동장 좌표계로 정규화해 히트맵으로 보여준다.

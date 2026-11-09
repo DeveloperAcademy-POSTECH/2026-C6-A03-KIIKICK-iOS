@@ -37,7 +37,7 @@ struct FieldListView: View {
         }
         .sheet(isPresented: $isPresentingRegistration) {
             NavigationStack {
-                FieldRegistrationView()
+                FieldCreationView(onFinish: { isPresentingRegistration = false })
             }
         }
     }

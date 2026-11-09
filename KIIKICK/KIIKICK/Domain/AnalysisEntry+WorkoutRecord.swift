@@ -45,7 +45,7 @@ extension AnalysisEntry {
         ]
 
         let quarters = sortedRecords.enumerated().map { index, record in
-            AnalysisQuarter(
+            var quarter = AnalysisQuarter(
                 quarterNumber: index + 1,
                 durationText: formattedDuration(record.duration),
                 position: record.position?.uppercased,
@@ -61,6 +61,9 @@ extension AnalysisEntry {
                 totalDistanceKm: record.totalDistance / 1000,
                 totalCaloriesKcal: record.totalCalories
             )
+            quarter.isAttackDirectionReversed = record.isAttackDirectionReversed
+            quarter.sourceRecord = record
+            return quarter
         }
 
         var sections: [AnalysisSection] = [movementSection(points: allPoints)]

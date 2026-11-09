@@ -46,6 +46,8 @@ struct AnalysisQuarter: Identifiable, Hashable {
     /// 워치 PositionView에서 고른 포지션(WorkoutPayload.position → WorkoutRecord.position).
     /// 강제 종료된 쿼터(이슈 #50)는 PositionView를 거치지 못해 계속 nil이다.
     let position: String?
+    var isAttackDirectionReversed: Bool = false
+    var sourceRecord: WorkoutRecord? = nil
     /// 실제 히트맵을 그릴 수 있는 운동장/경로 — 없으면(운동장 미선택) 히트맵 자리를 비운다.
     let field: Field?
     let points: [TrackPoint]

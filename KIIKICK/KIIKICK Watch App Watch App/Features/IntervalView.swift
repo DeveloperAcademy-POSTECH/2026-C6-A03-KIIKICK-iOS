@@ -32,7 +32,7 @@ struct IntervalView: View {
                         Text(verbatim: durationText)
                             .font(.title4SB)
                     }
-                    BtnSelectionView(text: lastQuarter.position.uppercased, style: .selected, action: {})
+                    BtnSelectionView(text: lastQuarter.position?.uppercased ?? "-", style: .selected, action: {})
                 }
                 HStack {
                     Image(systemName: "soccerball.inverse")

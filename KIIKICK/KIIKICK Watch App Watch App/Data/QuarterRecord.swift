@@ -5,6 +5,9 @@
 //  쿼터 하나가 끝날 때마다 로컬 SwiftData에 저장되는 기록이자, 그 쿼터 하나를 그대로
 //  나타내는 WorkoutPayload의 전송 단위. 전송이 성공하면 SessionManager가 같은 id로 지운다.
 //
+//  position은 이슈 #50부터 옵셔널이다 — iOS에서 "강제 종료"를 보내면 PositionView를
+//  거치지 않고 쿼터가 끝나서 포지션을 고를 기회가 없기 때문이다(MainView.handleForceEnd 참고).
+//
 
 import Foundation
 import SwiftData
@@ -13,7 +16,7 @@ import SwiftData
 final class QuarterRecord {
     var id: UUID
     var quarterNumber: Int
-    var position: Position
+    var position: Position?
     var startDate: Date
     var endDate: Date
     var points: [TrackPoint]
@@ -25,7 +28,7 @@ final class QuarterRecord {
     init(
         id: UUID = UUID(),
         quarterNumber: Int,
-        position: Position,
+        position: Position?,
         startDate: Date,
         endDate: Date,
         points: [TrackPoint],

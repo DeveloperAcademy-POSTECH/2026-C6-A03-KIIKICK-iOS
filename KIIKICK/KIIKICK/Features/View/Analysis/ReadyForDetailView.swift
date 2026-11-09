@@ -11,6 +11,11 @@
 //  누르면 수정한 포지션/반전 값을 저장하지 않고 AnalyzingView로 그대로 넘어간다 —
 //  저장 API 연동은 범위 밖.
 //
+//  이슈 #50: iOS에서 경기를 강제 종료하면 워치가 PositionView를 거치지 못해 쿼터의
+//  포지션이 nil로 들어온다(AnalysisQuarter.position). 그런 쿼터는 "CM" 같은 값으로
+//  조용히 채워 넣지 않고 "선택 필요" placeholder로 비워 두고, 사용자가 드롭다운에서
+//  실제로 고르기 전까진 "분석 보기"를 막는다(isPositionConfirmed).
+//
 
 import SwiftUI
 
@@ -21,15 +26,18 @@ struct ReadyForDetailView: View {
     let entry: AnalysisEntry
     @State private var positions: [String]
     @State private var flips: [Bool]
+    @State private var isPositionConfirmed: [Bool]
+    @State private var isPresentingPositionRequiredAlert = false
+
+    private static let unselectedPositionPlaceholder = "선택 필요"
 
     private var quarters: [AnalysisQuarter] { entry.detail.quarters }
 
     init(entry: AnalysisEntry) {
         self.entry = entry
-        // 쿼터의 실제 포지션 값이 아직 없어서(AnalysisQuarter.position DESIGN-GAP 참고)
-        // 편집 시작값은 "CM"으로 둔다 — 사용자가 직접 고쳐야 한다.
-        _positions = State(initialValue: entry.detail.quarters.map { $0.position ?? "CM" })
+        _positions = State(initialValue: entry.detail.quarters.map { $0.position ?? Self.unselectedPositionPlaceholder })
         _flips = State(initialValue: entry.detail.quarters.map { _ in false })
+        _isPositionConfirmed = State(initialValue: entry.detail.quarters.map { $0.position != nil })
     }
 
     var body: some View {
@@ -45,9 +53,12 @@ struct ReadyForDetailView: View {
                     CardQuarterView(
                         quarterNumber: quarter.quarterNumber,
                         durationText: quarter.durationText,
-                        position: $positions[index],
+                        position: Binding(
+                            get: { positions[index] },
+                            set: { positions[index] = $0; isPositionConfirmed[index] = true }
+                        ),
                         isFlipped: $flips[index],
-                        positionChangeText: positions[index] == (quarter.position ?? "CM") ? nil : "\(quarter.position ?? "CM") → \(positions[index])"
+                        positionChangeText: positionChangeText(index: index, original: quarter.position)
                     )
                 }
 
@@ -56,7 +67,11 @@ struct ReadyForDetailView: View {
                         .font(.caption1M)
                         .foregroundStyle(.colorTextSecondary)
                     CtaView(text: "분석 보기", type: .primary, size: .large) {
-                        router.paths[.analysis, default: .init()].append(AnalysisRoute.analyzing(entry))
+                        if isPositionConfirmed.contains(false) {
+                            isPresentingPositionRequiredAlert = true
+                        } else {
+                            router.paths[.analysis, default: .init()].append(AnalysisRoute.analyzing(entry))
+                        }
                     }
                 }
             }
@@ -77,6 +92,16 @@ struct ReadyForDetailView: View {
                     .foregroundStyle(.colorTextPrimary)
             }
         }
+        .alert("포지션을 선택해주세요", isPresented: $isPresentingPositionRequiredAlert) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("경기가 강제로 종료돼 포지션이 기록되지 않은 쿼터가 있어요. 분석을 보려면 모든 쿼터의 포지션을 선택해주세요.")
+        }
+    }
+
+    private func positionChangeText(index: Int, original: String?) -> String? {
+        guard let original else { return nil }
+        return positions[index] == original ? nil : "\(original) → \(positions[index])"
     }
 
     private var directionGuide: some View {

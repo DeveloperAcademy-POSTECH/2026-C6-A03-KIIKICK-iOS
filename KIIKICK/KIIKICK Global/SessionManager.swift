@@ -19,6 +19,12 @@ final class SessionManager: NSObject {
     /// iOS에서 경기를 생성할 때(운동장을 고를 때) 채워지고, 경기가 끝나면 다시 nil로
     /// 돌아간다 — 워치의 "경기 시작" 화면이 다음 경기 전까지는 대기 화면을 보여주는 데 쓴다.
     var preparedFieldName: String?
+    /// 이슈 #50 — iOS에서 "강제로 경기 종료하기"를 누르면 현재 시각(epoch seconds)으로
+    /// 채워진다. 값 자체가 아니라 "바뀌었다"는 이벤트로 쓴다 — 매번 새 타임스탬프를
+    /// 보내기 때문에, 워치는 이전에 처리한 값보다 큰(새로운) 값이 왔을 때만 반응한다
+    /// (MainView.handleForceEnd 참고). applicationContext에 남아있는 옛 값을 다음 경기
+    /// 시작 때 잘못 재생하지 않도록 하는 가드도 그쪽에 있다.
+    var forceEndRequestedAt: TimeInterval?
 
     #if os(iOS)
     var modelContext: ModelContext?
@@ -78,6 +84,14 @@ final class SessionManager: NSObject {
         preparedFieldName = fieldName
         sendContextUpdate(["preparedFieldName": fieldName ?? ""])
     }
+
+    /// "강제로 경기 종료하기" 버튼에서 호출한다. 워치가 지금 어느 단계에 있든(쿼터 진행 중,
+    /// 포지션 선택 중, 인터벌 중) 즉시 경기를 끝내라는 신호다. iOS는 이 경기가 실제로
+    /// 끝났는지 알 수 없으니 여기서 isMatchInProgress를 직접 바꾸지 않는다 — 워치가
+    /// 처리를 마치면 평소처럼 updateMatchStatus(isInProgress: false)로 알려온다.
+    func requestForceEndMatch() {
+        sendContextUpdate(["forceEndRequestedAt": Date().timeIntervalSince1970])
+    }
     #endif
 
     /// `sendMessage`(reachable일 때 즉시) + `updateApplicationContext`(백그라운드에서도 전달)
@@ -135,6 +149,11 @@ extension SessionManager: WCSessionDelegate {
         // 반대 방향 — 워치 앱이 늦게 켜져서 activate 전에 이미 iOS가 경기를 준비해놨을 수 있다.
         if let fieldName = session.receivedApplicationContext["preparedFieldName"] as? String {
             DispatchQueue.main.async { self.preparedFieldName = fieldName.isEmpty ? nil : fieldName }
+        }
+        // 워치 앱이 강제 종료 요청 이후에 재시작됐을 수도 있다 — baseline보다 새 값이면
+        // MainView.handleForceEnd가 반응한다. 옛 값이면(이미 처리했거나 이전 경기 것) 무시된다.
+        if let forceEndRequestedAt = session.receivedApplicationContext["forceEndRequestedAt"] as? TimeInterval {
+            DispatchQueue.main.async { self.forceEndRequestedAt = forceEndRequestedAt }
         }
         #endif
         #if DEBUG
@@ -205,6 +224,14 @@ extension SessionManager: WCSessionDelegate {
                 print("[SessionManager] preparedFieldName 수신 - \(fieldName)")
                 #endif
                 self.preparedFieldName = fieldName.isEmpty ? nil : fieldName
+            }
+        }
+        if let forceEndRequestedAt = payload["forceEndRequestedAt"] as? TimeInterval {
+            DispatchQueue.main.async {
+                #if DEBUG
+                print("[SessionManager] forceEndRequestedAt 수신 - \(forceEndRequestedAt)")
+                #endif
+                self.forceEndRequestedAt = forceEndRequestedAt
             }
         }
     }

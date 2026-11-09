@@ -77,7 +77,7 @@ struct HomeView: View {
                         state: matchState,
                         onPrepareMatch: { isSelectingField = true },
                         onForceEndMatch: {
-                            // TODO: 워치 쪽에 "강제 종료"를 전달하는 API가 아직 없어 UI만 구현.
+                            sessionManager.requestForceEndMatch()
                         }
                     )
                     .padding(.horizontal, 24)

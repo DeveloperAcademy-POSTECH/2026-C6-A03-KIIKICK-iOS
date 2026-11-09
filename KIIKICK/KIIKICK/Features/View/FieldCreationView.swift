@@ -165,10 +165,20 @@ struct FieldCreationView: View {
         ZStack {
             Color.clear
                 .contentShape(Rectangle())
-                .gesture(
+                // .gesture(단독, 배타적)로 달면 이 투명 레이어가 Map 전체를 덮고 있어서
+                // 터치를 통째로 가로채 버려 핀치줌/두 손가락 팬 같은 Map 기본 제스처가
+                // 전혀 먹지 않았다 — .simultaneousGesture로 바꿔서 Map의 네이티브
+                // 제스처와 같이 받도록 했다. 대신 한 손가락으로 지도를 패닝할 때도
+                // onEnded가 불리기 때문에, translation이 거의 없을 때(탭)만 핀을
+                // 찍도록 거리 기준을 둔다 — 안 그러면 지도를 드래그해서 옮길 때마다
+                // 핀이 찍힌다.
+                .simultaneousGesture(
                     DragGesture(minimumDistance: 0, coordinateSpace: .named("pinField"))
                         .onEnded { value in
-                            guard rawPinCoordinates.count < 4,
+                            let dx = value.translation.width, dy = value.translation.height
+                            let movedDistance = (dx * dx + dy * dy).squareRoot()
+                            guard movedDistance < 10,
+                                  rawPinCoordinates.count < 4,
                                   let coordinate = proxy.convert(value.location, from: .local) else { return }
                             rawPinCoordinates.append(coordinate)
                         }

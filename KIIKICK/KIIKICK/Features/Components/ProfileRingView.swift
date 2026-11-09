@@ -20,16 +20,14 @@
 //  바로잡았다.
 //
 //  가운데 원은 Figma에서 "img_profile" 레이어(실제 유저 프로필 사진이 들어갈 자리)다.
-//  TODO: 지금은 실제 유저 아바타 연동 전이라 img_profile_default 고정 이미지를 쓴다.
-//  나중에 UserSession/AuthUserResponse.avatarUrl이 실제로 채워지면(비동기 이미지 로딩
-//  필요) 이 자리를 그걸로 교체한다.
+//  별도 이미지가 없으면 UserSession의 현재 유저 사진을 공통 캐시에서 표시한다.
 //
 
 import SwiftUI
 
 struct ProfileRingView: View {
     var score: Int
-    var profileImage: Image = Image("img_profile_default")
+    var profileImage: Image?
     var size: CGFloat = 190
 
     private var progress: Double {
@@ -63,9 +61,15 @@ struct ProfileRingView: View {
                 )
                 .rotationEffect(.degrees(-90))
 
-            profileImage
-                .resizable()
-                .aspectRatio(contentMode: .fill)
+            Group {
+                if let profileImage {
+                    profileImage
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    CurrentUserAvatarView()
+                }
+            }
                 .frame(width: profileDiameter, height: profileDiameter)
                 .clipShape(Circle())
         }

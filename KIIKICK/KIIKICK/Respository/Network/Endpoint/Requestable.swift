@@ -13,17 +13,23 @@ protocol Requestable {
     var method: HTTPMethod { get }
     var queryParameters: Encodable? { get }
     var bodyParameters: Encodable? { get }
+    var multipartBody: MultipartFormData? { get }
     var headers: [String: String]? { get }
     var sampleData: Data? { get }
 }
 
 extension Requestable {
+    var multipartBody: MultipartFormData? { nil }
+
     func getUrlRequest() throws -> URLRequest {
         let url = try url()
         var urlRequest = URLRequest(url: url)
         
         // httpBody
-        if let bodyParameters {
+        if let multipartBody {
+            urlRequest.httpBody = multipartBody.data
+            urlRequest.setValue(multipartBody.contentType, forHTTPHeaderField: "Content-Type")
+        } else if let bodyParameters {
             urlRequest.httpBody = try JSONEncoder().encode(bodyParameters)
             // 인증 API는 JSON 본문을 요구하므로 바디와 Content-Type을 함께 설정한다.
             urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")

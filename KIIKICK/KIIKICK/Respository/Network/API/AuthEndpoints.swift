@@ -4,9 +4,7 @@
 //
 //  실제 배포된 Swagger(/v3/api-docs) 기준 — 이메일 인증 → 회원가입/로그인 흐름.
 //  docs/api/auth.md(AUTH-01~10)는 OAuth 제공자 토큰 교환 설계라 실제 구현과 다르다
-//  (AuthDTO.swift 상단 주석 참고). avatar 업로드(POST /users/me/avatar)는 Swagger에서도
-//  별도 태그(avatar-controller)이고 multipart/form-data라 이 파일 범위 밖 — 현재 Provider/
-//  Endpoint는 JSON 바디만 지원한다.
+//  (AuthDTO.swift 상단 주석 참고). multipart 사진 업로드는 AvatarEndpoints에서 처리한다.
 //
 //  가입 흐름: requestEmailVerification(email) → (사용자가 메일로 받은 코드 입력) →
 //  verifyEmailVerification(verificationId, code)로 registrationToken 발급 →

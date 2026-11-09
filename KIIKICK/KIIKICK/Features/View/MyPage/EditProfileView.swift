@@ -4,8 +4,7 @@
 //
 //  Figma node 392:4477 "editProfile", 392:4629 "Alert"(나가기 확인) — iOS 화면
 //
-//  DESIGN-GAP: 프로필 사진은 로컬 PhotosPicker로 미리보기만 가능하다. 서버에 사진을 올리는
-//  API가 아직 없어(UserResponse에 사진 필드 자체가 없음) 선택한 사진은 저장되지 않는다.
+//  선택한 사진은 JPEG로 변환해 업로드하고, 반환된 URL을 UserSession에 저장한다.
 //
 
 import SwiftUI
@@ -20,16 +19,20 @@ struct EditProfileView: View {
     @State private var isPresentingLeaveConfirm = false
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedPhoto: Image?
+    @State private var selectedPhotoData: Data?
+    @State private var isLoadingPhoto = false
 
-    private let originalNickname: String
+    @State private var originalNickname: String
 
     init() {
         let current = UserSession.nickname ?? ""
         _nickname = State(initialValue: current)
-        originalNickname = current
+        _originalNickname = State(initialValue: current)
     }
 
-    private var hasUnsavedChanges: Bool { nickname != originalNickname }
+    private var hasUnsavedChanges: Bool {
+        nickname != originalNickname || selectedPhotoData != nil || isLoadingPhoto
+    }
 
     private var validationError: String? {
         if nickname.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -64,14 +67,13 @@ struct EditProfileView: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                         } else {
-                            Image("img_profile_default")
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
+                            CurrentUserAvatarView()
                         }
                     }
                     .frame(width: 99, height: 99)
                     .clipShape(Circle())
                 }
+                .disabled(isSubmitting)
                 Text("프로필 사진 변경")
                     .font(.caption1M)
                     .foregroundStyle(.mint500)
@@ -87,12 +89,13 @@ struct EditProfileView: View {
                     state: fieldState,
                     errorMessage: displayedError ?? ""
                 )
+                .disabled(isSubmitting)
                 .onChange(of: nickname) { saveErrorMessage = nil }
             }
 
             Spacer()
 
-            CtaView(text: "저장", type: .primary, isActive: validationError == nil && !isSubmitting) {
+            CtaView(text: "저장", type: .primary, isActive: validationError == nil && !isSubmitting && !isLoadingPhoto) {
                 Task { await save() }
             }
         }
@@ -119,16 +122,33 @@ struct EditProfileView: View {
         } message: {
             Text("변경한 내용은 저장되지 않아요.")
         }
-        .onChange(of: selectedPhotoItem) { _, newItem in
-            Task {
-                guard let newItem, let data = try? await newItem.loadTransferable(type: Data.self),
-                      let uiImage = UIImage(data: data) else { return }
-                selectedPhoto = Image(uiImage: uiImage)
+        .task(id: selectedPhotoItem) {
+            guard let item = selectedPhotoItem else { return }
+            isLoadingPhoto = true
+            selectedPhoto = nil
+            selectedPhotoData = nil
+            saveErrorMessage = nil
+            defer {
+                if selectedPhotoItem == item { isLoadingPhoto = false }
+            }
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self) else {
+                    throw AvatarImageError.invalidImage
+                }
+                try Task.checkCancellation()
+                guard selectedPhotoItem == item else { return }
+                let avatar = try AvatarImage(data: data)
+                selectedPhoto = Image(uiImage: avatar.image)
+                selectedPhotoData = avatar.jpegData
+            } catch {
+                guard !Task.isCancelled, selectedPhotoItem == item else { return }
+                saveErrorMessage = error.localizedDescription
             }
         }
     }
 
     private func handleBack() {
+        guard !isSubmitting else { return }
         if hasUnsavedChanges {
             isPresentingLeaveConfirm = true
         } else {
@@ -137,19 +157,35 @@ struct EditProfileView: View {
     }
 
     private func save() async {
-        guard let userId = UserSession.userId, validationError == nil else { return }
+        guard !isSubmitting, !isLoadingPhoto, validationError == nil else { return }
+        guard let ownerId = UserSession.userId, UserSession.token != nil else {
+            saveErrorMessage = "로그인이 필요해요. 다시 로그인해 주세요"
+            return
+        }
         isSubmitting = true
         saveErrorMessage = nil
         defer { isSubmitting = false }
 
         do {
-            let user = try await NetworkService.provider.request(with: UserEndpoints.update(userId: userId, nickname: nickname))
-            UserSession.nickname = user.nickname
+            if nickname != originalNickname {
+                let profile = try await NetworkService.provider.request(with: AuthEndpoints.updateProfile(nickname: nickname))
+                guard UserSession.userId == ownerId else { return }
+                UserSession.update(profile: profile.data)
+                // 닉네임 저장 후 사진 업로드만 실패하면 재시도 시 사진만 다시 전송한다.
+                originalNickname = profile.data.nickname ?? nickname
+                nickname = originalNickname
+            }
+            if let selectedPhotoData {
+                let avatar = try await NetworkService.provider.request(with: AvatarEndpoints.upload(jpegData: selectedPhotoData))
+                guard UserSession.userId == ownerId else { return }
+                UserSession.saveAvatar(url: avatar.data.avatarUrl, for: ownerId, imageData: selectedPhotoData)
+                self.selectedPhotoData = nil
+            }
             dismiss()
         } catch let NetworkError.invalidHttpStatusCode(_, message) {
-            saveErrorMessage = message ?? "닉네임을 저장하지 못했어요. 다시 시도해 주세요"
+            saveErrorMessage = message ?? "프로필을 모두 저장하지 못했어요. 다시 시도해 주세요"
         } catch {
-            saveErrorMessage = "닉네임을 저장하지 못했어요. 다시 시도해 주세요"
+            saveErrorMessage = "프로필을 모두 저장하지 못했어요. 다시 시도해 주세요"
         }
     }
 }

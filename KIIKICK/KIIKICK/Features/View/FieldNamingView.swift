@@ -77,6 +77,7 @@ struct FieldNamingView: View {
     var body: some View {
         VStack(spacing: 28) {
             FieldThumbnailView(coordinates: correctedCoordinates)
+                .padding(.horizontal, 24)
 
             KiikickTextField(
                 text: $fieldName,
@@ -86,14 +87,16 @@ struct FieldNamingView: View {
                 maxCount: Self.maxNameLength
             )
             .onChange(of: fieldName) { _, _ in saveErrorMessage = nil }
+            .padding(.horizontal, 24)
 
             Spacer()
 
             CtaView(text: "등록 완료", type: .primary, size: .large, isActive: canSave) {
                 save()
             }
+            .padding(.horizontal, 24)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 24)
         .padding(.top, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.gray950)

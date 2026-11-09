@@ -20,7 +20,6 @@ import SwiftData
 import SwiftUI
 
 struct ReadyForMatchView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
     let field: Field
@@ -41,6 +40,7 @@ struct ReadyForMatchView: View {
     var body: some View {
         VStack(spacing: 28) {
             FieldThumbnailView(coordinates: correctedCoordinates)
+                .padding(.horizontal, 24)
 
             Text("\(field.name)에서의\n경기를 준비할까요?")
                 .font(.body1M)
@@ -52,28 +52,22 @@ struct ReadyForMatchView: View {
             CtaView(text: "준비하기", type: .primary, size: .large) {
                 onPrepare()
             }
+            .padding(.horizontal, 24)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 24)
         .padding(.top, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.gray950)
-        .navigationBarBackButtonHidden(true)
+        .navigationTitle("경기 준비")
+        .navigationBarTitleDisplayMode(.inline)
+        // FieldListView가 자기 화면에서 .navigationBarHidden(true)로 네비게이션 바를
+        // 숨기고 커스텀 헤더를 직접 그리는데, 이 "숨김" 상태가 SwiftUI에서 같은
+        // NavigationStack의 다음 화면까지 새어 들어오는 경우가 있다 — 그 상태로
+        // 여기로 넘어오면 시스템 바 레이아웃이 제대로 안 잡혀서 뒤로가기/말줄임 버튼이
+        // 겹쳐 보였다. 명시적으로 false를 줘서 이 화면은 항상 정상적으로 보이게 한다.
+        .navigationBarHidden(false)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.backward")
-                        .foregroundStyle(.gray50)
-                        .frame(width: 44, height: 44)
-                        .glassCircleBackground()
-                }
-                .buttonStyle(.plain)
-            }
-            ToolbarItem(placement: .principal) {
-                Text("경기 준비")
-                    .font(.head3B)
-                    .foregroundStyle(.colorTextPrimary)
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button("경기장 삭제하기", role: .destructive) {

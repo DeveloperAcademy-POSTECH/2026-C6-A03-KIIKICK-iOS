@@ -35,7 +35,7 @@ struct FieldThumbnailView: View {
         .frame(height: 138)
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 4))
-        .padding(24)
+        // .padding(24)
         .background(Color.gray900, in: RoundedRectangle(cornerRadius: 12))
         .task(id: coordinates) {
             snapshotImage = await Self.renderSnapshot(for: coordinates, size: Self.size)

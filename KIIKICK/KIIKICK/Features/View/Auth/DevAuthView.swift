@@ -13,6 +13,7 @@ import SwiftUI
 struct DevAuthView: View {
     @State private var isPresentingLogin = false
     @State private var isLoggedIn = UserSession.isLoggedIn
+    @AppStorage(OverallMockData.enabledKey) private var usesOverallMockData = true
 
     var body: some View {
         VStack(spacing: 20) {
@@ -33,6 +34,11 @@ struct DevAuthView: View {
                 NetworkTestView()
             }
             .buttonStyle(.bordered)
+
+            Toggle("OVR 목업 데이터", isOn: $usesOverallMockData)
+            Text("끄면 기기에 저장된 운동 기록으로 계산합니다. 목업은 실제 기록에 저장되지 않습니다.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             Spacer()
         }

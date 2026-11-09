@@ -9,13 +9,7 @@
 //  DESIGN-GAP: 탭바 아이콘(ic_ovr류)을 받지 못해 SF Symbol로 대체했다 — MainView.swift
 //  주석 참고.
 //
-//  데이터 관련 TODO 모음(전부 "View만 먼저 만든다"는 전제로 자리만 잡아둔 부분):
-//  - overallStat: 서버 Overall API가 아직 없다(OverallStat.swift 참고). 항상 .empty.
-//  - PerformanceTrendsView에 넘기는 포인트 배열: 쿼터별 추세 집계 로직이 아직 없어
-//    항상 빈 배열이다. 실제 집계가 생기면 selectedMetric에 따라 분기해서 채울 것.
-//  - 총 경기 수/총 이동거리/평균 소모 칼로리는 지금 있는 로컬 SwiftData 기록에서 바로
-//    계산한다(가짜 데이터 아님) — 다만 나중에 서버 집계 API가 생기면 그쪽으로 옮길 수도
-//    있다.
+//  완료된 쿼터의 누적 지표를 OverallCalculator로 계산한다. DEBUG 목업은 저장하지 않는다.
 //
 
 import SwiftUI
@@ -30,8 +24,61 @@ struct HomeView: View {
     @State private var isSelectingField = false
     @State private var selectedMetric: PerformanceMetric = .overall
     
-    // TODO: 서버 Overall API 연동 전까지는 항상 비어있다. OverallStat.swift 참고.
-    @State private var overallStat: OverallStat = .empty
+    @State private var overallHistory: OverallHistory = .empty
+    #if DEBUG
+    @AppStorage(OverallMockData.enabledKey) private var usesMockData = true
+    #else
+    private var usesMockData: Bool { false }
+    #endif
+
+    private struct OverallSource: Equatable {
+        let usesMockData: Bool
+        let inputs: [OverallWorkoutInput]
+    }
+
+    private var overallSource: OverallSource {
+        OverallSource(
+            usesMockData: usesMockData,
+            inputs: usesMockData ? [] : records.map(OverallWorkoutInput.init(record:))
+        )
+    }
+
+    private var overallStat: OverallStat {
+        OverallStat(score: overallHistory.current?.score, delta: overallHistory.delta)
+    }
+
+    private var trendPoints: [PerformanceTrendPoint] {
+        overallHistory.workouts.enumerated().map { index, workout in
+            let value: Double
+            switch selectedMetric {
+            case .overall: value = Double(overallHistory.cumulative[index].score)
+            case .speed: value = workout.peakSpeedKmh
+            case .distance: value = workout.distanceMeters / 1000
+            case .calories: value = workout.calories
+            }
+            return PerformanceTrendPoint(quarterIndex: index + 1, value: value)
+        }
+    }
+
+    private var trendUnit: String {
+        switch selectedMetric {
+        case .overall: "OVR"
+        case .speed: "km/h"
+        case .distance: "km"
+        case .calories: "kcal"
+        }
+    }
+
+    private var trendAxis: [Double] {
+        let maximum = max(trendPoints.map(\.value).max() ?? 0, selectedMetric == .overall ? 100 : 1)
+        let step = max(1, ceil(maximum / 4))
+        return (0...4).map { Double($0) * step }
+    }
+
+    private var trendDate: String {
+        guard let date = overallHistory.workouts.last?.date else { return "" }
+        return "\(date.formatted(.dateTime.month().day())) · Q\(overallHistory.workouts.count)"
+    }
     
     private var matchState: HomeMatchState {
         if sessionManager.isMatchInProgress {
@@ -45,22 +92,12 @@ struct HomeView: View {
         if !sessionManager.isReachable {
             return .watchDisconnected
         }
-        if records.isEmpty {
+        if overallHistory.workouts.isEmpty {
             return .noRecords
         }
         return .idle
     }
     
-    private var totalDistanceKm: Double {
-        records.reduce(0) { $0 + $1.totalDistance } / 1000
-    }
-    
-    private var avgCalories: Int {
-        guard !records.isEmpty else { return 0 }
-        let total = records.reduce(0) { $0 + $1.totalCalories }
-        return Int(total / Double(records.count))
-    }
-
     private var hasUnreadNotifications: Bool {
         sessionManager.notifications.contains { !$0.isRead }
     }
@@ -84,13 +121,27 @@ struct HomeView: View {
                     
                     OverallSummaryView(
                         stat: overallStat,
-                        matchCount: records.count,
-                        totalDistanceKm: totalDistanceKm,
-                        avgCalories: avgCalories
+                        matchCount: overallHistory.workouts.count,
+                        totalDistanceKm: overallHistory.totalDistanceKm,
+                        avgCalories: overallHistory.averageCalories
                     )
                     .padding(.horizontal, 24)
                     
-                    if !records.isEmpty {
+                    #if DEBUG
+                    if usesMockData, let calculation = overallHistory.current {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("목업 데이터 · 임시 기준값 적용")
+                            Text(String(format: "활동량 %.2f× · 속도 %.2f× · 가감속 %.2f×",
+                                        calculation.activityRatio, calculation.speedRatio, calculation.changeRatio))
+                        }
+                        .font(.caption1M)
+                        .foregroundStyle(.gray400)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
+                    }
+                    #endif
+
+                    if !overallHistory.workouts.isEmpty {
                         PerformanceTrendsView(
                             selectedMetric: $selectedMetric,
                             // TODO: 쿼터별 추세 집계가 아직 없어 항상 빈 배열 — 그래프 자리만 보여준다.
@@ -127,6 +178,16 @@ struct HomeView: View {
             headerBar
         }
         .task { try? await UserSession.refreshProfile() }
+        .task(id: overallSource) {
+            let source = overallSource
+            #if DEBUG
+            if source.usesMockData {
+                overallHistory = OverallCalculator.history(from: OverallMockData.workouts)
+                return
+            }
+            #endif
+            overallHistory = OverallCalculator.history(from: source.inputs.compactMap { $0.workout() })
+        }
     }
     
     private var headerBar: some View {

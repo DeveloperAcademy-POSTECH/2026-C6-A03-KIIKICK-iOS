@@ -23,6 +23,7 @@ import SwiftData
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppRouter.self) private var router
     @Environment(SessionManager.self) private var sessionManager
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
     
@@ -126,7 +127,16 @@ struct HomeView: View {
             }
             headerBar
         }
-        .task { try? await UserSession.refreshProfile() }
+        .task {
+            // 이슈 #63: 홈 화면 진입도 재인증 트리거다 — accessToken이 앱이 떠 있는 동안
+            // 만료됐으면 여기서 refreshToken으로 재인증한다. refreshToken도 무효면
+            // 로그인 화면으로 돌려보낸다.
+            guard await UserSession.reauthenticateIfNeeded() else {
+                router.didLogOut()
+                return
+            }
+            try? await UserSession.refreshProfile()
+        }
     }
     
     private var headerBar: some View {

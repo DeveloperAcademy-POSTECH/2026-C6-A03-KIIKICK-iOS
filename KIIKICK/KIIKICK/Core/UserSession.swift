@@ -18,6 +18,7 @@ enum UserSession {
     private static let tokenKey = "accessToken"
     private static let refreshTokenKey = "refreshToken"
     private static let sessionIdKey = "sessionId"
+    private static let tokenExpiresAtKey = "accessTokenExpiresAt"
     private(set) static var profileVersion = 0
     private static let logger = Logger(subsystem: "KIIKICK", category: "Profile")
 
@@ -30,6 +31,19 @@ enum UserSession {
     static var token: String? { KeychainService.get(key: tokenKey) }
 
     static var refreshToken: String? { KeychainService.get(key: refreshTokenKey) }
+
+    /// AuthEndpoints.login/signup/refresh 응답의 expiresAt — accessToken 만료 판단용.
+    private static var tokenExpiresAt: Date? {
+        get { UserDefaults.standard.object(forKey: tokenExpiresAtKey) as? Date }
+        set { UserDefaults.standard.set(newValue, forKey: tokenExpiresAtKey) }
+    }
+
+    /// 만료 시각을 모르는 토큰(이 필드가 생기기 전에 저장된 세션)은 만료된 것으로 취급해
+    /// 재인증을 한 번 시도하게 한다.
+    private static var isAccessTokenExpired: Bool {
+        guard let tokenExpiresAt else { return true }
+        return Date() >= tokenExpiresAt
+    }
 
     /// 로그아웃(AuthEndpoints.logout) 대상 세션 ID — 생략하면 서버가 현재 토큰의 세션으로 처리한다.
     static var sessionId: UUID? {
@@ -65,6 +79,28 @@ enum UserSession {
     static func avatarImageCacheKey(url: String, revision: String) -> String? {
         guard let userId, !url.isEmpty else { return nil }
         return "\(userId.uuidString)|\(url)|\(revision)"
+    }
+
+    /// accessToken이 만료됐으면 refreshToken으로 재인증한다 — 앱 진입(RootView)과 홈 화면
+    /// 진입(HomeView) 두 트리거에서 호출한다. refreshToken이 없거나 재인증 자체가
+    /// 실패하면(서버가 refreshToken도 거부) 세션을 지우고 false를 반환한다 — 호출부는
+    /// 이를 로그아웃으로 처리해야 한다.
+    @discardableResult
+    static func reauthenticateIfNeeded() async -> Bool {
+        guard token != nil else { return false }
+        guard isAccessTokenExpired else { return true }
+        guard let refreshToken else {
+            clear()
+            return false
+        }
+        do {
+            let result = try await NetworkService.provider.request(with: AuthEndpoints.refresh(refreshToken: refreshToken))
+            save(session: result.data)
+            return true
+        } catch {
+            clear()
+            return false
+        }
     }
 
     static func refreshProfile() async throws {
@@ -120,6 +156,7 @@ enum UserSession {
         _ = KeychainService.add(key: tokenKey, value: session.accessToken)
         _ = KeychainService.add(key: refreshTokenKey, value: session.refreshToken)
         _ = KeychainService.add(key: sessionIdKey, value: session.sessionId.uuidString)
+        tokenExpiresAt = session.expiresAt
         nickname = session.user.nickname
         if previousUserId != session.user.id || previousAvatarUrl != session.user.avatarUrl {
             avatarUrl = session.user.avatarUrl
@@ -132,6 +169,7 @@ enum UserSession {
         _ = KeychainService.delete(key: refreshTokenKey)
         _ = KeychainService.delete(key: sessionIdKey)
         UserDefaults.standard.removeObject(forKey: nicknameKey)
+        UserDefaults.standard.removeObject(forKey: tokenExpiresAtKey)
         avatarUrl = nil
     }
 }

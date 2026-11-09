@@ -20,7 +20,8 @@ struct AnalysisDetailView: View {
     let entry: AnalysisEntry
 
     @State private var selectedQuarterIndex = 0
-    @State private var comments: [Comment] = CommentMockData.threads
+    // 댓글 API 연동 전이라 항상 빈 목록으로 시작한다(이슈 #42 Mock 데이터 정리 참고).
+    @State private var comments: [Comment] = []
     @State private var commentText = ""
     @State private var pushedFriendsPlayedTogether = false
     @State private var pushedTimeline = false
@@ -36,7 +37,8 @@ struct AnalysisDetailView: View {
         AnalysisTabContent(
             detail: entry.detail,
             selectedQuarterIndex: $selectedQuarterIndex,
-            friendsCount: AnalysisMockData.friendsPlayedTogether.count,
+            // 함께 뛴 친구 기록 연동 전이라 항상 0명(이슈 #42 Mock 데이터 정리 참고).
+            friendsCount: 0,
             onShowFriends: { pushedFriendsPlayedTogether = true },
             onShowTimeline: { pushedTimeline = true }
         )
@@ -53,7 +55,7 @@ struct AnalysisDetailView: View {
             }
         }
         .navigationDestination(isPresented: $pushedFriendsPlayedTogether) {
-            FriendsPlayedTogetherView(friends: AnalysisMockData.friendsPlayedTogether)
+            FriendsPlayedTogetherView(friends: [])
         }
         .navigationDestination(isPresented: $pushedTimeline) {
             if let currentQuarter {
@@ -121,7 +123,9 @@ private struct AnalysisTabContent: View {
                     )
                     .frame(maxWidth: .infinity)
 
-                    positionRow(quarter)
+                    if let position = quarter.position {
+                        positionRow(position)
+                    }
                     heatmapCarousel(quarter)
                 }
 
@@ -158,9 +162,9 @@ private struct AnalysisTabContent: View {
         .dismissKeyboardOnTap()
     }
 
-    private func positionRow(_ quarter: AnalysisQuarter) -> some View {
+    private func positionRow(_ position: String) -> some View {
         HStack {
-            Text(quarter.position)
+            Text(position)
                 .font(.label2SB)
                 .foregroundStyle(.gray50)
                 .padding(.horizontal, 10)
@@ -170,10 +174,20 @@ private struct AnalysisTabContent: View {
         }
     }
 
-    // DESIGN-GAP: 실제 히트맵 이미지가 없어서 페이지 수만큼 placeholder 사각형을 넘긴다.
+    /// 운동장이 있으면 히트맵/스프린트 두 페이지(WorkoutDetailView와 같은 구성)를, 없으면
+    /// 빈 자리를 보여준다.
     private func heatmapCarousel(_ quarter: AnalysisQuarter) -> some View {
         TabView {
-            ForEach(0..<quarter.heatmapPageCount, id: \.self) { page in
+            if let field = quarter.field {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.gray850)
+                    .overlay(FieldHeatmapView(field: field, points: quarter.points).padding(8))
+                    .tag(0)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.gray850)
+                    .overlay(SprintMapView(field: field, points: quarter.points).padding(8))
+                    .tag(1)
+            } else {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.gray850)
                     .overlay(
@@ -181,7 +195,7 @@ private struct AnalysisTabContent: View {
                             .font(.system(size: 32))
                             .foregroundStyle(.gray500)
                     )
-                    .tag(page)
+                    .tag(0)
             }
         }
         .tabViewStyle(.page)
@@ -231,8 +245,8 @@ private struct AnalysisTabContent: View {
 
     private var goalAssistSection: some View {
         HStack(spacing: 24) {
-            statBadge(.goal, count: 2)
-            statBadge(.assist, count: 3)
+            statBadge(.goal, count: detail.goalCount)
+            statBadge(.assist, count: detail.assistCount)
         }
         .frame(maxWidth: .infinity)
     }
@@ -331,6 +345,6 @@ private struct CommentsSheetContent: View {
 
 #Preview {
     NavigationStack {
-        AnalysisDetailView(entry: AnalysisMockData.entries[0])
+        AnalysisDetailView(entry: .previewSample)
     }
 }

@@ -7,9 +7,9 @@
 //  + KIIKICK Global/Animations/analyzing.json을 쓴다.
 //
 //  분석 플로우: ReadyForDetailView → 여기 → AnalysisDetailView. 실제 분석 API가 없어서
-//  "API 응답을 기다리는 중"을 Task.sleep으로 흉내 낸다 — 플로우 확인용 목업이라
-//  ReadyForDetailView에서 바꾼 포지션/반전 값은 반영하지 않는다(AnalysisDetail은
-//  여전히 AnalysisMockData 원본을 그대로 보여준다).
+//  "API 응답을 기다리는 중"을 Task.sleep으로 흉내 낸다 — 저장 API 연동은 범위 밖이라
+//  ReadyForDetailView에서 바꾼 포지션/반전 값은 반영하지 않는다(AnalysisDetailView는
+//  WorkoutRecord에서 빌드된 entry를 그대로 보여준다).
 //
 //  분석이 끝나면 router.paths[.analysis]에서 ready+analyzing 두 단계를 지우고
 //  detail만 새로 쌓는다 — 그래야 AnalysisDetailView에서 뒤로 갔을 때 이 로딩 화면이나
@@ -49,7 +49,7 @@ struct AnalyzingView: View {
 
 #Preview {
     NavigationStack {
-        AnalyzingView(entry: AnalysisMockData.entries[0])
+        AnalyzingView(entry: .previewSample)
     }
     .environment(AppRouter())
 }

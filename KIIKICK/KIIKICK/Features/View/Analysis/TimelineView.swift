@@ -7,14 +7,12 @@
 //  타임라인(ListEventView)으로 구성된다.
 //
 //  DESIGN-GAP: 슬라이더는 실제 쿼터 재생/트랙포인트 데이터와 연동돼 있지 않다 — 그런
-//  시계열 데이터 자체가 아직 없다(AGENTS.md "구간 재생" 기능은 범위 밖). 지금은 보여주기
-//  용 정적 값이다. 이벤트 목록의 "00:00"도 실제 타임스탬프가 없어 Figma 목업 그대로
-//  고정값이다.
+//  시계열 재생 파이프라인 자체가 아직 없다(AGENTS.md "구간 재생" 기능은 범위 밖). 지금은
+//  보여주기용 정적 값이다. 누적 이동거리/소모칼로리/최고속도와 이벤트 시각은 전부
+//  AnalysisEntry+WorkoutRecord.swift가 실제 WorkoutRecord에서 계산한 값이다.
 //
 //  골/어시스트 핀은 node 735:11275처럼 맵 위 실제 좌표(AnalysisMatchEvent.position,
-//  0...1 상대 좌표)에 찍는다 — 워치 쪽은 이미 골/어시스트를 누른 순간의 실제 위치를
-//  MatchEvent로 기록해서 보내지만(WorkoutManager.recordEvent), Analysis 화면은 여전히
-//  AnalysisMockData 목업만 보여주므로(WorkoutRecord 연동은 이 이슈 범위 밖) 좌표도 목업값.
+//  0...1 상대 좌표)에 찍는다 — FieldCoordinateMapper로 실제 GPS 좌표를 정규화한 값이다.
 //
 
 import SwiftUI
@@ -60,9 +58,9 @@ struct TimelineView: View {
                 }
 
                 HStack(spacing: 28) {
-                    timeStat(label: "누적 이동거리", value: "2.48", unit: "km")
-                    timeStat(label: "누적 소모 칼로리", value: "245", unit: "kcal")
-                    timeStat(label: "현재 속도", value: "22.6", unit: "km/h")
+                    timeStat(label: "누적 이동거리", value: String(format: "%.2f", quarter.totalDistanceKm), unit: "km")
+                    timeStat(label: "누적 소모 칼로리", value: String(format: "%.0f", quarter.totalCaloriesKcal), unit: "kcal")
+                    timeStat(label: "현재 속도", value: String(format: "%.1f", quarter.maxSpeedKmh), unit: "km/h")
                 }
 
                 if numberedEvents.isEmpty {
@@ -105,10 +103,15 @@ struct TimelineView: View {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.gray850)
-                Image(systemName: "map")
-                    .font(.system(size: 32))
-                    .foregroundStyle(.gray500)
-                    .frame(width: geo.size.width, height: geo.size.height)
+                if let field = quarter.field {
+                    FieldHeatmapView(field: field, points: quarter.points)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                } else {
+                    Image(systemName: "map")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.gray500)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
 
                 ForEach(quarter.events) { event in
                     Image(event.type.iconName)
@@ -146,11 +149,12 @@ struct TimelineView: View {
         TimelineView(
             dateTitle: "10월 28일",
             quarter: AnalysisQuarter(
-                quarterNumber: 1, durationText: "26:03", position: "CM", heatmapPageCount: 3,
+                quarterNumber: 1, durationText: "26:03",
                 events: [
-                    AnalysisMatchEvent(type: .goal, timeText: "00:00", position: UnitPoint(x: 0.72, y: 0.72)),
-                    AnalysisMatchEvent(type: .assist, timeText: "00:00", position: UnitPoint(x: 0.33, y: 0.42)),
-                ]
+                    AnalysisMatchEvent(type: .goal, timeText: "03:12", position: UnitPoint(x: 0.72, y: 0.72)),
+                    AnalysisMatchEvent(type: .assist, timeText: "11:40", position: UnitPoint(x: 0.33, y: 0.42)),
+                ],
+                totalDistanceKm: 2.48, totalCaloriesKcal: 245
             )
         )
     }

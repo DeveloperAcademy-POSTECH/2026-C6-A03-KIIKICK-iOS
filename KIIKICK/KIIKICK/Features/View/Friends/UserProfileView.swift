@@ -7,8 +7,8 @@
 //
 //  DESIGN-GAP: 스크롤하면 상단 타이틀이 "프로필"에서 닉네임으로 바뀌는 variant(575:5868)가
 //  있지만, 이 앱에 그런 스크롤 연동 타이틀 패턴이 아직 없어 "프로필" 고정으로 구현했다.
-//  경기 기록은 AnalysisMockData를 그대로 재사용한다(이슈 #26도 뷰 구현만 범위, 실제 "함께 뛴
-//  경기"만 걸러내는 데이터 연동은 없음).
+//  "함께 뛴 경기"를 걸러낼 실제 데이터가 없어서(WorkoutRecord는 같이 뛴 사람을 기록하지
+//  않는다. 이슈 #26도 뷰 구현만 범위) 항상 빈 목록이다.
 //
 
 import SwiftUI
@@ -17,10 +17,10 @@ struct UserProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var status: FriendshipStatus
     @State private var isPresentingRemoveConfirm = false
-    // 이슈 #43: DatePickerView가 "기록이 있는 연도/월"만 선택 가능하게 바뀌어서,
-    // 초깃값도 오늘 날짜가 아니라 목업에 실제로 있는 값으로 맞춰야 한다.
-    @State private var year = 2026
-    @State private var month = 10
+    // availableYearMonths가 항상 빈 배열이라 DatePickerView가 비활성 상태로 뜬다 —
+    // 초깃값은 아무 의미 없어 오늘 날짜로 둔다.
+    @State private var year = Calendar.current.component(.year, from: Date())
+    @State private var month = Calendar.current.component(.month, from: Date())
     let nickname: String
     var onAddFriend: () -> Void = {}
     var onRemoveFriend: () -> Void = {}
@@ -50,16 +50,12 @@ struct UserProfileView: View {
                 switch status {
                 case .friend:
                     VStack(alignment: .leading, spacing: 24) {
-                        DatePickerView(
-                            year: $year, month: $month,
-                            availableYearMonths: Array(Set(AnalysisMockData.entries.map {
-                                let comps = Calendar.current.dateComponents([.year, .month], from: $0.date)
-                                return YearMonth(year: comps.year!, month: comps.month!)
-                            }))
-                        )
+                        // 친구와 "함께 뛴 경기"를 식별할 실제 데이터가 없어(WorkoutRecord는
+                        // 같이 뛴 사람을 기록하지 않는다) 항상 빈 목록이다.
+                        DatePickerView(year: $year, month: $month, availableYearMonths: [])
 
                         VStack(spacing: 24) {
-                            ForEach(AnalysisMockData.entries) { entry in
+                            ForEach([AnalysisEntry]()) { entry in
                                 CardSummaryView(
                                     dateAndQuarter: entry.dateAndQuarter,
                                     fieldName: entry.fieldName,

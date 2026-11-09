@@ -51,6 +51,6 @@ struct FriendsPlayedTogetherView: View {
 
 #Preview {
     NavigationStack {
-        FriendsPlayedTogetherView(friends: AnalysisMockData.friendsPlayedTogether)
+        FriendsPlayedTogetherView(friends: [])
     }
 }

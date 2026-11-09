@@ -3,7 +3,9 @@
 //  KIIKICK
 //
 //  Figma node 331:2810 "analysis" (이슈 #17), 541:3658 "analysis_empty"(이슈 #43) —
-//  목업 데이터(AnalysisMockData)로 구현. 실제 WorkoutRecord 연동은 이 이슈 범위 밖.
+//  AnalysisMockData를 치우고 실제 WorkoutRecord에서 목록을 만든다. 쿼터 하나 =
+//  WorkoutRecord 하나라서, 같은 날·같은 운동장에서 기록된 WorkoutRecord들을 모으면
+//  그게 경기(AnalysisEntry) 하나다 — 묶는 로직은 AnalysisEntry+WorkoutRecord.swift.
 //
 //  경기 카드를 누르면 분석 상세로 바로 가지 않고, 분석 플로우대로
 //  ReadyForDetailView(포지션/반전 확인) → AnalyzingView(분석 중) → AnalysisDetailView
@@ -18,6 +20,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 enum AnalysisRoute: Hashable {
     case ready(AnalysisEntry)
@@ -25,12 +28,27 @@ enum AnalysisRoute: Hashable {
     case detail(AnalysisEntry)
 }
 
+private struct MatchGroupKey: Hashable {
+    let day: Date
+    let fieldID: PersistentIdentifier?
+}
+
 struct AnalysisView: View {
     @Environment(AppRouter.self) private var router
+    @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
 
     @State private var year = 2026
     @State private var month = 10
-    @State private var entries: [AnalysisEntry] = AnalysisMockData.entries
+
+    /// 같은 날·같은 운동장에서 기록된 WorkoutRecord(쿼터)들을 모아 경기(AnalysisEntry)
+    /// 하나로 묶는다.
+    private var entries: [AnalysisEntry] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: records) { record in
+            MatchGroupKey(day: calendar.startOfDay(for: record.date), fieldID: record.field?.persistentModelID)
+        }
+        return grouped.values.compactMap(AnalysisEntry.build(from:)).sorted { $0.date > $1.date }
+    }
 
     private var availableYearMonths: [YearMonth] {
         Array(Set(entries.map {

@@ -26,7 +26,9 @@ struct ReadyForDetailView: View {
 
     init(entry: AnalysisEntry) {
         self.entry = entry
-        _positions = State(initialValue: entry.detail.quarters.map(\.position))
+        // 쿼터의 실제 포지션 값이 아직 없어서(AnalysisQuarter.position DESIGN-GAP 참고)
+        // 편집 시작값은 "CM"으로 둔다 — 사용자가 직접 고쳐야 한다.
+        _positions = State(initialValue: entry.detail.quarters.map { $0.position ?? "CM" })
         _flips = State(initialValue: entry.detail.quarters.map { _ in false })
     }
 
@@ -45,7 +47,7 @@ struct ReadyForDetailView: View {
                         durationText: quarter.durationText,
                         position: $positions[index],
                         isFlipped: $flips[index],
-                        positionChangeText: positions[index] == quarter.position ? nil : "\(quarter.position) → \(positions[index])"
+                        positionChangeText: positions[index] == (quarter.position ?? "CM") ? nil : "\(quarter.position ?? "CM") → \(positions[index])"
                     )
                 }
 
@@ -94,7 +96,7 @@ struct ReadyForDetailView: View {
 
 #Preview {
     NavigationStack {
-        ReadyForDetailView(entry: AnalysisMockData.entries[0])
+        ReadyForDetailView(entry: .previewSample)
     }
     .environment(AppRouter())
 }

@@ -117,6 +117,6 @@ struct ShareImageView: View {
 
 #Preview {
     NavigationStack {
-        ShareImageView(keyStats: AnalysisMockData.entries[0].detail.keyStats)
+        ShareImageView(keyStats: AnalysisEntry.previewSample.detail.keyStats)
     }
 }

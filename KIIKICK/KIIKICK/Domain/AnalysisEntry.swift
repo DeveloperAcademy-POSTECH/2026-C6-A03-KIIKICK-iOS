@@ -2,8 +2,9 @@
 //  AnalysisEntry.swift
 //  KIIKICK
 //
-//  Figma node 331:2810 "analysis" / 367:1711 "detail" (이슈 #17, 목업 데이터 전용 모델).
-//  WorkoutRecord/SwiftData와는 완전히 분리돼 있다 — 실제 데이터 연동은 이 이슈 범위 밖.
+//  Figma node 331:2810 "analysis" / 367:1711 "detail" (이슈 #17).
+//  이슈 #43: AnalysisMockData를 치우고 AnalysisEntry+WorkoutRecord.swift의
+//  빌더로 실제 WorkoutRecord(쿼터 하나 = WorkoutRecord 하나)에서 값을 채운다.
 //
 
 import Foundation
@@ -42,24 +43,40 @@ struct AnalysisQuarter: Identifiable, Hashable {
     let id: UUID
     let quarterNumber: Int
     let durationText: String
-    let position: String
-    /// 실제 히트맵 이미지가 아직 없어서 캐러셀 페이지 수만 갖고 있다 — DESIGN-GAP.
-    let heatmapPageCount: Int
-    /// TimelineView(이슈 #43)용 — 쿼터 동안의 골/어시스트. 실제 타임스탬프/위치 데이터가
-    /// 없어 목록은 전부 "00:00"과 목업 좌표로 보여준다(Figma 목업 자체도 00:00 고정값).
+    /// 워치 쪽은 쿼터마다 포지션을 기록하지만(QuarterRecord.position), iOS로 보내는
+    /// WorkoutPayload에는 아직 그 값이 실려 있지 않다 — DESIGN-GAP, 실제 값이 생기기
+    /// 전까진 nil(표시 안 함).
+    let position: String?
+    /// 실제 히트맵을 그릴 수 있는 운동장/경로 — 없으면(운동장 미선택) 히트맵 자리를 비운다.
+    let field: Field?
+    let points: [TrackPoint]
+    /// TimelineView(이슈 #43)용 — 쿼터 동안의 골/어시스트. 위치는 FieldCoordinateMapper로
+    /// 실제 GPS 좌표를 정규화한 값, 시각은 쿼터 시작부터의 경과 시간이다.
     let events: [AnalysisMatchEvent]
+    /// WorkoutManager.endQuarter가 HealthKit 누적값 차이로 구한 "이번 쿼터 동안"의 실제
+    /// 이동거리/소모칼로리 — points에서 다시 합산하는 것보다 정확해서 그대로 들고 다닌다.
+    let totalDistanceKm: Double
+    let totalCaloriesKcal: Double
+    var maxSpeedKmh: Double { (points.map(\.speed).max() ?? 0) * 3.6 }
 
     init(
-        id: UUID = UUID(), quarterNumber: Int, durationText: String, position: String,
-        heatmapPageCount: Int, events: [AnalysisMatchEvent] = []
+        id: UUID = UUID(), quarterNumber: Int, durationText: String, position: String? = nil,
+        field: Field? = nil, points: [TrackPoint] = [], events: [AnalysisMatchEvent] = [],
+        totalDistanceKm: Double = 0, totalCaloriesKcal: Double = 0
     ) {
         self.id = id
         self.quarterNumber = quarterNumber
         self.durationText = durationText
         self.position = position
-        self.heatmapPageCount = heatmapPageCount
+        self.field = field
+        self.points = points
         self.events = events
+        self.totalDistanceKm = totalDistanceKm
+        self.totalCaloriesKcal = totalCaloriesKcal
     }
+
+    static func == (lhs: AnalysisQuarter, rhs: AnalysisQuarter) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
 /// node 735:11440 등 — 값(value)과 단위(unit)는 Figma에서부터 서로 다른 Text로
@@ -133,3 +150,55 @@ struct AnalysisEntry: Identifiable, Hashable {
         self.detail = detail
     }
 }
+
+#if DEBUG
+/// AnalysisMockData(이슈 #43에서 제거)를 대신하는 Preview 전용 샘플 하나 — 실제
+/// WorkoutRecord 빌더(AnalysisEntry+WorkoutRecord.swift)가 채우는 모양을 그대로
+/// 손으로 흉내 낸 값이라, 운동장/실제 좌표 없이도 Preview가 뜬다.
+extension AnalysisEntry {
+    static let previewSample = AnalysisEntry(
+        date: DateComponents(calendar: .current, year: 2026, month: 10, day: 28).date!,
+        dateAndQuarter: "10월 28일 • 총 2Q",
+        fieldName: "우리 집 앞 풋살장",
+        stats: [
+            AnalysisStat(label: "최고속도", value: "22.6", unit: "km/h"),
+            AnalysisStat(label: "이동거리", value: "2.48", unit: "km"),
+            AnalysisStat(label: "소모칼로리", value: "245", unit: "kcal"),
+        ],
+        detail: AnalysisDetail(
+            title: "10월 28일",
+            quarters: [
+                AnalysisQuarter(
+                    quarterNumber: 1, durationText: "26:03",
+                    events: [
+                        AnalysisMatchEvent(type: .goal, timeText: "03:12", position: UnitPoint(x: 0.72, y: 0.72)),
+                        AnalysisMatchEvent(type: .assist, timeText: "11:40", position: UnitPoint(x: 0.33, y: 0.42)),
+                    ]
+                ),
+                AnalysisQuarter(quarterNumber: 2, durationText: "24:51"),
+            ],
+            keyStats: [
+                AnalysisStat(label: "최고속도", value: "22.6", unit: "km/h"),
+                AnalysisStat(label: "이동거리", value: "2.48", unit: "km"),
+                AnalysisStat(label: "소모칼로리", value: "245", unit: "kcal"),
+            ],
+            goalCount: 1,
+            assistCount: 1,
+            sections: [
+                AnalysisSection(title: "Movement", rows: [
+                    AnalysisSectionRow(label: "평균 속력", value: "8.2", unit: "km/h"),
+                    AnalysisSectionRow(label: "고강도 주행거리", value: "620", unit: "m"),
+                    AnalysisSectionRow(label: "방향 전환 횟수", value: "38", unit: "회"),
+                    AnalysisSectionRow(label: "가속 횟수", value: "21", unit: "회"),
+                    AnalysisSectionRow(label: "감속 횟수", value: "19", unit: "회"),
+                ]),
+                AnalysisSection(title: "Physical Activity", rows: [
+                    AnalysisSectionRow(label: "최대 심박수", value: "178", unit: "bpm"),
+                    AnalysisSectionRow(label: "평균 심박수", value: "142", unit: "bpm"),
+                ]),
+            ],
+            disclaimer: "히트맵과 포지션이 정확한지 확인해주세요"
+        )
+    )
+}
+#endif

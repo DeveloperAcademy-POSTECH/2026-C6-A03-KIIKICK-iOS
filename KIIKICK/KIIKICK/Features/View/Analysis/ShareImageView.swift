@@ -115,8 +115,10 @@ struct ShareImageView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         ShareImageView(keyStats: AnalysisEntry.previewSample.detail.keyStats)
     }
 }
+#endif

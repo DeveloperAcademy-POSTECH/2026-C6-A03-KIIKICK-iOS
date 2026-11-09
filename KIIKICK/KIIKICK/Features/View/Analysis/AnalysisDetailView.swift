@@ -323,8 +323,10 @@ private struct CommentsSheetContent: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         AnalysisDetailView(entry: .previewSample)
     }
 }
+#endif

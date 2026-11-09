@@ -266,9 +266,11 @@ struct ReadyForDetailView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         ReadyForDetailView(entry: .previewSample)
     }
     .environment(AppRouter())
 }
+#endif

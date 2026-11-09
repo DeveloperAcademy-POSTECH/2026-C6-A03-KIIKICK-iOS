@@ -46,9 +46,11 @@ struct AnalyzingView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         AnalyzingView(entry: .previewSample)
     }
     .environment(AppRouter())
 }
+#endif

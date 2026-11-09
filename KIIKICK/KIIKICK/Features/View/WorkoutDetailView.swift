@@ -266,7 +266,9 @@ private struct StatTile: View {
 }
 
 #if DEBUG
+#if DEBUG
 #Preview {
     WorkoutDetailView(record: WorkoutRecord(payload: .fake()))
 }
+#endif
 #endif

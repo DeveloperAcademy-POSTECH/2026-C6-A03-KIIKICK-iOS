@@ -2,15 +2,18 @@
 //  FieldRectangleCorrector.swift
 //  KIIKICK
 //
-//  사용자가 순서대로 찍은 4개 핀(raw, 직사각형이 아닐 수 있음)을 실제 직사각형으로
+//  사용자가 찍은 4개 핀(raw, 순서·직사각형 여부 모두 보장 안 됨)을 실제 직사각형으로
 //  보정한다. 등록 시점에 1회만 돌리고, 그 결과(Field.cornerA~D)로 히트맵 등 실제 연산을
 //  전부 처리한다 — 설계 배경은 docs/superpowers/specs/2026-11-06-field-rectangle-correction-design.md.
 //
-//  기준각은 "최장변 기준" 방식을 쓴다 — 탭 순서(1→2번 핀을 잇는 변)를 그대로 쓰는 방식은
-//  계산이 제일 단순하지만, 사용자가 1·2번 핀을 인접한 긴 변이 아니라 짧은 변이나 대각선에
-//  가깝게 찍으면 기준각이 크게(최대 90도 가까이) 틀어질 위험이 있다. 축구/풋살 운동장은
-//  터치라인(긴 변)이 골라인(짧은 변)보다 뚜렷이 길기 때문에, 탭 순서로 생긴 4개 변 중
-//  가장 긴 변의 각도를 기준각으로 쓰면 어느 핀을 먼저 찍었는지와 무관하게 더 안정적이다.
+//  탭 순서는 신뢰하지 않는다 — 사용자가 둘레를 따라 순서대로 찍는다는 보장이 없고,
+//  순서에 의미를 두면 사용자가 실수로 다르게 찍었을 때 보정이 크게 틀어질 위험이 있다.
+//  대신 4점의 중앙값(centroid)을 구하고, 그 중앙값 기준 각도로 정렬해서 항상 올바른
+//  둘레 순서(시계방향)를 직접 만든다 — 사용자가 어떤 순서로 찍든 결과가 같다.
+//
+//  기준각은 "최장변 기준"을 쓴다 — 중앙값 정렬로 만든 4개 변 중 가장 긴 변의 각도를
+//  쓰면, 축구/풋살 운동장은 터치라인(긴 변)이 골라인(짧은 변)보다 뚜렷이 길기 때문에
+//  어느 변을 기준으로 잡아도 안정적으로 터치라인 방향이 나온다.
 //  (다른 후보: 대변 평균 / 탭 순서 / 최소자승 피팅 — 인터랙티브 비교는 위 스펙 문서 링크 참고)
 //
 //  보정은 기준각으로 4점을 회전시킨 좌표계에서 min/max로 바운딩 박스를 구하는 방식이라,
@@ -21,17 +24,27 @@ import CoreLocation
 import CoreGraphics
 
 enum FieldRectangleCorrector {
-    /// raw[0], raw[1], raw[2], raw[3] 순서(사용자가 찍은 순서)를 그대로 유지한 보정된
-    /// 직사각형 네 꼭짓점을 돌려준다.
+    /// 보정된 직사각형 네 꼭짓점을 시계방향 순서로 돌려준다. 입력 `rawCorners`의 순서는
+    /// 결과에 영향을 주지 않는다 — 내부적으로 중앙값 기준 각도 정렬로 다시 순서를 매긴다.
     static func correct(rawCorners: [CLLocationCoordinate2D]) -> [CLLocationCoordinate2D] {
         precondition(rawCorners.count == 4, "4개 좌표가 필요합니다")
 
         let plane = LocalPlane(reference: rawCorners[0])
-        let points = rawCorners.map(plane.toLocal)
+        let rawPoints = rawCorners.map(plane.toLocal)
 
-        // 탭 순서대로 이어지는 4개 변(0→1, 1→2, 2→3, 3→0) 중 가장 긴 변의 각도를
-        // 기준각으로 쓴다 (최장변 기준) — 어느 핀을 1·2번으로 먼저 찍었는지와 무관하게
-        // 안정적으로 터치라인 방향을 잡는다.
+        // 중앙값 기준 각도로 정렬해 시계방향 둘레 순서를 만든다. 로컬 평면은
+        // x=동쪽·y=북쪽이라, 지도를 북쪽이 위로 가게 봤을 때 시계방향(북→동→남→서)은
+        // atan2(y, x)가 "감소"하는 방향이다 — 그래서 내림차순으로 정렬한다.
+        let centroid = CGPoint(
+            x: rawPoints.map(\.x).reduce(0, +) / 4,
+            y: rawPoints.map(\.y).reduce(0, +) / 4
+        )
+        let points = rawPoints.sorted { a, b in
+            atan2(a.y - centroid.y, a.x - centroid.x) > atan2(b.y - centroid.y, b.x - centroid.x)
+        }
+
+        // 중앙값 정렬로 만든 4개 변(0→1, 1→2, 2→3, 3→0) 중 가장 긴 변의 각도를
+        // 기준각으로 쓴다 (최장변 기준).
         let theta = (0..<4)
             .map { i -> (angle: CGFloat, length: CGFloat) in
                 let a = points[i]

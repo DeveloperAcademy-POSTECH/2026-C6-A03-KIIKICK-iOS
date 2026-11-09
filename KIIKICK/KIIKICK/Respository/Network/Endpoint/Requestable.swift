@@ -23,10 +23,10 @@ extension Requestable {
         var urlRequest = URLRequest(url: url)
         
         // httpBody
-        if let bodyParameters = try bodyParameters?.toDictionary() {
-            if !bodyParameters.isEmpty {
-                urlRequest.httpBody = try? JSONSerialization.data(withJSONObject: bodyParameters)
-            }
+        if let bodyParameters {
+            urlRequest.httpBody = try JSONEncoder().encode(bodyParameters)
+            // 인증 API는 JSON 본문을 요구하므로 바디와 Content-Type을 함께 설정한다.
+            urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         
         // httpMethod

@@ -122,6 +122,10 @@ struct FieldNamingView: View {
                 onDeleted: { onFinish() }
             )
         }
+        // 이 화면이 FieldListView의 시트(별도 NavigationStack) 안에 있어서
+        // RootView의 전역 .dismissKeyboardOnTap()이 여기까지 안 닿는다 — 시트는
+        // 제스처 전파상 독립된 뷰 트리라 따로 달아줘야 한다.
+        .dismissKeyboardOnTap()
     }
 
     private func handleBack() {

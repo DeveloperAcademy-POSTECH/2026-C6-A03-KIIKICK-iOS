@@ -36,8 +36,10 @@ struct FieldCreationView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    /// 등록(저장 또는 취소)이 끝나 이 플로우 전체를 닫아야 할 때 호출된다.
+    /// 등록을 취소해 이 플로우 전체를 닫아야 할 때 호출된다.
     var onFinish: () -> Void = {}
+    /// 등록을 마치고 "경기 준비" 화면(ReadyForMatchView)에서 "준비하기"를 눌렀을 때 호출된다.
+    var onFieldPrepared: ((Field) -> Void)? = nil
 
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var locationManager = CLLocationManager()
@@ -133,7 +135,7 @@ struct FieldCreationView: View {
             locationManager.requestWhenInUseAuthorization()
         }
         .navigationDestination(isPresented: $goNext) {
-            FieldNamingView(rawCoordinates: rawPinCoordinates, onFinish: onFinish)
+            FieldNamingView(rawCoordinates: rawPinCoordinates, onFinish: onFinish, onFieldPrepared: onFieldPrepared)
         }
     }
 

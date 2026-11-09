@@ -15,6 +15,10 @@
 //  title2SB(18pt SemiBold)를 쓴다 — 화면 하나만을 위한 별도 변형을 새로 만들기보다
 //  기존 secondary 변형을 그대로 재사용했다.
 //
+//  운동장을 고르거나(기존 목록) 새로 등록하거나(FieldCreationView 시트) 둘 다
+//  ReadyForMatchView("경기 준비" 확인 화면, node 241:1767/544:4044)로 모인다 — 거기서
+//  "준비하기"를 눌러야만 onFieldPrepared가 실제로 호출된다.
+//
 
 import SwiftUI
 import SwiftData
@@ -23,7 +27,8 @@ struct FieldListView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Field.name) private var fields: [Field]
     @State private var isPresentingRegistration = false
-    var onSelect: ((Field) -> Void)? = nil
+    @State private var selectedField: Field?
+    var onFieldPrepared: ((Field) -> Void)? = nil
 
     var body: some View {
         ScrollView {
@@ -54,17 +59,30 @@ struct FieldListView: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             header
         }
+        .navigationDestination(item: $selectedField) { field in
+            ReadyForMatchView(
+                field: field,
+                onPrepare: { onFieldPrepared?(field) },
+                onDeleted: { selectedField = nil }
+            )
+        }
         .sheet(isPresented: $isPresentingRegistration) {
             NavigationStack {
-                FieldCreationView(onFinish: { isPresentingRegistration = false })
+                FieldCreationView(
+                    onFinish: { isPresentingRegistration = false },
+                    onFieldPrepared: { field in
+                        isPresentingRegistration = false
+                        onFieldPrepared?(field)
+                    }
+                )
             }
         }
     }
 
     @ViewBuilder
     private func fieldRow(_ field: Field) -> some View {
-        if let onSelect {
-            Button { onSelect(field) } label: {
+        if onFieldPrepared != nil {
+            Button { selectedField = field } label: {
                 NaviRowView(text: field.name, textStyle: .title3M)
             }
             .buttonStyle(.plain)
@@ -125,6 +143,6 @@ private extension View {
 
 #Preview("목록 있음") {
     NavigationStack {
-        FieldListView(onSelect: { _ in })
+        FieldListView(onFieldPrepared: { _ in })
     }
 }

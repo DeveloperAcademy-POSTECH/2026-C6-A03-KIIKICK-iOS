@@ -113,16 +113,18 @@ struct HomeView: View {
                     preparedField = field
                     isSelectingField = false
                     // 워치에 경기가 준비됐다고 알린다 — StartView가 대기 화면 대신
-                    // "경기 시작" 버튼을 보여주게 된다.
-                    sessionManager.updateMatchPrepared(fieldName: field.name)
+                    // "경기 시작" 버튼을 보여주게 된다. sessionManager가 Field 참조도
+                    // 들고 있다가(이슈 #66) 쿼터가 도착하면 WorkoutRecord.field로 이어준다.
+                    sessionManager.updateMatchPrepared(field: field)
                 })
             }
             .onChange(of: sessionManager.isMatchInProgress) { _, isInProgress in
                 if isInProgress {
                     preparedField = nil
-                    // 경기가 시작되면 "준비됨" 신호를 꺼서, 다음 경기 전까지는 워치가
-                    // 다시 대기 화면(Default 상태)을 보여주게 한다.
-                    sessionManager.updateMatchPrepared(fieldName: nil)
+                    // 경기가 시작되면 "준비됨" 표시만 꺼서, 다음 경기 전까지는 워치가
+                    // 다시 대기 화면(Default 상태)을 보여주게 한다. sessionManager의
+                    // Field 참조는 그대로 둔다 — 쿼터들이 경기 진행 중에 도착한다.
+                    sessionManager.clearPreparedFieldDisplay()
                 }
             }
             headerBar

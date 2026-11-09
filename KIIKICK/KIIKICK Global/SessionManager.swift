@@ -34,6 +34,12 @@ final class SessionManager: NSObject {
     /// .myPlay 알림을 맨 앞에 추가한다. 실제 서버/로컬 저장소가 없어서 앱을 다시 켜면
     /// 그동안 쌓인 알림도 같이 사라진다 — DESIGN-GAP.
     var notifications: [NotificationItem] = []
+    /// 이슈 #66: 경기 준비할 때 고른 실제 Field. preparedFieldName은 워치에 보여줄
+    /// "이름" 문자열만 들고 있어서, 쿼터가 도착할 때(didReceive(file:)) WorkoutRecord에
+    /// 그대로 이어줄 참조가 따로 필요했다. 경기가 "시작"될 때는(preparedFieldName과
+    /// 달리) 지우지 않는다 — 쿼터들은 경기가 진행 중일 때 하나씩 도착하므로 그때까지
+    /// 들고 있어야 한다. 다음 경기를 준비하면 그냥 덮어써진다.
+    var preparedField: Field?
     #endif
 
     #if os(watchOS)
@@ -78,11 +84,22 @@ final class SessionManager: NSObject {
     #endif
 
     #if os(iOS)
-    /// 운동장을 골라 경기를 "생성"할 때(또는 취소/경기 시작으로 비울 때) 호출해서 워치에
-    /// 알린다. `fieldName`이 nil이면 "아직 준비 안 됨" — 워치 StartView가 대기 화면을 보여준다.
-    func updateMatchPrepared(fieldName: String?) {
-        preparedFieldName = fieldName
-        sendContextUpdate(["preparedFieldName": fieldName ?? ""])
+    /// 운동장을 골라 경기를 "생성"할 때 호출해서 워치에 알린다. `field`가 nil이면
+    /// "아직 준비 안 됨" — 워치 StartView가 대기 화면을 보여준다. 이름만 워치로
+    /// 보내고, Field 참조 자체는 preparedField로 들고 있다가 쿼터가 도착하면
+    /// WorkoutRecord.field로 이어준다(이슈 #66).
+    func updateMatchPrepared(field: Field?) {
+        preparedField = field
+        preparedFieldName = field?.name
+        sendContextUpdate(["preparedFieldName": field?.name ?? ""])
+    }
+
+    /// 경기가 시작돼서 워치 쪽 "준비됨" 표시만 되돌릴 때 쓴다. preparedField는 그대로
+    /// 둔다 — 쿼터들이 경기 진행 중에 하나씩 도착하므로(didReceive(file:)) 그때까지
+    /// Field 참조가 필요하다.
+    func clearPreparedFieldDisplay() {
+        preparedFieldName = nil
+        sendContextUpdate(["preparedFieldName": ""])
     }
 
     /// "강제로 경기 종료하기" 버튼에서 호출한다. 워치가 지금 어느 단계에 있든(쿼터 진행 중,
@@ -189,6 +206,10 @@ extension SessionManager: WCSessionDelegate {
         }
         let record = WorkoutRecord(payload: payload)
         DispatchQueue.main.async {
+            // 이슈 #66: 경기 준비할 때 고른 Field를 이 쿼터에도 그대로 이어준다 —
+            // 전에는 아무도 WorkoutRecord.field를 세팅하지 않아서(WorkoutDetailView의
+            // 수동 선택 말고는) workout-submissions에 보낼 field가 항상 비어 있었다.
+            record.field = self.preparedField
             self.modelContext?.insert(record)
             try? self.modelContext?.save()
             self.justArrivedRecord = record

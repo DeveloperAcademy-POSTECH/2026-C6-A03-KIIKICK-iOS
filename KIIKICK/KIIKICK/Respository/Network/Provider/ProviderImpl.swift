@@ -57,7 +57,7 @@ final class ProviderImpl: Provider {
             throw NetworkError.unknownError
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            let message = (try? JSONDecoder().decode(ServerErrorBody.self, from: data))?.error.message
+            let message = (try? JSONDecoder().decode(ServerErrorBody.self, from: data))?.error.fullMessage
                 ?? String(data: data, encoding: .utf8)
             throw NetworkError.invalidHttpStatusCode(httpResponse.statusCode, message: message)
         }
@@ -130,6 +130,18 @@ final class ProviderImpl: Provider {
 /// error 아래 중첩돼 있다(common.md). 과거엔 message가 최상위에 있다고 잘못 가정해서
 /// 디코딩이 항상 실패하고 원문 JSON이 그대로 에러 메시지로 쓰였다.
 private struct ServerErrorBody: Decodable {
-    struct ErrorDetail: Decodable { let message: String }
+    struct ErrorDetail: Decodable {
+        let message: String
+        /// 필드별 검증 실패 상세(예: 422). 값이 평범한 문자열 맵이 아니면(중첩 객체 등)
+        /// 디코딩이 그냥 nil이 되고 message만 쓰인다 — 그래도 괜찮다, 완전히 실패하면
+        /// ProviderImpl.validate가 원본 JSON 문자열로 폴백한다.
+        let details: [String: String]?
+
+        var fullMessage: String {
+            guard let details, !details.isEmpty else { return message }
+            let detailText = details.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
+            return "\(message) (\(detailText))"
+        }
+    }
     let error: ErrorDetail
 }

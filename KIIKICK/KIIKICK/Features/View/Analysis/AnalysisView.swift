@@ -4,8 +4,15 @@
 //
 //  Figma node 331:2810 "analysis" (이슈 #17), 541:3658 "analysis_empty"(이슈 #43) —
 //  AnalysisMockData를 치우고 실제 WorkoutRecord에서 목록을 만든다. 쿼터 하나 =
-//  WorkoutRecord 하나라서, 같은 날·같은 운동장에서 기록된 WorkoutRecord들을 모으면
+//  WorkoutRecord 하나라서, 한 경기 안에서 연달아 기록된 WorkoutRecord들을 모으면
 //  그게 경기(AnalysisEntry) 하나다 — 묶는 로직은 AnalysisEntry+WorkoutRecord.swift.
+//
+//  이슈 #50 확인 중 발견: 원래는 "같은 날짜(달력 기준)·같은 운동장"으로 묶었는데,
+//  WorkoutPayload에 매치 세션을 구분할 ID가 없어서(DESIGN-GAP, AnalysisQuarter.position
+//  주석 참고) 같은 날 테스트를 여러 번 하면 전부 "하루 = 경기 1개"로 합쳐져 홈 탭의
+//  "총 경기 수"는 늘어도 분석 탭 카드 수는 안 늘어나는 버그가 있었다. 지금은 "직전
+//  쿼터가 끝난 시각(date+duration) 대비 이 레코드가 matchGroupingGap 안에서 시작했는지"
+//  로 묶는다 — 진짜 매치 ID가 생기기 전까지의 휴리스틱이다.
 //
 //  경기 카드를 누르면 분석 상세로 바로 가지 않고, 분석 플로우대로
 //  ReadyForDetailView(포지션/반전 확인) → AnalyzingView(분석 중) → AnalysisDetailView
@@ -28,11 +35,6 @@ enum AnalysisRoute: Hashable {
     case detail(AnalysisEntry)
 }
 
-private struct MatchGroupKey: Hashable {
-    let day: Date
-    let fieldID: PersistentIdentifier?
-}
-
 struct AnalysisView: View {
     @Environment(AppRouter.self) private var router
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
@@ -40,14 +42,27 @@ struct AnalysisView: View {
     @State private var year = 2026
     @State private var month = 10
 
-    /// 같은 날·같은 운동장에서 기록된 WorkoutRecord(쿼터)들을 모아 경기(AnalysisEntry)
-    /// 하나로 묶는다.
+    /// 두 쿼터 사이의 간격이 이 안이면 "같은 경기의 인터벌"로, 넘으면 "다른 경기"로 본다.
+    /// 진짜 매치 세션 ID가 생기기 전까지의 휴리스틱값이다.
+    private let matchGroupingGap: TimeInterval = 10 * 60
+
+    /// 한 경기 안에서 연달아 기록된 WorkoutRecord(쿼터)들을 모아 경기(AnalysisEntry)
+    /// 하나로 묶는다. 같은 운동장에서, 직전 쿼터가 끝난 시각으로부터 matchGroupingGap
+    /// 이내에 시작한 레코드만 같은 경기로 본다 — 운동장이 다르거나 간격이 벌어지면
+    /// 새 경기로 끊는다.
     private var entries: [AnalysisEntry] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: records) { record in
-            MatchGroupKey(day: calendar.startOfDay(for: record.date), fieldID: record.field?.persistentModelID)
+        let sorted = records.sorted { $0.date < $1.date }
+        var groups: [[WorkoutRecord]] = []
+        for record in sorted {
+            if let last = groups.last?.last,
+               last.field?.persistentModelID == record.field?.persistentModelID,
+               record.date.timeIntervalSince(last.date.addingTimeInterval(last.duration)) <= matchGroupingGap {
+                groups[groups.count - 1].append(record)
+            } else {
+                groups.append([record])
+            }
         }
-        return grouped.values.compactMap(AnalysisEntry.build(from:)).sorted { $0.date > $1.date }
+        return groups.compactMap(AnalysisEntry.build(from:)).sorted { $0.date > $1.date }
     }
 
     private var availableYearMonths: [YearMonth] {
@@ -114,11 +129,23 @@ struct AnalysisView: View {
             }
         }
         .onAppear {
-            if let first = availableYearMonths.sorted().last {
-                year = first.year
-                month = first.month
-            }
+            syncToLatestMonthIfNeeded()
         }
+        .onChange(of: records) { _, _ in
+            // 탭이 계속 떠 있는 동안(TabView가 형제 탭을 메모리에서 안 지운다) 새 경기가
+            // 도착해도 .onAppear는 다시 안 불린다 — year/month가 예전 달에 멈춰 있으면
+            // entries엔 있는데 entriesInSelectedMonth만 비어서 "경기가 안 보이는" 것처럼
+            // 보였다(이슈 #50 확인 중 발견). records가 바뀔 때마다 다시 확인한다.
+            syncToLatestMonthIfNeeded()
+        }
+    }
+
+    /// 지금 선택된 (year, month)에 보여줄 경기가 없을 때만 최신 달로 이동한다 — 사용자가
+    /// 과거 달을 직접 보고 있는 중이면 끼어들지 않는다.
+    private func syncToLatestMonthIfNeeded() {
+        guard entriesInSelectedMonth.isEmpty, let latest = availableYearMonths.sorted().last else { return }
+        year = latest.year
+        month = latest.month
     }
 }
 

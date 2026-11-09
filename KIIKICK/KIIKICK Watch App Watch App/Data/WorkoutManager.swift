@@ -105,9 +105,11 @@ final class WorkoutManager: NSObject {
 
     /// 쿼터 종료 — 위치 수집을 멈추고, 이번 쿼터 하나를 그대로 나타내는 `QuarterRecord`(로컬
     /// 저장용)와 `WorkoutPayload`(전송용)를 같이 돌려준다. 쿼터 하나 = WorkoutPayload 하나.
+    /// `position`이 nil이면 PositionView를 거치지 않고 강제로 끝난 쿼터라는 뜻이다
+    /// (MainView.handleForceEnd 참고).
     func endQuarter(
         quarterNumber: Int,
-        position: Position,
+        position: Position?,
         goalCount: Int,
         assistCount: Int
     ) -> (record: QuarterRecord, payload: WorkoutPayload) {

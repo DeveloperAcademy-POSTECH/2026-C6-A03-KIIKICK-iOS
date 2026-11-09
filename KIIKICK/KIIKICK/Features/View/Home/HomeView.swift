@@ -124,6 +124,7 @@ struct HomeView: View {
             }
             headerBar
         }
+        .task { try? await UserSession.refreshProfile() }
     }
     
     private var headerBar: some View {

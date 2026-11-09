@@ -15,6 +15,7 @@ struct Endpoint<R>: RequestResponsable {
     var method: HTTPMethod
     var queryParameters: Encodable?
     var bodyParameters: Encodable?
+    var multipartBody: MultipartFormData?
     var headers: [String: String]?
     var sampleData: Data?
     
@@ -23,6 +24,7 @@ struct Endpoint<R>: RequestResponsable {
          method: HTTPMethod = .get,
          queryParameters: Encodable? = nil,
          bodyParameters: Encodable? = nil,
+         multipartBody: MultipartFormData? = nil,
          headers: [String: String]? = [:],
          sampleData: Data? = nil) {
         self.baseURL = baseURL
@@ -30,6 +32,7 @@ struct Endpoint<R>: RequestResponsable {
         self.method = method
         self.queryParameters = queryParameters
         self.bodyParameters = bodyParameters
+        self.multipartBody = multipartBody
         self.headers = headers
         self.sampleData = sampleData
     }

@@ -3,17 +3,23 @@
 //  KIIKICK
 //
 //  로그인한 사용자의 UserId를 Keychain에 UUID 형식으로 저장/조회한다.
-//  닉네임은 개인 사용자 조회 API를 안 쓰기로 해서, 로그인/수정 시점에 로컬에 같이 캐싱해둔다.
+//  닉네임과 프로필 이미지 URL은 로그인·프로필 조회·수정 시 로컬에 함께 캐싱한다.
 //
 
 import Foundation
+import OSLog
+import UIKit
 
 enum UserSession {
     private static let userIdKey = "userId"
     private static let nicknameKey = "nickname"
+    static let avatarUrlKey = "profileAvatarUrl"
+    static let avatarRevisionKey = "profileAvatarRevision"
     private static let tokenKey = "accessToken"
     private static let refreshTokenKey = "refreshToken"
     private static let sessionIdKey = "sessionId"
+    private(set) static var profileVersion = 0
+    private static let logger = Logger(subsystem: "KIIKICK", category: "Profile")
 
     static var userId: UUID? {
         guard let value = KeychainService.get(key: userIdKey) else { return nil }
@@ -35,10 +41,69 @@ enum UserSession {
 
     static var nickname: String? {
         get { UserDefaults.standard.string(forKey: nicknameKey) }
-        set { UserDefaults.standard.set(newValue, forKey: nicknameKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: nicknameKey)
+            profileVersion += 1
+        }
+    }
+
+    static var avatarUrl: String? {
+        get { UserDefaults.standard.string(forKey: avatarUrlKey) }
+        set {
+            UserAvatarImageStore.shared.clear()
+            UserDefaults.standard.set(newValue, forKey: avatarUrlKey)
+            UserDefaults.standard.set(UUID().uuidString, forKey: avatarRevisionKey)
+            profileVersion += 1
+        }
+    }
+
+    static var avatarImageKey: String? {
+        let revision = UserDefaults.standard.string(forKey: avatarRevisionKey) ?? ""
+        return avatarImageCacheKey(url: avatarUrl ?? "", revision: revision)
+    }
+
+    static func avatarImageCacheKey(url: String, revision: String) -> String? {
+        guard let userId, !url.isEmpty else { return nil }
+        return "\(userId.uuidString)|\(url)|\(revision)"
+    }
+
+    static func refreshProfile() async throws {
+        guard let ownerId = userId, token != nil else { return }
+        let version = profileVersion
+        do {
+            let profile = try await NetworkService.provider.request(with: AuthEndpoints.profile())
+            try Task.checkCancellation()
+            guard userId == ownerId, profileVersion == version else { return }
+            update(profile: profile.data)
+        } catch {
+            if !Task.isCancelled {
+                logger.error("프로필 조회 실패. 저장된 프로필을 유지합니다.")
+            }
+            throw error
+        }
+    }
+
+    /// 조회 중 계정이 바뀌면 이전 계정 응답을 현재 프로필에 적용하지 않는다.
+    static func update(profile: AuthUserResponse) {
+        guard userId == profile.id else { return }
+        nickname = profile.nickname
+        if avatarUrl != profile.avatarUrl {
+            avatarUrl = profile.avatarUrl
+        }
+    }
+
+    static func saveAvatar(url: String, for ownerId: UUID, imageData: Data? = nil) {
+        guard userId == ownerId else { return }
+        // 같은 URL로 사진을 교체해도 화면이 이미지를 다시 가져오도록 revision을 바꾼다.
+        avatarUrl = url
+        // 업로드한 이미지는 서버에서 다시 받지 않고 모든 화면에서 즉시 재사용한다.
+        if let imageData, let image = UIImage(data: imageData), let key = avatarImageKey {
+            UserAvatarImageStore.shared.store(image: image, data: imageData, key: key)
+        }
     }
 
     static func save(userId: UUID, nickname: String) {
+        if self.userId != userId { avatarUrl = nil }
         _ = KeychainService.add(key: userIdKey, value: userId.uuidString)
         self.nickname = nickname
     }
@@ -49,11 +114,16 @@ enum UserSession {
 
     /// 로그인/회원가입/갱신 응답(SessionResponse) 하나로 세션 전체를 저장한다.
     static func save(session: SessionResponse) {
+        let previousUserId = userId
+        let previousAvatarUrl = avatarUrl
         _ = KeychainService.add(key: userIdKey, value: session.user.id.uuidString)
         _ = KeychainService.add(key: tokenKey, value: session.accessToken)
         _ = KeychainService.add(key: refreshTokenKey, value: session.refreshToken)
         _ = KeychainService.add(key: sessionIdKey, value: session.sessionId.uuidString)
         nickname = session.user.nickname
+        if previousUserId != session.user.id || previousAvatarUrl != session.user.avatarUrl {
+            avatarUrl = session.user.avatarUrl
+        }
     }
 
     static func clear() {
@@ -62,5 +132,6 @@ enum UserSession {
         _ = KeychainService.delete(key: refreshTokenKey)
         _ = KeychainService.delete(key: sessionIdKey)
         UserDefaults.standard.removeObject(forKey: nicknameKey)
+        avatarUrl = nil
     }
 }

@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct MyPageView: View {
-    private let nickname = UserSession.nickname ?? ""
+    @AppStorage("nickname") private var nickname = ""
+    @State private var profileError: String?
 
     var body: some View {
         ScrollView {
@@ -22,9 +23,7 @@ struct MyPageView: View {
                         EditProfileView()
                     } label: {
                         HStack(spacing: 16) {
-                            Image("img_profile_default")
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
+                            CurrentUserAvatarView()
                                 .frame(width: 56, height: 56)
                                 .clipShape(Circle())
 
@@ -88,6 +87,26 @@ struct MyPageView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.gray950)
         .navigationTitle("마이페이지")
+        .task { await loadProfile() }
+        .alert("프로필을 불러오지 못했어요", isPresented: Binding(
+            get: { profileError != nil },
+            set: { if !$0 { profileError = nil } }
+        )) {
+            Button("다시 시도") { Task { await loadProfile() } }
+            Button("닫기", role: .cancel) {}
+        } message: {
+            Text(profileError ?? "")
+        }
+    }
+
+    private func loadProfile() async {
+        guard let ownerId = UserSession.userId, UserSession.token != nil else { return }
+        do {
+            try await UserSession.refreshProfile()
+        } catch {
+            guard !Task.isCancelled, UserSession.userId == ownerId else { return }
+            profileError = error.localizedDescription
+        }
     }
 }
 

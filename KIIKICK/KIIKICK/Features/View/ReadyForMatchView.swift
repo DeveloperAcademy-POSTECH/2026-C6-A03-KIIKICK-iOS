@@ -77,7 +77,6 @@ struct ReadyForMatchView: View {
                     Image(systemName: "ellipsis")
                         .foregroundStyle(.gray50)
                         .frame(width: 44, height: 44)
-                        .glassCircleBackground()
                 }
             }
         }

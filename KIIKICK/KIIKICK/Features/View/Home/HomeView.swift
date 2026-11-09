@@ -37,9 +37,8 @@ struct HomeView: View {
         if sessionManager.isMatchInProgress {
             return .inProgress
         }
-        if let record = sessionManager.justArrivedRecord {
-            return .justFinished(record: record)
-        }
+        // 경기가 막 도착했을 때도 더 이상 배너를 안 띄운다 — 그 이벤트는 알림으로 간다
+        // (SessionManager.didReceive(file:) 참고). 바로 다음 상태로 넘어간다.
         if let preparedField {
             return .prepared(fieldName: preparedField.name)
         }
@@ -60,6 +59,10 @@ struct HomeView: View {
         guard !records.isEmpty else { return 0 }
         let total = records.reduce(0) { $0 + $1.totalCalories }
         return Int(total / Double(records.count))
+    }
+
+    private var hasUnreadNotifications: Bool {
+        sessionManager.notifications.contains { !$0.isRead }
     }
     
     var body: some View {
@@ -106,19 +109,18 @@ struct HomeView: View {
                 FieldListView(onSelect: { field in
                     preparedField = field
                     isSelectingField = false
+                    // 워치에 경기가 준비됐다고 알린다 — StartView가 대기 화면 대신
+                    // "경기 시작" 버튼을 보여주게 된다.
+                    sessionManager.updateMatchPrepared(fieldName: field.name)
                 })
             }
             .onChange(of: sessionManager.isMatchInProgress) { _, isInProgress in
-                if isInProgress { preparedField = nil }
-            }
-            .navigationDestination(for: WorkoutRecord.self) { record in
-                WorkoutDetailView(record: record)
-                    .toolbar(.hidden, for: .tabBar)
-                    .onAppear {
-                        if sessionManager.justArrivedRecord?.persistentModelID == record.persistentModelID {
-                            sessionManager.justArrivedRecord = nil
-                        }
-                    }
+                if isInProgress {
+                    preparedField = nil
+                    // 경기가 시작되면 "준비됨" 신호를 꺼서, 다음 경기 전까지는 워치가
+                    // 다시 대기 화면(Default 상태)을 보여주게 한다.
+                    sessionManager.updateMatchPrepared(fieldName: nil)
+                }
             }
             headerBar
         }
@@ -144,13 +146,29 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .padding(.horizontal, 12)
             
+            // 이슈 #42 "Remind" 댓글 — 안 읽은 알림이 있으면 벨 아이콘이 바뀐다.
+            // sessionManager.notifications가 공용 저장소라서 경기 분석 결과가 도착하면
+            // (SessionManager.didReceive(file:)) 바로 반영된다. DESIGN-GAP: "읽음 처리"
+            // 자체는 아직 없어서 — 알림 화면에 들어갔다 나와도 안 바뀐다.
             NavigationLink(destination: NotificationListView()) {
-                Image("ic_bell")
-                    .resizable()
-                    .frame(width: 24, height: 24)
-                    .foregroundStyle(.colorTextPrimary)
-                    .frame(width: 44, height: 44)
-                    .glassCircleBackground()
+                if hasUnreadNotifications {
+                    // ic_bell_new는 민트색 점이 박힌 2톤 에셋이라(ic_goal/ic_assist와 같은
+                    // 패턴) .renderingMode(.original)로 카탈로그의 template 설정을 덮어써야
+                    // 점 색이 산다.
+                    Image("ic_bell_new")
+                        .renderingMode(.original)
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                        .frame(width: 44, height: 44)
+                        .glassCircleBackground()
+                } else {
+                    Image("ic_bell")
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                        .foregroundStyle(.colorTextPrimary)
+                        .frame(width: 44, height: 44)
+                        .glassCircleBackground()
+                }
             }
         }
         .padding(.horizontal, 24)

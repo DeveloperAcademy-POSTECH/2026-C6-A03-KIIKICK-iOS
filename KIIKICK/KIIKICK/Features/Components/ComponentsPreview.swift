@@ -14,6 +14,9 @@ struct ComponentsPreview: View {
     @State private var metric: PerformanceMetric = .speed
     @State private var year = 2026
     @State private var month = 10
+    @State private var segment = "analysis"
+    @State private var dropdownYear = 2026
+    @State private var position = "CM"
 
     var body: some View {
         ScrollView {
@@ -92,6 +95,41 @@ struct ComponentsPreview: View {
                             .init(label: "소모 칼로리", value: "245", unit: "kcal"),
                         ]
                     )
+                }
+
+                section("SegmentedControl") {
+                    SegmentedControlView(
+                        options: [(value: "analysis", label: "분석"), (value: "comment", label: "댓글")],
+                        selection: $segment
+                    )
+                }
+
+                section("YearDropdown") {
+                    YearDropdownView(year: $dropdownYear)
+                }
+
+                section("PositionDropdown") {
+                    PositionDropdownView(position: $position)
+                }
+
+                section("ListEvent") {
+                    VStack(spacing: 0) {
+                        ListEventView(type: .goal, number: 1, timeText: "00:00")
+                        ListEventView(type: .assist, number: 1, timeText: "00:00")
+                    }
+                }
+
+                section("QuarterSelector") {
+                    VStack(spacing: 16) {
+                        QuarterSelectorView(
+                            quarterNumber: 1, durationText: "26:03",
+                            canGoPrevious: false, canGoNext: true, onPrevious: {}, onNext: {}
+                        )
+                        QuarterSelectorView(
+                            quarterNumber: 2, durationText: "24:51",
+                            canGoPrevious: true, canGoNext: true, onPrevious: {}, onNext: {}
+                        )
+                    }
                 }
 
                 section("PerformanceTrends") {

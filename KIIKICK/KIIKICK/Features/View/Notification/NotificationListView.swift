@@ -3,23 +3,25 @@
 //  KIIKICK
 //
 //  Figma node 317:2153 "notification" (이슈 #25로 갱신: 함께 뛴 경기 칩/알림 추가,
-//  선택한 칩이 앞으로 오는 정책, 빈 상태 뷰), 317:2362 "Scroll Edge Effect - Soft"
+//  빈 상태 뷰), 317:2362 "Scroll Edge Effect - Soft"
 //
 //  홈 좌상단 아이콘에서 들어오는 진입점은 홈 UI가 아직 끝나지 않아 이 화면에서는 연결하지 않는다
 //  (이슈 #14 작성자 확인 사항).
+//
+//  목록 자체는 로컬 @State가 아니라 SessionManager.notifications(공용 저장소)를 그대로
+//  쓴다 — 경기 분석 결과가 도착하면(SessionManager.didReceive(file:)) 홈 화면 벨 아이콘과
+//  이 목록이 같은 데이터를 보고 즉시 같이 반영돼야 하기 때문이다.
 //
 
 import SwiftUI
 
 struct NotificationListView: View {
-    @State private var items: [NotificationItem] = NotificationMockData.items
+    @Environment(SessionManager.self) private var sessionManager
     @State private var filter: NotificationFilter = .all
-    /// 칩이 화면에 그려지는 순서. 기본값은 `전체 - 함께 뛴 경기 - 댓글 - 친구`(= `NotificationFilter.allCases`
-    /// 선언 순서)이고, 칩을 선택할 때마다 그 칩이 맨 앞으로 온다.
-    @State private var chipOrder: [NotificationFilter] = NotificationFilter.allCases
+    @State private var pushedRecord: WorkoutRecord?
 
     private var filteredItems: [NotificationItem] {
-        filter == .all ? items : items.filter { $0.filterCategory == filter }
+        filter == .all ? sessionManager.notifications : sessionManager.notifications.filter { $0.filterCategory == filter }
     }
 
     private var groupedSections: [(label: String, items: [NotificationItem])] {
@@ -34,14 +36,20 @@ struct NotificationListView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                HStack(spacing: 8) {
-                    ForEach(chipOrder) { option in
-                        Button {
-                            select(option)
-                        } label: {
-                            FilterChipView(text: option.rawValue, isSelected: filter == option)
+                // node 317:2506 "chips" 프레임 자체가 437pt로 화면 폭(402pt)보다 넓다 —
+                // 칩이 5개(전체/내 플레이/함께 뛴 경기/댓글/친구)가 되면서 한 줄에 다 못
+                // 들어가고, 가로 스크롤로 보게 돼 있다. 이걸 그냥 HStack으로만 두면 칩
+                // 텍스트가 줄바꿈되며 찌그러진다 — 가로 ScrollView로 감쌌다.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(NotificationFilter.allCases) { option in
+                            Button {
+                                filter = option
+                            } label: {
+                                FilterChipView(text: option.rawValue, isSelected: filter == option)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
 
@@ -73,12 +81,10 @@ struct NotificationListView: View {
         .navigationTitle("알림")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-    }
-
-    private func select(_ option: NotificationFilter) {
-        filter = option
-        chipOrder.removeAll { $0 == option }
-        chipOrder.insert(option, at: 0)
+        .navigationDestination(item: $pushedRecord) { record in
+            WorkoutDetailView(record: record)
+                .toolbar(.hidden, for: .tabBar)
+        }
     }
 
     @ViewBuilder
@@ -95,13 +101,24 @@ struct NotificationListView: View {
             NotificationCommentView(nickname: nickname, commentPreview: preview)
         case .withFriend(let nickname, let matchDate):
             NotificationWithFriendView(nickname: nickname, matchDate: matchDate)
+        case .myPlay(let record):
+            // DESIGN-GAP: Figma annotation대로라면 첫 진입/이후를 나눠서 분석 준비
+            // (ReadyForDetailView) vs 분석 결과(WorkoutDetailView)로 갈라야 하는데,
+            // ReadyForDetailView/AnalyzingView(이슈 #43)가 이 브랜치엔 없어서 지금은
+            // 항상 결과 화면으로 바로 보낸다.
+            NotificationMyPlayView(matchDate: record.date) {
+                pushedRecord = record
+            }
         }
     }
 
     private func updateStatus(of item: NotificationItem, to status: FriendRequestStatus) {
-        guard let index = items.firstIndex(where: { $0.id == item.id }),
-              case .friendRequest(_, let nickname) = items[index].kind else { return }
-        items[index] = NotificationItem(id: item.id, date: item.date, kind: .friendRequest(status: status, nickname: nickname))
+        guard let index = sessionManager.notifications.firstIndex(where: { $0.id == item.id }),
+              case .friendRequest(_, let nickname) = sessionManager.notifications[index].kind else { return }
+        sessionManager.notifications[index] = NotificationItem(
+            id: item.id, date: item.date, kind: .friendRequest(status: status, nickname: nickname),
+            isRead: sessionManager.notifications[index].isRead
+        )
     }
 }
 
@@ -121,4 +138,5 @@ private extension View {
     NavigationStack {
         NotificationListView()
     }
+    .environment(SessionManager.shared)
 }

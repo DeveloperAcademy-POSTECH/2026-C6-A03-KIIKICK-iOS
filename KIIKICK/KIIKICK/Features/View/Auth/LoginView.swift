@@ -6,10 +6,8 @@
 //  따로 존재하지 않아(다른 signup_01~05와 달리 "login" 프레임이 없음) 이슈에 첨부된
 //  이미지를 그대로의 소스로 삼아 구현했다.
 //
-//  DESIGN-GAP: 이메일/비밀번호 로그인 API가 아직 없어(Auth API 변경 예정), 두 필드가
-//  비어있지 않으면 바로 로그인에 성공한 것으로 처리하고 mock 토큰만 Keychain에 저장한다.
-//  UserId는 설정하지 않으므로, UserId를 요구하는 화면/기능은 이 mock 로그인 이후에도
-//  동작하지 않는다.
+//  AuthEndpoints.login을 호출해 실제 세션(accessToken/refreshToken/sessionId)을
+//  UserSession에 저장한다.
 //
 
 import SwiftUI
@@ -20,6 +18,8 @@ struct LoginView: View {
 
     @State private var email: String = ""
     @State private var password: String = ""
+    @State private var isSubmitting = false
+    @State private var loginErrorMessage: String?
 
     private var isEmailValid: Bool {
         email.contains("@") && email.contains(".")
@@ -31,11 +31,12 @@ struct LoginView: View {
     }
 
     private var passwordFieldState: KiikickTextFieldState {
-        password.isEmpty ? .default : .completed
+        if loginErrorMessage != nil { return .error }
+        return password.isEmpty ? .default : .completed
     }
 
     private var canSubmit: Bool {
-        isEmailValid && !password.isEmpty
+        isEmailValid && !password.isEmpty && !isSubmitting
     }
 
     var body: some View {
@@ -85,8 +86,10 @@ struct LoginView: View {
                         text: $password,
                         placeholder: "비밀번호 입력",
                         state: passwordFieldState,
+                        errorMessage: loginErrorMessage ?? "",
                         isSecure: true
                     )
+                    .onChange(of: password) { loginErrorMessage = nil }
                 }
             }
 
@@ -94,7 +97,7 @@ struct LoginView: View {
 
             VStack(spacing: 8) {
                 CtaView(text: "로그인", type: .primary, size: .large, isActive: canSubmit) {
-                    logIn()
+                    Task { await logIn() }
                 }
 
                 HStack(spacing: 4) {
@@ -114,9 +117,19 @@ struct LoginView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    private func logIn() {
-        UserSession.saveToken(UUID().uuidString)
-        router.didLogIn()
+    private func logIn() async {
+        isSubmitting = true
+        loginErrorMessage = nil
+        defer { isSubmitting = false }
+        do {
+            let result = try await NetworkService.provider.request(with: AuthEndpoints.login(email: email, password: password))
+            UserSession.save(session: result.data)
+            router.didLogIn()
+        } catch let NetworkError.invalidHttpStatusCode(_, message) {
+            loginErrorMessage = message ?? "로그인에 실패했어요. 다시 시도해 주세요"
+        } catch {
+            loginErrorMessage = "로그인에 실패했어요. 다시 시도해 주세요"
+        }
     }
 }
 

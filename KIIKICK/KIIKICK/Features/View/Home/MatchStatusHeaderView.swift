@@ -9,8 +9,10 @@
 //  node 241:1504/259:2992/241:1907/241:1583~1584(예전 주석에 있던 ID)는 더 이상 파일에
 //  존재하지 않는다 — Figma 쪽에서 재정리된 것으로 보인다. 아래 각 case의 문구는 현재
 //  "overall" 프레임들(예: 733:9278=prepared, 733:9566=inProgress, 733:9112=watchDisconnected,
-//  733:8987=noRecords)에서 다시 확인한 값이다. `.justFinished`만 이번에 재확인할 대응
-//  프레임을 찾지 못해 이전 문구를 그대로 유지했다 — 다음에 Figma를 다시 볼 때 확인할 것.
+//  733:8987=noRecords)에서 다시 확인한 값이다.
+//
+//  경기가 막 도착했을 때 뜨던 justFinished 배너는 없앴다 — 이제 그 이벤트는 알림으로
+//  간다(NotificationMyPlayView 참고). 홈 화면은 바로 idle로 넘어간다.
 //
 
 import SwiftUI
@@ -58,16 +60,6 @@ struct MatchStatusHeaderView: View {
                         .background(.colorBackgroundSecondary, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
-
-            case .justFinished(let record):
-                watchInfoRow
-                CtaView(text: "경기 준비하기", type: .primary, action: onPrepareMatch)
-                NavigationLink(value: record) {
-                    NaviRowView(
-                        icon: Image("ic_new"),
-                        text: "새로운 분석지가 도착했어요! 확인해보세요"
-                    )
-                }
             }
         }
         .padding(.top, 12)
@@ -134,13 +126,3 @@ private struct InfoRow: View {
 #Preview("inProgress") {
     MatchStatusHeaderView(state: .inProgress, onPrepareMatch: {}, onForceEndMatch: {})
 }
-
-#if DEBUG
-#Preview("justFinished") {
-    MatchStatusHeaderView(
-        state: .justFinished(record: WorkoutRecord(payload: .fake())),
-        onPrepareMatch: {},
-        onForceEndMatch: {}
-    )
-}
-#endif

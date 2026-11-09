@@ -15,6 +15,9 @@ import SwiftUI
 struct SignUpNicknameView: View {
     @Environment(\.dismiss) private var dismiss
 
+    let registrationToken: String
+    let password: String
+
     @State private var nickname: String = ""
     @State private var goNext = false
 
@@ -56,7 +59,7 @@ struct SignUpNicknameView: View {
             }
         }
         .navigationDestination(isPresented: $goNext) {
-            SignUpProfileView(nickname: nickname)
+            SignUpProfileView(registrationToken: registrationToken, password: password, nickname: nickname)
         }
     }
 
@@ -114,7 +117,7 @@ private extension String {
 
 #Preview {
     NavigationStack {
-        SignUpNicknameView()
+        SignUpNicknameView(registrationToken: "preview-token", password: "preview-password1!")
             .environment(AppRouter())
     }
 }

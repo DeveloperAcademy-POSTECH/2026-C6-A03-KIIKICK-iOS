@@ -4,10 +4,12 @@
 //
 //  Created by Seungjun Lee on 10/27/26.
 //
-//  핀 4개를 순서대로 탭해서 찍는 방식. 직사각형 프레임 UI(ResizableRectangleView)는
-//  제거했다 — 직사각형으로 맞추는 건 FieldRectangleCorrector가 등록 시점에 한 번만
-//  계산한다(docs/superpowers/specs/2026-11-06-field-rectangle-correction-design.md).
-//  핀 순서(1→2번)가 보정 기준각을 정하므로 그대로 화면에 안내한다.
+//  핀 4개를 순서대로(둘레를 따라) 탭해서 찍는 방식. 직사각형 프레임 UI
+//  (ResizableRectangleView)는 제거했다 — 직사각형으로 맞추는 건 FieldRectangleCorrector가
+//  등록 시점에 한 번만 계산한다(docs/superpowers/specs/2026-11-06-field-rectangle-correction-design.md,
+//  기준각은 최장변 기준). 핀을 둘레 순서대로 찍어야 FieldRectangleCorrector가 만드는
+//  4개 변(0→1, 1→2, 2→3, 3→0)이 실제 운동장의 네 변과 대응한다 — 대각선으로 건너뛰어
+//  찍으면 보정이 틀어진다.
 //
 //  DESIGN-GAP: "운동시설만" 검색되게 거르는 기준은 Figma에 명시가 없어, MapKit의
 //  POI 카테고리 중 운동 시설에 해당하는 .stadium / .fitnessCenter 두 개로 좁혔다.
@@ -38,8 +40,8 @@ struct FieldCreationView: View {
     @State private var locationManager = CLLocationManager()
     @State private var goNext = false
 
-    /// 사용자가 찍은 순서 그대로의 원본 핀. 최대 4개. 순서가 보정 기준각(1→2번 핀 방향)을
-    /// 정하므로 이 배열의 순서를 절대 재정렬하지 않는다.
+    /// 사용자가 찍은 순서 그대로의 원본 핀. 최대 4개. 둘레를 따라 찍은 순서가 보정 시
+    /// 변(0→1, 1→2, 2→3, 3→0)을 정의하므로 이 배열의 순서를 절대 재정렬하지 않는다.
     @State private var rawPinCoordinates: [CLLocationCoordinate2D] = []
 
     @State private var draggingIndex: Int?
@@ -61,7 +63,7 @@ struct FieldCreationView: View {
     private var guidanceText: String {
         switch rawPinCoordinates.count {
         case 0: return "운동장 꼭짓점을 탭해서 1번째 핀을 찍어주세요"
-        case 1: return "2번째 핀을 찍어주세요 — 1→2번 방향이 터치라인 기준이 돼요"
+        case 1: return "둘레를 따라 2번째 핀을 찍어주세요"
         case 2: return "3번째 핀을 찍어주세요"
         case 3: return "4번째 핀을 찍어주세요"
         default: return "핀을 눌러서 꾹 누르면 돋보기로 미세 조정할 수 있어요"

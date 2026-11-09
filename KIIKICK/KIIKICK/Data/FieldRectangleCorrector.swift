@@ -6,9 +6,12 @@
 //  보정한다. 등록 시점에 1회만 돌리고, 그 결과(Field.cornerA~D)로 히트맵 등 실제 연산을
 //  전부 처리한다 — 설계 배경은 docs/superpowers/specs/2026-11-06-field-rectangle-correction-design.md.
 //
-//  기준각은 "탭 순서" 방식(1→2번 핀을 잇는 변의 각도)을 그대로 쓴다. AGENTS.md의
-//  "핀 순서가 터치라인/골라인 방향을 정의한다"는 규칙과 맞물리고 계산이 제일 단순하다.
-//  (다른 후보: 대변 평균 / 최장변 기준 / 최소자승 피팅 — 인터랙티브 비교는 위 스펙 문서 링크 참고)
+//  기준각은 "최장변 기준" 방식을 쓴다 — 탭 순서(1→2번 핀을 잇는 변)를 그대로 쓰는 방식은
+//  계산이 제일 단순하지만, 사용자가 1·2번 핀을 인접한 긴 변이 아니라 짧은 변이나 대각선에
+//  가깝게 찍으면 기준각이 크게(최대 90도 가까이) 틀어질 위험이 있다. 축구/풋살 운동장은
+//  터치라인(긴 변)이 골라인(짧은 변)보다 뚜렷이 길기 때문에, 탭 순서로 생긴 4개 변 중
+//  가장 긴 변의 각도를 기준각으로 쓰면 어느 핀을 먼저 찍었는지와 무관하게 더 안정적이다.
+//  (다른 후보: 대변 평균 / 탭 순서 / 최소자승 피팅 — 인터랙티브 비교는 위 스펙 문서 링크 참고)
 //
 //  보정은 기준각으로 4점을 회전시킨 좌표계에서 min/max로 바운딩 박스를 구하는 방식이라,
 //  입력값 4점을 구조적으로 전부 포함하도록 항상 바깥으로만 확장되고 안쪽으로 깎이지 않는다.
@@ -26,9 +29,18 @@ enum FieldRectangleCorrector {
         let plane = LocalPlane(reference: rawCorners[0])
         let points = rawCorners.map(plane.toLocal)
 
-        // 1→2번 핀을 잇는 첫 변의 각도를 기준각으로 사용 (탭 순서 기준).
-        let e1 = CGPoint(x: points[1].x - points[0].x, y: points[1].y - points[0].y)
-        let theta = atan2(e1.y, e1.x)
+        // 탭 순서대로 이어지는 4개 변(0→1, 1→2, 2→3, 3→0) 중 가장 긴 변의 각도를
+        // 기준각으로 쓴다 (최장변 기준) — 어느 핀을 1·2번으로 먼저 찍었는지와 무관하게
+        // 안정적으로 터치라인 방향을 잡는다.
+        let theta = (0..<4)
+            .map { i -> (angle: CGFloat, length: CGFloat) in
+                let a = points[i]
+                let b = points[(i + 1) % 4]
+                let dx = b.x - a.x, dy = b.y - a.y
+                return (atan2(dy, dx), (dx * dx + dy * dy).squareRoot())
+            }
+            .max { $0.length < $1.length }!
+            .angle
 
         let c = cos(theta), s = sin(theta)
         let rotated = points.map { CGPoint(x: $0.x * c + $0.y * s, y: -$0.x * s + $0.y * c) }

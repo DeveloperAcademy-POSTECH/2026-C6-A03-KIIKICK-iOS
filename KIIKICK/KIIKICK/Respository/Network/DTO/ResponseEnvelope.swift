@@ -10,7 +10,8 @@
 import Foundation
 
 struct ResponseMeta: Decodable {
-    let requestId: UUID
+    // 서버의 추적 ID는 일반 문자열이며 UUID 형식을 보장하지 않는다.
+    let requestId: String
     let serverTime: Date
 }
 
@@ -20,7 +21,7 @@ struct Pagination: Decodable {
 }
 
 struct PageMeta: Decodable {
-    let requestId: UUID
+    let requestId: String
     let serverTime: Date
     let pagination: Pagination
 }

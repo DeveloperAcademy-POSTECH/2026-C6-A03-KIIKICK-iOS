@@ -6,9 +6,11 @@
 //
 
 import Foundation
+import OSLog
 
 final class ProviderImpl: Provider {
     private let session: URLSessionable
+    private static let logger = Logger(subsystem: "KIIKICK", category: "Network")
     
     init(session: URLSessionable = URLSession.shared) {
         self.session = session
@@ -64,6 +66,20 @@ final class ProviderImpl: Provider {
     private func decode<T: Decodable>(data: Data) throws -> T {
         do {
             return try Self.decoder.decode(T.self, from: data)
+        } catch let error as DecodingError {
+            let path: [CodingKey]
+            switch error {
+            case .keyNotFound(let key, let context):
+                path = context.codingPath + [key]
+            case .typeMismatch(_, let context), .valueNotFound(_, let context), .dataCorrupted(let context):
+                path = context.codingPath
+            @unknown default:
+                path = []
+            }
+            // 토큰·이메일·인증번호가 담긴 본문 대신 실패한 필드 경로만 기록한다.
+            let field = path.map(\.stringValue).joined(separator: ".")
+            Self.logger.error("API 응답 디코딩 실패: \(String(reflecting: T.self), privacy: .public), 필드: \(field, privacy: .public)")
+            throw NetworkError.decodeError
         } catch {
             throw NetworkError.decodeError
         }
@@ -75,20 +91,34 @@ final class ProviderImpl: Provider {
             let container = try decoder.singleValueContainer()
             let raw = try container.decode(String.self)
             
-            let parts = raw.split(separator: ".", maxSplits: 1)
-            let wholePart = String(parts[0])
-            
+            // 인증 API는 +09:00/Z와 선택적인 소수초가 포함된 시각을 반환한다.
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = isoFormatter.date(from: raw) {
+                return date
+            }
+            isoFormatter.formatOptions = [.withInternetDateTime]
+            if let date = isoFormatter.date(from: raw) {
+                return date
+            }
+
+            // 기존 API의 시간대 없는 날짜는 기존 계약대로 서울 시각으로 해석한다.
             let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "ko_KR")
+            formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
             formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-            
-            guard let baseDate = formatter.date(from: wholePart) else {
+
+            let parts = raw.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+            guard let wholePart = parts.first,
+                  let baseDate = formatter.date(from: String(wholePart)) else {
                 throw DecodingError.dataCorruptedError(in: container, debugDescription: "날짜 형식을 해석할 수 없습니다: \(raw)")
             }
-            
-            guard parts.count == 2, let fraction = Double("0.\(parts[1])") else {
+            guard parts.count == 2 else {
                 return baseDate
+            }
+            guard !parts[1].isEmpty, parts[1].allSatisfy({ $0.isASCII && $0.isNumber }),
+                  let fraction = Double("0.\(parts[1])") else {
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "날짜 형식을 해석할 수 없습니다: \(raw)")
             }
             return baseDate.addingTimeInterval(fraction)
         }

@@ -17,9 +17,12 @@
 //  실제로 고르기 전까진 "분석 보기"를 막는다(isPositionConfirmed).
 //
 
+import OSLog
 import SwiftUI
 
 struct ReadyForDetailView: View {
+    private static let logger = Logger(subsystem: "KIIKICK", category: "WorkoutSubmission")
+
     @Environment(\.dismiss) private var dismiss
     @Environment(AppRouter.self) private var router
 
@@ -70,6 +73,7 @@ struct ReadyForDetailView: View {
                         if isPositionConfirmed.contains(false) {
                             isPresentingPositionRequiredAlert = true
                         } else {
+                            Task { await submitWorkouts() }
                             router.paths[.analysis, default: .init()].append(AnalysisRoute.analyzing(entry))
                         }
                     }
@@ -97,6 +101,106 @@ struct ReadyForDetailView: View {
         } message: {
             Text("경기가 강제로 종료돼 포지션이 기록되지 않은 쿼터가 있어요. 분석을 보려면 모든 쿼터의 포지션을 선택해주세요.")
         }
+    }
+
+    /// 이슈 #66: quarter-workout-controller의 4번째 엔드포인트(workout-submissions)만
+    /// 연동한다. 실제 서버 매치/쿼터가 아직 없어서(WorkoutRecord.matchId 주석 참고)
+    /// iOS가 만든 matchId/quarterId를 그대로 보낸다 — 지금은 API가 호출되고 응답이
+    /// 오는지 확인하는 디버깅 용도라, 결과는 콘솔 로그로만 남기고 분석 플로우 진행을
+    /// 막지 않는다(화면은 호출부가 바로 다음으로 넘어간다).
+    private func submitWorkouts() async {
+        guard let matchId = entry.records.first?.matchId else { return }
+        let quarters = zip(entry.records, positions).map { record, position in
+            // 서버가 points/heartRateSamples/events의 timestamp가 startDate~endDate
+            // 범위 안에 있는지 검증한다(422 "points[0].timestamp"로 확인됨) — 워치에서
+            // 첫 GPS 포인트가 공식 시작 시각(record.date)보다 살짝 먼저 버퍼링되는
+            // 타이밍 특성 때문에 record.date/duration만 쓰면 범위를 벗어난다. 실제
+            // 샘플들의 최소/최대로 넓혀서 전부 범위 안에 들어오게 한다(데이터는 안 버림).
+            let allTimestamps = record.points.map(\.timestamp)
+                + record.heartRateSamples.map(\.timestamp)
+                + record.events.map(\.location.timestamp)
+            let startDate = ([record.date] + allTimestamps).min()!
+            let endDate = ([record.date.addingTimeInterval(record.duration)] + allTimestamps).max()!
+            return SubmissionQuarter(
+                quarterId: record.quarterId.uuidString.lowercased(),
+                position: position.uppercased(),
+                workout: WorkoutPayload(
+                    startDate: startDate,
+                    endDate: endDate,
+                    points: record.points,
+                    heartRateSamples: record.heartRateSamples,
+                    totalCalories: record.totalCalories,
+                    totalDistance: record.totalDistance,
+                    events: record.events,
+                    field: Self.workoutFieldPayload(for: record.field)
+                )
+            )
+        }
+        // If-Match: 제출 직전에 최신 경기 version을 조회해서 그대로 넘긴다. 조회가
+        // 실패하면(서버에 아직 등록 안 된 경기 — 지금 이 디버깅 플로우에서는 보통 이쪽)
+        // 버전을 모른다는 뜻이라 헤더 자체를 생략한다(submit의 ifMatch: nil).
+        let ifMatch: String?
+        do {
+            let detail = try await NetworkService.provider.request(with: MatchEndpoints.detail(matchId: matchId))
+            ifMatch = String(detail.data.version)
+        } catch {
+            ifMatch = nil
+        }
+        // 디버깅용 — 실제로 어떤 모양으로 요청했는지 전체 JSON과 요약을 콘솔에 남긴다.
+        let requestBodyJSON = Self.prettyPrintedJSON(SubmissionBody(quarters: quarters))
+        let requestSummary = Self.requestSummary(matchId: matchId, ifMatch: ifMatch, quarters: quarters)
+        Self.logger.debug("workout-submissions 요청: \(requestSummary, privacy: .public)")
+        Self.logger.debug("workout-submissions 요청 바디: \(requestBodyJSON, privacy: .public)")
+        do {
+            let result = try await NetworkService.provider.request(
+                with: QuarterWorkoutEndpoints.submit(matchId: matchId, quarters: quarters, ifMatch: ifMatch)
+            )
+            Self.logger.debug("workout-submissions 성공: \(String(describing: result.data), privacy: .public)")
+        } catch let NetworkError.invalidHttpStatusCode(statusCode, message) {
+            Self.logger.debug("workout-submissions 실패: HTTP \(statusCode, privacy: .public) \(message ?? "", privacy: .public)")
+        } catch {
+            Self.logger.debug("workout-submissions 실패: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// 팝업에 전체 JSON(특히 points/heartRateSamples)을 그대로 넣으면 너무 길어서, 핵심
+    /// 필드만 뽑은 요약이다. 전체 원문은 Self.prettyPrintedJSON으로 콘솔에 남긴다.
+    private static func requestSummary(matchId: UUID, ifMatch: String?, quarters: [SubmissionQuarter]) -> String {
+        var lines = ["[보낸 요청]", "matchId: \(matchId)", "If-Match: \(ifMatch ?? "(생략)")"]
+        for (index, quarter) in quarters.enumerated() {
+            lines.append(
+                "쿼터[\(index)] quarterId=\(quarter.quarterId) position=\(quarter.position) " +
+                "points=\(quarter.workout.points.count) hr=\(quarter.workout.heartRateSamples.count) " +
+                "field=\(quarter.workout.field?.name ?? "nil")"
+            )
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func prettyPrintedJSON<T: Encodable>(_ value: T) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(value), let text = String(data: data, encoding: .utf8) else {
+            return "(인코딩 실패)"
+        }
+        return text
+    }
+
+    /// 이슈 #66: WorkoutFieldRequest(cornerA-D 필수, name 필수)를 채운다 — 운동장이
+    /// 미지정이면(record.field == nil) nil을 그대로 둔다. 서버가 그 경우까지 받아줄지는
+    /// 확인 안 됐다.
+    private static func workoutFieldPayload(for field: Field?) -> WorkoutFieldPayload? {
+        guard let field else { return nil }
+        func corner(_ c: FieldCorner) -> WorkoutFieldPayload.Corner {
+            WorkoutFieldPayload.Corner(latitude: c.latitude, longitude: c.longitude)
+        }
+        return WorkoutFieldPayload(
+            name: field.name,
+            cornerA: corner(field.cornerA), cornerB: corner(field.cornerB),
+            cornerC: corner(field.cornerC), cornerD: corner(field.cornerD),
+            rawCornerA: field.rawCornerA.map(corner), rawCornerB: field.rawCornerB.map(corner),
+            rawCornerC: field.rawCornerC.map(corner), rawCornerD: field.rawCornerD.map(corner)
+        )
     }
 
     private func positionChangeText(index: Int, original: String?) -> String? {

@@ -30,7 +30,10 @@ extension Requestable {
             urlRequest.httpBody = multipartBody.data
             urlRequest.setValue(multipartBody.contentType, forHTTPHeaderField: "Content-Type")
         } else if let bodyParameters {
-            urlRequest.httpBody = try JSONEncoder().encode(bodyParameters)
+            // 동일한 멱등 요청은 재시도할 때도 본문 바이트 순서를 유지한다.
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .sortedKeys
+            urlRequest.httpBody = try encoder.encode(bodyParameters)
             // 인증 API는 JSON 본문을 요구하므로 바디와 Content-Type을 함께 설정한다.
             urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }

@@ -12,6 +12,7 @@ import UIKit
 
 enum UserSession {
     private static let userIdKey = "userId"
+    private static let onboardingStatusKey = "onboardingStatus"
     private static let nicknameKey = "nickname"
     static let avatarUrlKey = "profileAvatarUrl"
     static let avatarRevisionKey = "profileAvatarRevision"
@@ -49,6 +50,10 @@ enum UserSession {
     static var sessionId: UUID? {
         guard let value = KeychainService.get(key: sessionIdKey) else { return nil }
         return UUID(uuidString: value)
+    }
+
+    static var requiresOnboarding: Bool {
+        UserDefaults.standard.string(forKey: onboardingStatusKey) == OnboardingStatus.required.rawValue
     }
 
     static var isLoggedIn: Bool { userId != nil || token != nil }
@@ -122,6 +127,7 @@ enum UserSession {
     /// 조회 중 계정이 바뀌면 이전 계정 응답을 현재 프로필에 적용하지 않는다.
     static func update(profile: AuthUserResponse) {
         guard userId == profile.id else { return }
+        UserDefaults.standard.set(profile.onboardingStatus.rawValue, forKey: onboardingStatusKey)
         nickname = profile.nickname
         if avatarUrl != profile.avatarUrl {
             avatarUrl = profile.avatarUrl
@@ -157,6 +163,7 @@ enum UserSession {
         _ = KeychainService.add(key: refreshTokenKey, value: session.refreshToken)
         _ = KeychainService.add(key: sessionIdKey, value: session.sessionId.uuidString)
         tokenExpiresAt = session.expiresAt
+        UserDefaults.standard.set(session.user.onboardingStatus.rawValue, forKey: onboardingStatusKey)
         nickname = session.user.nickname
         if previousUserId != session.user.id || previousAvatarUrl != session.user.avatarUrl {
             avatarUrl = session.user.avatarUrl
@@ -168,6 +175,7 @@ enum UserSession {
         _ = KeychainService.delete(key: tokenKey)
         _ = KeychainService.delete(key: refreshTokenKey)
         _ = KeychainService.delete(key: sessionIdKey)
+        UserDefaults.standard.removeObject(forKey: onboardingStatusKey)
         UserDefaults.standard.removeObject(forKey: nicknameKey)
         UserDefaults.standard.removeObject(forKey: tokenExpiresAtKey)
         avatarUrl = nil

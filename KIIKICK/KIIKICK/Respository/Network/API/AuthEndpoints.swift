@@ -23,6 +23,16 @@ enum AuthEndpoints {
         )
     }
 
+    /// 같은 요청을 재시도할 때는 동일한 키와 본문을 유지한다.
+    static func completeOnboarding(nickname: String, idempotencyKey: UUID) -> Endpoint<Envelope<AuthUserResponse>> {
+        Endpoint(
+            path: "/api/v1/users/me/onboarding",
+            method: .put,
+            bodyParameters: OnboardingRequest(nickname: nickname),
+            headers: bearerHeaders().merging(["Idempotency-Key": idempotencyKey.uuidString]) { $1 }
+        )
+    }
+
     /// access token 만료 시 refresh token으로 새 세션을 발급받는다.
     static func refresh(refreshToken: String) -> Endpoint<Envelope<SessionResponse>> {
         Endpoint(

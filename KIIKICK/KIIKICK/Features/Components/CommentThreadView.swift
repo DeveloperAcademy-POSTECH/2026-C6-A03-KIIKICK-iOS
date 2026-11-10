@@ -10,26 +10,30 @@ import SwiftUI
 
 struct CommentThreadView: View {
     let comment: Comment
+    var allowsReplies = true
     var onReply: (Comment) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             row(
-                avatarImageName: comment.avatarImageName,
+                avatarImageName: comment.avatarImageName, avatarURL: comment.avatarURL,
                 nickname: comment.authorNickname,
                 content: comment.content,
                 timestamp: comment.timestamp
             )
 
-            Button {
-                onReply(comment)
-            } label: {
-                Text("답글 달기")
-                    .font(.label3M)
-                    .foregroundStyle(.gray400)
+            if allowsReplies {
+                Button {
+                    onReply(comment)
+                } label: {
+                    Text("답글 달기")
+                        .font(.label3M)
+                        .foregroundStyle(.gray400)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 52)
+
             }
-            .buttonStyle(.plain)
-            .padding(.leading, 52)
 
             ForEach(comment.replies) { reply in
                 HStack(alignment: .top, spacing: 8) {
@@ -51,11 +55,17 @@ struct CommentThreadView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func row(avatarImageName: String?, nickname: String, content: String, timestamp: String) -> some View {
+    private func row(avatarImageName: String?, avatarURL: String? = nil, nickname: String, content: String, timestamp: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            (avatarImageName.map { Image($0) } ?? Image("img_profile_default"))
-                .resizable()
-                .aspectRatio(contentMode: .fill)
+            Group {
+                if let avatarURL, let url = URL(string: avatarURL) {
+                    AsyncImage(url: url) { image in image.resizable().aspectRatio(contentMode: .fill) }
+                        placeholder: { Image("img_profile_default").resizable().aspectRatio(contentMode: .fill) }
+                } else {
+                    (avatarImageName.map { Image($0) } ?? Image("img_profile_default"))
+                        .resizable().aspectRatio(contentMode: .fill)
+                }
+            }
                 .frame(width: 40, height: 40)
                 .clipShape(Circle())
 

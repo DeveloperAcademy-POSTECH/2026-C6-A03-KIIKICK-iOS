@@ -14,13 +14,20 @@ struct HeatmapDensity {
     }
 
     func values(for points: [CGPoint]) -> [Double] {
+        values(for: points.map { WeightedHeatmapPoint(location: $0, weight: 1) })
+    }
+
+    /// 원본 GPS를 공개하지 않는 친구 히트맵은 서버가 격자별 표본 수를 준다.
+    /// 같은 좌표를 표본 수만큼 복제하지 않고 가중치로 누적한다.
+    func values(for points: [WeightedHeatmapPoint]) -> [Double] {
         var counts = [Double](repeating: 0, count: columns * rows)
         for point in points {
-            guard point.x.isFinite, point.y.isFinite,
-                  (0...1).contains(point.x), (0...1).contains(point.y) else { continue }
-            let column = min(columns - 1, Int(point.x * CGFloat(columns)))
-            let row = min(rows - 1, Int(point.y * CGFloat(rows)))
-            counts[row * columns + column] += 1
+            guard point.location.x.isFinite, point.location.y.isFinite,
+                  point.weight.isFinite, point.weight > 0,
+                  (0...1).contains(point.location.x), (0...1).contains(point.location.y) else { continue }
+            let column = min(columns - 1, Int(point.location.x * CGFloat(columns)))
+            let row = min(rows - 1, Int(point.location.y * CGFloat(rows)))
+            counts[row * columns + column] += point.weight
         }
         var density = counts
         if smoothingRadius > 0 {
@@ -42,4 +49,9 @@ struct HeatmapDensity {
         guard let peak = density.max(), peak > 0 else { return density }
         return density.map { $0 / peak }
     }
+}
+
+struct WeightedHeatmapPoint {
+    let location: CGPoint
+    let weight: Double
 }

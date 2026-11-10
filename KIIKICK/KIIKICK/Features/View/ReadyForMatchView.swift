@@ -30,6 +30,11 @@ struct ReadyForMatchView: View {
     var onDeleted: () -> Void = {}
 
     @State private var isPresentingDeleteConfirm = false
+    @State private var isEditingField = false
+    @State private var pendingDeleteKey: UUID?
+    @State private var isMutating = false
+    @State private var mutationErrorMessage = ""
+    @State private var isPresentingMutationError = false
 
     private var correctedCoordinates: [CLLocationCoordinate2D] {
         [field.cornerA, field.cornerB, field.cornerC, field.cornerD].map {
@@ -49,7 +54,7 @@ struct ReadyForMatchView: View {
 
             Spacer()
 
-            CtaView(text: "준비하기", type: .primary, size: .large) {
+            CtaView(text: isMutating ? "처리 중..." : "준비하기", type: .primary, size: .large, isActive: !isMutating) {
                 onPrepare()
             }
             .padding(.horizontal, 24)
@@ -70,28 +75,64 @@ struct ReadyForMatchView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button("경기장 수정하기", systemImage: "pencil") {
+                        isEditingField = true
+                    }
                     Button("경기장 삭제하기", role: .destructive) {
                         isPresentingDeleteConfirm = true
                     }
                 } label: {
-                    Image(systemName: "ellipsis")
+                    Label("경기장 관리", systemImage: "ellipsis")
+                        .labelStyle(.iconOnly)
                         .foregroundStyle(.gray50)
                         .frame(width: 44, height: 44)
                 }
+                .disabled(isMutating)
             }
+        }
+        .navigationDestination(isPresented: $isEditingField) {
+            FieldCreationView(
+                editingField: field,
+                onFinish: { isEditingField = false },
+                onFieldUpdated: { _ in isEditingField = false }
+            )
         }
         .alert("이 경기장을 삭제할까요?", isPresented: $isPresentingDeleteConfirm) {
             Button("취소", role: .cancel) {}
-            Button("삭제", role: .destructive) { deleteField() }
+            Button("삭제", role: .destructive) { Task { await deleteField() } }
         } message: {
             Text("삭제한 경기장은 복구할 수 없어요.")
         }
+        .alert("경기장을 삭제하지 못했어요", isPresented: $isPresentingMutationError) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(mutationErrorMessage)
+        }
     }
 
-    private func deleteField() {
-        modelContext.delete(field)
-        try? modelContext.save()
-        onDeleted()
+    private func deleteField() async {
+        guard !isMutating else { return }
+        isMutating = true
+        defer { isMutating = false }
+        let key = pendingDeleteKey ?? UUID()
+        pendingDeleteKey = key
+        do {
+            try await VenueStore.archive(field, idempotencyKey: key, context: modelContext)
+            pendingDeleteKey = nil
+            onDeleted()
+        } catch {
+            presentMutationError(error, fallback: "경기장을 삭제하지 못했어요. 다시 시도해 주세요")
+        }
+    }
+
+    private func presentMutationError(_ error: Error, fallback: String) {
+        guard !Task.isCancelled else { return }
+        if case let NetworkError.invalidHttpStatusCode(_, message) = error {
+            mutationErrorMessage = message ?? fallback
+        } else {
+            mutationErrorMessage = fallback
+        }
+        isPresentingMutationError = true
     }
 }
 

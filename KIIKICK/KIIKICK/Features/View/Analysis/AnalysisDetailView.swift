@@ -18,44 +18,83 @@ import SwiftUI
 
 struct AnalysisDetailView: View {
     let entry: AnalysisEntry
+    let friendNickname: String?
+    let friendUserID: UUID?
+    let friendMatchID: UUID?
+    @State private var commentsModel: MatchCommentsModel
 
     @State private var selectedQuarterIndex = 0
-    // 댓글 API 연동 전이라 항상 빈 목록으로 시작한다(이슈 #42 Mock 데이터 정리 참고).
-    @State private var comments: [Comment] = []
-    @State private var commentText = ""
     @State private var pushedFriendsPlayedTogether = false
+    @State private var quarterFriendModels: [UUID: QuarterFriendsModel] = [:]
+    @State private var friendHeatmapModels: [UUID: FriendHeatmapModel] = [:]
     @State private var pushedTimeline = false
     @State private var pushedShare = false
-    @State private var commentSheetDetent: PresentationDetent = .height(140)
+    @State private var commentSheetDetent: PresentationDetent = .height(70)
+
+    init(entry: AnalysisEntry, friendNickname: String? = nil, matchID: UUID? = nil, friendUserID: UUID? = nil) {
+        self.entry = entry
+        self.friendNickname = friendNickname
+        self.friendUserID = friendUserID
+        friendMatchID = matchID
+        _commentsModel = State(initialValue: MatchCommentsModel(matchID: matchID ?? entry.records.first?.matchId))
+    }
 
     private var currentQuarter: AnalysisQuarter? {
         guard entry.detail.quarters.indices.contains(selectedQuarterIndex) else { return nil }
         return entry.detail.quarters[selectedQuarterIndex]
     }
 
+    private var ownerMatchID: UUID? {
+        entry.records.first?.matchId
+    }
+
+    private var currentQuarterID: UUID? {
+        currentQuarter?.sourceRecord?.quarterId
+    }
+
+    private var currentQuarterFriendModel: QuarterFriendsModel? {
+        guard let currentQuarterID else { return nil }
+        return quarterFriendModels[currentQuarterID]
+    }
+
+    private var currentFriendHeatmapModel: FriendHeatmapModel? {
+        guard let quarterID = currentQuarter?.id else { return nil }
+        return friendHeatmapModels[quarterID]
+    }
+
     var body: some View {
         AnalysisTabContent(
             detail: entry.detail,
+            isOwner: friendNickname == nil,
             selectedQuarterIndex: $selectedQuarterIndex,
-            // 함께 뛴 친구 기록 연동 전이라 항상 0명(이슈 #42 Mock 데이터 정리 참고).
-            friendsCount: 0,
-            onShowFriends: { pushedFriendsPlayedTogether = true },
+            friendsCount: currentQuarterFriendModel?.friends.count ?? 0,
+            canManageFriends: ownerMatchID != nil && currentQuarterID != nil,
+            friendHeatmapModel: currentFriendHeatmapModel,
+            onShowFriends: {
+                guard ensureCurrentQuarterFriendModel() != nil else { return }
+                pushedFriendsPlayedTogether = true
+            },
             onShowTimeline: { pushedTimeline = true }
         )
         .background(Color.gray950)
-        .navigationTitle(entry.detail.title)
+        // DESIGN-GAP: 친구 상세 헤더는 기존 제목 영역에 닉네임·날짜를 함께 표시한다.
+        .navigationTitle(friendNickname.map { "\($0) · \(entry.detail.title)" } ?? entry.detail.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(action: { pushedShare = true }) {
-                    Image(systemName: "square.and.arrow.up")
-                        .foregroundStyle(.gray50)
+            if friendNickname == nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: { pushedShare = true }) {
+                        Image(systemName: "square.and.arrow.up")
+                            .foregroundStyle(.gray50)
+                    }
                 }
             }
         }
         .navigationDestination(isPresented: $pushedFriendsPlayedTogether) {
-            FriendsPlayedTogetherView(friends: [])
+            if let currentQuarterFriendModel {
+                FriendsPlayedTogetherView(model: currentQuarterFriendModel)
+            }
         }
         .navigationDestination(isPresented: $pushedTimeline) {
             if let currentQuarter {
@@ -70,24 +109,51 @@ struct AnalysisDetailView: View {
         // 보이고 끌어올리면 전체 목록이 보인다. 닫을 수 없는 permanent 시트라
         // isPresented를 상수 true로 고정했다.
         .sheet(isPresented: .constant(true)) {
-            CommentsSheetContent(
-                comments: $comments,
-                commentText: $commentText,
-                isExpanded: commentSheetDetent == .large
-            )
+            MatchCommentsSheet(model: commentsModel, isExpanded: commentSheetDetent == .large)
             .presentationDetents([.height(70), .large], selection: $commentSheetDetent)
             .presentationDragIndicator(.visible)
             .presentationBackgroundInteraction(.enabled)
             .presentationBackground(Color.gray900)
             .interactiveDismissDisabled()
         }
+        .task(id: currentQuarterID) {
+            guard friendNickname == nil, let model = ensureCurrentQuarterFriendModel() else { return }
+            await model.loadIfNeeded()
+        }
+        .task(id: currentQuarter?.id) {
+            guard let model = ensureCurrentFriendHeatmapModel() else { return }
+            await model.loadIfNeeded()
+        }
+    }
+
+    @MainActor
+    private func ensureCurrentQuarterFriendModel() -> QuarterFriendsModel? {
+        guard let matchID = ownerMatchID, let quarterID = currentQuarterID else { return nil }
+        if let model = quarterFriendModels[quarterID] { return model }
+        let model = QuarterFriendsModel(matchID: matchID, quarterID: quarterID)
+        quarterFriendModels[quarterID] = model
+        return model
+    }
+
+    @MainActor
+    private func ensureCurrentFriendHeatmapModel() -> FriendHeatmapModel? {
+        guard let userID = friendUserID,
+              let matchID = friendMatchID,
+              let quarterID = currentQuarter?.id else { return nil }
+        if let model = friendHeatmapModels[quarterID] { return model }
+        let model = FriendHeatmapModel(userID: userID, matchID: matchID, quarterID: quarterID)
+        friendHeatmapModels[quarterID] = model
+        return model
     }
 }
 
 private struct AnalysisTabContent: View {
     let detail: AnalysisDetail
+    let isOwner: Bool
     @Binding var selectedQuarterIndex: Int
     let friendsCount: Int
+    let canManageFriends: Bool
+    let friendHeatmapModel: FriendHeatmapModel?
     var onShowFriends: () -> Void
     var onShowTimeline: () -> Void
 
@@ -99,18 +165,23 @@ private struct AnalysisTabContent: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Button(action: onShowFriends) {
-                    HStack(spacing: 4) {
-                        Text("함께 뛴 친구 \(friendsCount)명")
-                            .font(.body4R)
-                            .foregroundStyle(.colorTextPrimary)
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.mint500)
+                if isOwner {
+                    Button(action: onShowFriends) {
+                        HStack(spacing: 4) {
+                            Text("함께 뛴 친구 \(friendsCount)명")
+                                .font(.body4R)
+                                .foregroundStyle(.colorTextPrimary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.mint500)
+                        }
                     }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
+                    .disabled(!canManageFriends)
+                    .opacity(canManageFriends ? 1 : 0.5)
+
                 }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
 
                 if let quarter = currentQuarter {
                     QuarterSelectorView(
@@ -126,13 +197,16 @@ private struct AnalysisTabContent: View {
                     if let position = quarter.position {
                         positionRow(position)
                     }
-                    heatmapCarousel(quarter)
+                    heatmapCarousel(quarter, friendHeatmapModel: friendHeatmapModel)
                 }
 
-                Text("히트맵과 포지션이 정확한지 확인해주세요")
-                    .font(.caption1M)
-                    .foregroundStyle(.gray500)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                if isOwner {
+                    Text("히트맵과 포지션이 정확한지 확인해주세요")
+                        .font(.caption1M)
+                        .foregroundStyle(.gray500)
+                        .frame(maxWidth: .infinity, alignment: .center)
+
+                }
 
                 // node 742:11966 — "내 플레이 공유하기" 버튼이 있던 자리에 이제 "Key Stats"
                 // 제목이 들어간다(버튼이 아니라 그냥 텍스트). head1B(28pt Bold) + 단색
@@ -145,11 +219,11 @@ private struct AnalysisTabContent: View {
                 keyStatsSection
                 goalAssistSection
 
-                ForEach(detail.sections) { section in
+                ForEach(currentQuarter?.resultSections ?? detail.sections) { section in
                     sectionView(section)
                 }
 
-                CtaView(text: "삭제하기", type: .destructive, size: .large) { }
+                if isOwner { CtaView(text: "삭제하기", type: .destructive, size: .large) { } }
 
                 // 바텀시트가 접혀 있어도 마지막 섹션이 가리지 않게 여유 공간을 둔다.
                 Color.clear.frame(height: 20)
@@ -176,34 +250,90 @@ private struct AnalysisTabContent: View {
 
     /// 운동장이 있으면 히트맵/스프린트 두 페이지(WorkoutDetailView와 같은 구성)를, 없으면
     /// 빈 자리를 보여준다.
-    private func heatmapCarousel(_ quarter: AnalysisQuarter) -> some View {
-        TrackingMapPager(field: quarter.field, points: quarter.points,
-                         isAttackDirectionReversed: quarter.isAttackDirectionReversed)
-        .frame(height: 248)
-        .overlay(alignment: .bottomTrailing) {
-            Button(action: onShowTimeline) {
-                HStack(spacing: 0) {
-                    Text("타임라인 보기")
-                        .font(.caption1M)
-                        .foregroundStyle(.colorTextPrimary)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.colorTextPrimary)
+    private func heatmapCarousel(_ quarter: AnalysisQuarter, friendHeatmapModel: FriendHeatmapModel?) -> some View {
+        Group {
+            if isOwner {
+                TrackingMapPager(field: quarter.field, points: quarter.points,
+                                 isAttackDirectionReversed: quarter.isAttackDirectionReversed)
+                .frame(height: 248)
+                .overlay(alignment: .bottomTrailing) {
+                    Button(action: onShowTimeline) {
+                        HStack(spacing: 0) {
+                            Text("타임라인 보기")
+                                .font(.caption1M)
+                                .foregroundStyle(.colorTextPrimary)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.colorTextPrimary)
+                        }
+                        .padding(.leading, 12)
+                        .padding(.trailing, 8)
+                        .padding(.vertical, 8)
+                        .background(Color.colorSurfacePrimary, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(16)
                 }
-                .padding(.leading, 12)
-                .padding(.trailing, 8)
-                .padding(.vertical, 8)
-                .background(Color.colorSurfacePrimary, in: Capsule())
+            } else {
+                friendHeatmap(quarter, model: friendHeatmapModel)
             }
-            .buttonStyle(.plain)
-            .padding(16)
         }
+    }
+
+    @ViewBuilder
+    private func friendHeatmap(_ quarter: AnalysisQuarter, model: FriendHeatmapModel?) -> some View {
+        if let model {
+            if model.isLoading && model.heatmap == nil {
+                ProgressView("히트맵을 불러오는 중...")
+                    .tint(.mint500)
+                    .frame(maxWidth: .infinity, minHeight: 248)
+            } else if let heatmap = model.heatmap, heatmap.status == .ready, !heatmap.cells.isEmpty {
+                FriendHeatmapView(
+                    field: quarter.field,
+                    heatmap: heatmap,
+                    isAttackDirectionReversed: quarter.isAttackDirectionReversed
+                )
+                .frame(height: 248)
+                .accessibilityLabel("친구 히트맵, 표본 \(heatmap.sampleCount)개")
+            } else {
+                friendHeatmapMessage(heatmap: model.heatmap, errorMessage: model.errorMessage, onRetry: {
+                    Task { await model.reload() }
+                })
+            }
+        } else {
+            friendHeatmapMessage(heatmap: nil, errorMessage: nil, onRetry: {})
+        }
+    }
+
+    private func friendHeatmapMessage(
+        heatmap: FriendHeatmapResponse?,
+        errorMessage: String?,
+        onRetry: @escaping () -> Void
+    ) -> some View {
+        VStack(spacing: 12) {
+            Text(errorMessage ?? {
+                switch heatmap?.status {
+                case .noValidPoints: return "표시할 위치 데이터가 없어요"
+                case .missingWorkout: return "이 쿼터의 기록을 찾을 수 없어요"
+                default: return "친구의 히트맵을 준비하고 있어요"
+                }
+            }())
+            .textStyle(.body4R)
+            .foregroundStyle(.colorTextSecondary)
+            if errorMessage != nil {
+                Button("다시 불러오기", action: onRetry)
+                    .font(.label4SB)
+                    .foregroundStyle(.mint500)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 248)
+        .background(Color.gray850, in: RoundedRectangle(cornerRadius: 4))
     }
 
     private var keyStatsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 28) {
-                ForEach(detail.keyStats, id: \.label) { stat in
+                ForEach(currentQuarter?.resultStats ?? detail.keyStats, id: \.label) { stat in
                     VStack(spacing: 12) {
                         Text(stat.label)
                             .font(.title4SB)
@@ -225,13 +355,13 @@ private struct AnalysisTabContent: View {
 
     private var goalAssistSection: some View {
         HStack(spacing: 24) {
-            statBadge(.goal, count: detail.goalCount)
-            statBadge(.assist, count: detail.assistCount)
+            statBadge(.goal, count: isOwner ? detail.goalCount : currentQuarter?.resultGoals)
+            statBadge(.assist, count: isOwner ? detail.assistCount : currentQuarter?.resultAssists)
         }
         .frame(maxWidth: .infinity)
     }
     
-    private func statBadge(_ type: MatchEventType, count: Int) -> some View {
+    private func statBadge(_ type: MatchEventType, count: Int?) -> some View {
         VStack(spacing: 4) {
             Text(type.name)
                 .font(.label3M)
@@ -240,7 +370,7 @@ private struct AnalysisTabContent: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 80)
-                Text(String(count))
+                Text(count.map(String.init) ?? "—")
                     .font(.display2SB)
                     .padding(.bottom, 40)
             }
@@ -280,46 +410,6 @@ private struct AnalysisTabContent: View {
             .padding(16)
             .background(Color.gray900, in: RoundedRectangle(cornerRadius: 16))
         }
-    }
-}
-
-private struct CommentsSheetContent: View {
-    @Binding var comments: [Comment]
-    @Binding var commentText: String
-    let isExpanded: Bool
-
-    var body: some View {
-        VStack(spacing: 20) {
-            VStack { }.frame(height: 4)
-            Text("댓글 \(comments.count)")
-                .font(.title3M)
-                .foregroundStyle(.colorTextPrimary)
-                .padding(.top, 8)
-                .padding(.bottom, 12)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    ForEach(comments) { comment in
-                        CommentThreadView(comment: comment)
-                    }
-                }
-            }
-            .padding(.horizontal, 24)
-            .scrollDismissesKeyboard(.interactively)
-
-            // 시트가 접혀 있을 땐("댓글 N" 헤더만 보이는 상태) 입력창을 숨긴다 —
-            // 끝까지 끌어올려 .large 상태가 됐을 때만 댓글을 쓸 수 있게 한다.
-            if isExpanded {
-                CommentComposerView(text: $commentText) {
-                    let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { return }
-                    comments.append(Comment(authorNickname: "나", content: trimmed, timestamp: "방금"))
-                    commentText = ""
-                }
-            }
-        }
-        // 입력창 바깥(댓글 목록, 헤더 등)을 탭하면 키보드가 내려간다.
-        .dismissKeyboardOnTap()
     }
 }
 

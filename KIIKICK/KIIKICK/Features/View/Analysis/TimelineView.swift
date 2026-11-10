@@ -6,10 +6,8 @@
 //  "타임라인 보기"를 누르면 들어오는 화면. 맵 + 재생 슬라이더 + 누적 통계 + 골/어시스트
 //  타임라인(ListEventView)으로 구성된다.
 //
-//  DESIGN-GAP: 슬라이더는 실제 쿼터 재생/트랙포인트 데이터와 연동돼 있지 않다 — 그런
-//  시계열 재생 파이프라인 자체가 아직 없다(AGENTS.md "구간 재생" 기능은 범위 밖). 지금은
-//  보여주기용 정적 값이다. 누적 이동거리/소모칼로리/최고속도와 이벤트 시각은 전부
-//  AnalysisEntry+WorkoutRecord.swift가 실제 WorkoutRecord에서 계산한 값이다.
+//  슬라이더 시각까지의 최근 20초 포인트와 골/어시스트 핀을 지도에 표시한다.
+//  이동거리와 칼로리는 시계열 샘플이 없어 쿼터 전체의 HealthKit 합계를 표시한다.
 //
 //  골/어시스트 핀은 node 735:11275처럼 맵 위 실제 좌표(AnalysisMatchEvent.position,
 //  0...1 상대 좌표)에 찍는다 — FieldCoordinateMapper로 실제 GPS 좌표를 정규화한 값이다.
@@ -23,7 +21,20 @@ struct TimelineView: View {
     let dateTitle: String
     let quarter: AnalysisQuarter
 
-    @State private var sliderValue: Double = 0.42
+    @State private var playbackTime: TimeInterval
+
+    init(dateTitle: String, quarter: AnalysisQuarter) {
+        self.dateTitle = dateTitle
+        self.quarter = quarter
+        _playbackTime = State(initialValue: min(TimelineWindow.length, max(0, quarter.duration)))
+    }
+
+    private var playbackTimeText: String {
+        let seconds = max(0, Int(playbackTime))
+        let minutes = seconds / 60
+        let remainingSeconds = seconds % 60
+        return "\(minutes.formatted(.number.precision(.integerLength(2)))):\(remainingSeconds.formatted(.number.precision(.integerLength(2))))"
+    }
 
     private var numberedEvents: [(event: AnalysisMatchEvent, number: Int)] {
         var goalIndex = 0
@@ -41,16 +52,33 @@ struct TimelineView: View {
     }
 
     var body: some View {
+        let window = quarter.startDate.map {
+            TimelineWindow(quarterStart: $0, duration: quarter.duration, elapsed: playbackTime)
+        }
+        let visiblePoints = quarter.points.filter { window?.contains($0.timestamp) == true }
+        let visibleEvents = quarter.events.filter { window?.contains($0.timestamp) == true }
+        let currentSpeedKmh = max(0, visiblePoints.max(by: { $0.timestamp < $1.timestamp })?.speed ?? 0) * 3.6
+
         ScrollView {
             VStack(spacing: 24) {
-                mapViewer
+                TrackingMapPager(
+                    field: quarter.field,
+                    points: visiblePoints,
+                    isAttackDirectionReversed: quarter.isAttackDirectionReversed,
+                    events: visibleEvents
+                )
+                .frame(height: 264)
 
                 VStack(spacing: 4) {
-                    Text("02:35")
+                    Text(playbackTimeText)
                         .font(.title2SB)
                         .foregroundStyle(.colorTextPrimary)
-                    Slider(value: $sliderValue)
+                    Slider(value: $playbackTime, in: 0...max(quarter.duration, 1)) {
+                        Text("재생 위치")
+                    }
                         .tint(.mint500)
+                        .disabled(quarter.startDate == nil || quarter.duration <= 0)
+                        .accessibilityValue("\(playbackTimeText), 전체 \(quarter.durationText)")
                     Text(quarter.durationText)
                         .font(.caption1M)
                         .foregroundStyle(.colorTextSecondary)
@@ -58,9 +86,9 @@ struct TimelineView: View {
                 }
 
                 HStack(spacing: 28) {
-                    timeStat(label: "누적 이동거리", value: String(format: "%.2f", quarter.totalDistanceKm), unit: "km")
-                    timeStat(label: "누적 소모 칼로리", value: String(format: "%.0f", quarter.totalCaloriesKcal), unit: "kcal")
-                    timeStat(label: "현재 속도", value: String(format: "%.1f", quarter.maxSpeedKmh), unit: "km/h")
+                    timeStat(label: "누적 이동거리", value: quarter.totalDistanceKm.formatted(.number.precision(.fractionLength(2))), unit: "km")
+                    timeStat(label: "누적 소모 칼로리", value: quarter.totalCaloriesKcal.formatted(.number.precision(.fractionLength(0))), unit: "kcal")
+                    timeStat(label: "현재 속도", value: currentSpeedKmh.formatted(.number.precision(.fractionLength(1))), unit: "km/h")
                 }
 
                 if numberedEvents.isEmpty {
@@ -85,6 +113,7 @@ struct TimelineView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button { dismiss() } label: { Image(systemName: "chevron.backward") }
+                    .accessibilityLabel("뒤로 가기")
             }
             ToolbarItem(placement: .principal) {
                 VStack(spacing: 2) {
@@ -96,13 +125,6 @@ struct TimelineView: View {
                 .foregroundStyle(.colorTextPrimary)
             }
         }
-    }
-
-    private var mapViewer: some View {
-        TrackingMapPager(field: quarter.field, points: quarter.points,
-                         isAttackDirectionReversed: quarter.isAttackDirectionReversed,
-                         events: quarter.events)
-            .frame(height: 264)
     }
 
     private func timeStat(label: String, value: String, unit: String) -> some View {
@@ -124,14 +146,15 @@ struct TimelineView: View {
 }
 
 #Preview {
+    let start = Date.now
     NavigationStack {
         TimelineView(
             dateTitle: "10월 28일",
             quarter: AnalysisQuarter(
-                quarterNumber: 1, durationText: "26:03",
+                quarterNumber: 1, durationText: "26:03", startDate: start, duration: 1563,
                 events: [
-                    AnalysisMatchEvent(type: .goal, timeText: "03:12", position: UnitPoint(x: 0.72, y: 0.72)),
-                    AnalysisMatchEvent(type: .assist, timeText: "11:40", position: UnitPoint(x: 0.33, y: 0.42)),
+                    AnalysisMatchEvent(type: .goal, timeText: "03:12", timestamp: start.addingTimeInterval(192), position: UnitPoint(x: 0.72, y: 0.72)),
+                    AnalysisMatchEvent(type: .assist, timeText: "11:40", timestamp: start.addingTimeInterval(700), position: UnitPoint(x: 0.33, y: 0.42)),
                 ],
                 totalDistanceKm: 2.48, totalCaloriesKcal: 245
             )

@@ -39,6 +39,11 @@ struct AnalysisView: View {
     @Environment(AppRouter.self) private var router
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
 
+    @State private var remoteEntries: [AnalysisEntry] = []
+    @State private var loadedUserID: UUID?
+    @State private var isLoadingRemote = false
+    @State private var loadingDetailID: UUID?
+    @State private var loadError: String?
     @State private var year = 2026
     @State private var month = 10
 
@@ -47,8 +52,9 @@ struct AnalysisView: View {
     /// 이내에 시작한 레코드만 같은 경기로 본다 — 운동장이 다르거나 간격이 벌어지면
     /// 새 경기로 끊는다.
     private var entries: [AnalysisEntry] {
-        WorkoutMatchGrouping.groups(from: records)
-            .compactMap(AnalysisEntry.build(from:))
+        let local = WorkoutMatchGrouping.groups(from: records).compactMap(AnalysisEntry.build(from:))
+        let localIDs = Set(local.compactMap { $0.records.first?.matchId })
+        return (local + remoteEntries.filter { !localIDs.contains($0.id) })
             .sorted { $0.date > $1.date }
     }
 
@@ -74,11 +80,18 @@ struct AnalysisView: View {
                         Text("분석")
                             .font(.head1B)
                             .foregroundStyle(.gray50)
-                        EmptyStateView(
-                            title: "아직 경기 기록이 없어요",
-                            subtitle: "경기를 완료하면 이곳에서 분석 결과를 볼 수 있어요"
-                        )
-                        .padding(.top, 135)
+                        if isLoadingRemote {
+                            ProgressView("경기 기록을 불러오는 중...")
+                                .tint(.mint500)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 135)
+                        } else {
+                            EmptyStateView(
+                                title: "아직 경기 기록이 없어요",
+                                subtitle: "경기를 완료하면 이곳에서 분석 결과를 볼 수 있어요"
+                            )
+                            .padding(.top, 135)
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
@@ -94,12 +107,12 @@ struct AnalysisView: View {
                                 dateAndQuarter: entry.dateAndQuarter,
                                 fieldName: entry.fieldName,
                                 stats: entry.stats.map { CardSummaryView.Stat(label: $0.label, value: $0.value, unit: $0.unit) },
-                                action: {
-                                    let route: AnalysisRoute = entry.records.allSatisfy(\.hasViewedAnalysis)
-                                        ? .detail(entry) : .ready(entry)
-                                    router.paths[.analysis, default: .init()].append(route)
-                                }
+                                action: { open(entry) }
                             )
+                            .disabled(loadingDetailID != nil)
+                        }
+                        if loadingDetailID != nil {
+                            ProgressView("분석 결과를 불러오는 중...").tint(.mint500)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -119,8 +132,12 @@ struct AnalysisView: View {
                 AnalysisDetailView(entry: entry)
             }
         }
+        .alert("경기 기록을 불러오지 못했어요", isPresented: Binding(
+            get: { loadError != nil }, set: { if !$0 { loadError = nil } }
+        )) { } message: { Text(loadError ?? "") }
         .onAppear {
             syncToLatestMonthIfNeeded()
+            Task { await loadRemoteEntries() }
         }
         .onChange(of: records) { _, _ in
             // 탭이 계속 떠 있는 동안(TabView가 형제 탭을 메모리에서 안 지운다) 새 경기가
@@ -128,6 +145,51 @@ struct AnalysisView: View {
             // entries엔 있는데 entriesInSelectedMonth만 비어서 "경기가 안 보이는" 것처럼
             // 보였다(이슈 #50 확인 중 발견). records가 바뀔 때마다 다시 확인한다.
             syncToLatestMonthIfNeeded()
+        }
+    }
+
+    private func open(_ entry: AnalysisEntry) {
+        guard entry.records.isEmpty else {
+            let route: AnalysisRoute = entry.records.allSatisfy(\.hasViewedAnalysis)
+                ? .detail(entry) : .ready(entry)
+            router.paths[.analysis, default: .init()].append(route)
+            return
+        }
+        guard loadingDetailID == nil else { return }
+        loadingDetailID = entry.id
+        Task {
+            defer { loadingDetailID = nil }
+            do {
+                guard let detail = try await OwnMatchAnalysisLoader.loadDetail(matchID: entry.id),
+                      UserSession.userId == loadedUserID else { return }
+                router.paths[.analysis, default: .init()].append(AnalysisRoute.detail(detail))
+            } catch {
+                loadError = error.localizedDescription
+            }
+        }
+    }
+
+    private func loadRemoteEntries() async {
+        guard !isLoadingRemote else { return }
+        guard await UserSession.reauthenticateIfNeeded() else {
+            router.didLogOut()
+            return
+        }
+        let userID = UserSession.userId
+        if loadedUserID != userID {
+            remoteEntries = []
+            loadedUserID = userID
+        }
+        isLoadingRemote = true
+        defer { isLoadingRemote = false }
+        do {
+            let loaded = try await OwnMatchAnalysisLoader.load()
+            guard UserSession.userId == userID else { return }
+            remoteEntries = loaded
+            syncToLatestMonthIfNeeded()
+        } catch {
+            // 로컬 기록은 계속 표시하고, 다음 진입 때 다시 조회한다.
+            if entries.isEmpty { loadError = error.localizedDescription }
         }
     }
 

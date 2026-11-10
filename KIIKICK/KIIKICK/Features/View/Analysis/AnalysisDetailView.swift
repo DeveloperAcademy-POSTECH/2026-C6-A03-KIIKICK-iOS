@@ -38,7 +38,7 @@ struct AnalysisDetailView: View {
         self.friendNickname = friendNickname
         self.friendUserID = friendUserID
         friendMatchID = matchID
-        _commentsModel = State(initialValue: MatchCommentsModel(matchID: matchID ?? entry.records.first?.matchId))
+        _commentsModel = State(initialValue: MatchCommentsModel(matchID: matchID ?? entry.records.first?.matchId ?? entry.id))
     }
 
     private var currentQuarter: AnalysisQuarter? {
@@ -47,11 +47,11 @@ struct AnalysisDetailView: View {
     }
 
     private var ownerMatchID: UUID? {
-        entry.records.first?.matchId
+        entry.records.first?.matchId ?? (friendNickname == nil ? entry.id : nil)
     }
 
     private var currentQuarterID: UUID? {
-        currentQuarter?.sourceRecord?.quarterId
+        currentQuarter?.sourceRecord?.quarterId ?? currentQuarter?.id
     }
 
     private var currentQuarterFriendModel: QuarterFriendsModel? {

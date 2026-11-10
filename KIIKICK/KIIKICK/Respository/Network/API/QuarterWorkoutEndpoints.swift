@@ -61,7 +61,8 @@ enum QuarterWorkoutEndpoints {
         Endpoint(
             path: "/api/v1/quarters/\(quarterId.uuidString)/track-points",
             method: .get,
-            queryParameters: PageQuery(cursor: cursor, limit: limit)
+            queryParameters: PageQuery(cursor: cursor, limit: limit),
+            headers: bearerHeaders()
         )
     }
 

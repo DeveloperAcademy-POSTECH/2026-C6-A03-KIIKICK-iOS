@@ -167,9 +167,9 @@ struct HomeView: View {
             
             // 이슈 #42 "Remind" 댓글 — 안 읽은 알림이 있으면 벨 아이콘이 바뀐다.
             // sessionManager.notifications가 공용 저장소라서 경기 분석 결과가 도착하면
-            // (SessionManager.didReceive(file:)) 바로 반영된다. DESIGN-GAP: "읽음 처리"
-            // 자체는 아직 없어서 — 알림 화면에 들어갔다 나와도 안 바뀐다.
-            NavigationLink(destination: NotificationListView()) {
+            // (SessionManager.didReceive(file:)) 바로 반영된다. 분석/댓글 셀 진입 시 로컬 읽음
+            // 상태를 갱신한다. 서버 읽음 상태 동기화·영속화는 별도 작업이다.
+            Button { router.showNotifications(in: .home) } label: {
                 if hasUnreadNotifications {
                     // ic_bell_new는 민트색 점이 박힌 2톤 에셋이라(ic_goal/ic_assist와 같은
                     // 패턴) .renderingMode(.original)로 카탈로그의 template 설정을 덮어써야

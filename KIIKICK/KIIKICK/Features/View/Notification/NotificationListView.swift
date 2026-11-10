@@ -5,8 +5,7 @@
 //  Figma node 317:2153 "notification" (이슈 #25로 갱신: 함께 뛴 경기 칩/알림 추가,
 //  빈 상태 뷰), 317:2362 "Scroll Edge Effect - Soft"
 //
-//  홈 좌상단 아이콘에서 들어오는 진입점은 홈 UI가 아직 끝나지 않아 이 화면에서는 연결하지 않는다
-//  (이슈 #14 작성자 확인 사항).
+//  홈 알림 버튼에서 AppRouter의 홈 스택에 push한다.
 //
 //  목록 자체는 로컬 @State가 아니라 SessionManager.notifications(공용 저장소)를 그대로
 //  쓴다 — 경기 분석 결과가 도착하면(SessionManager.didReceive(file:)) 홈 화면 벨 아이콘과
@@ -14,14 +13,19 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct NotificationListView: View {
-    @Environment(SessionManager.self) private var sessionManager
+    @Environment(AppRouter.self) private var router
+    @Query(sort: \WorkoutRecord.date) private var records: [WorkoutRecord]
+    @Binding var notifications: [NotificationItem]
+    var syncsFriendRequests = true
     @State private var filter: NotificationFilter = .all
-    @State private var pushedRecord: WorkoutRecord?
+    @State private var routingError: String?
+    @State private var serverNotificationIDs: Set<UUID> = []
 
     private var filteredItems: [NotificationItem] {
-        filter == .all ? sessionManager.notifications : sessionManager.notifications.filter { $0.filterCategory == filter }
+        filter == .all ? notifications : notifications.filter { $0.filterCategory == filter }
     }
 
     private var groupedSections: [(label: String, items: [NotificationItem])] {
@@ -81,19 +85,63 @@ struct NotificationListView: View {
         .navigationTitle("알림")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .navigationDestination(item: $pushedRecord) { record in
-            WorkoutDetailView(record: record)
-                .toolbar(.hidden, for: .tabBar)
-        }
+        .alert("경기를 열 수 없어요", isPresented: Binding(
+            get: { routingError != nil }, set: { if !$0 { routingError = nil } }
+        )) { } message: { Text(routingError ?? "") }
         // 이슈 #65: GET /friend-requests(RECEIVED)로 받은 대기 중인 친구 요청을
-        // sessionManager.notifications에 합친다 — 알림 목록은 이 저장소 하나를 그대로
+        // notifications에 합친다 — 알림 목록은 이 저장소 하나를 그대로
         // 보여주므로, 수락/거절 버튼이 실제 requestId를 들고 있게 하려면 여기서
         // 채워 넣어야 한다. 이미 들어있는 요청(같은 requestId)은 중복 추가하지 않는다.
-        .task { await syncPendingFriendRequests() }
+        .task {
+            await loadNotifications()
+            if syncsFriendRequests { await syncPendingFriendRequests() }
+        }
+    }
+
+    private func loadNotifications() async {
+        guard UserSession.token != nil else { return }
+
+        do {
+            var cursor: String?
+            var responses: [NotificationResponse] = []
+            repeat {
+                let page: PageEnvelope<NotificationResponse> = try await NetworkService.provider.request(
+                    with: NotificationEndpoints.list(cursor: cursor, limit: 100)
+                )
+                responses.append(contentsOf: page.data)
+                cursor = page.meta.pagination.hasNext ? page.meta.pagination.nextCursor : nil
+            } while cursor != nil
+
+            serverNotificationIDs = Set(responses.map(\.id))
+            let existingIDs = Set(notifications.map(\.id))
+            notifications.append(contentsOf: responses.compactMap { response in
+                guard !existingIDs.contains(response.id) else { return nil }
+                return NotificationItem(
+                    id: response.id,
+                    date: response.createdAt,
+                    kind: notificationKind(from: response),
+                    isRead: response.readAt != nil
+                )
+            })
+        } catch {
+            // 로컬에 수신된 워치 알림은 유지한다. 다음 진입 때 서버 목록을 다시 시도한다.
+        }
+    }
+
+    private func notificationKind(from response: NotificationResponse) -> NotificationKind {
+        let type = response.type.uppercased()
+        if type.contains("COMMENT"), response.target.type == "MATCH" {
+            return .comment(
+                nickname: response.title,
+                preview: response.body ?? "댓글을 남겼어요",
+                matchID: response.target.id
+            )
+        }
+        return .remote(title: response.title, body: response.body, target: response.target)
     }
 
     private func syncPendingFriendRequests() async {
-        let existingRequestIds: Set<UUID> = Set(sessionManager.notifications.compactMap {
+        let existingRequestIds: Set<UUID> = Set(notifications.compactMap {
             if case .friendRequest(let requestId, _, _) = $0.kind { return requestId }
             return nil
         })
@@ -107,7 +155,7 @@ struct NotificationListView: View {
                 guard let profile = try? await NetworkService.provider.request(
                     with: FriendEndpoints.profile(userId: request.requesterId)
                 ) else { continue }
-                sessionManager.notifications.insert(
+                notifications.insert(
                     NotificationItem(
                         date: request.createdAt,
                         kind: .friendRequest(requestId: request.id, status: .pending, nickname: profile.data.nickname)
@@ -130,18 +178,79 @@ struct NotificationListView: View {
                 onAccept: { Task { await respondToFriendRequest(item: item, requestId: requestId, accept: true) } },
                 onReject: { Task { await respondToFriendRequest(item: item, requestId: requestId, accept: false) } }
             )
-        case .comment(let nickname, let preview):
-            NotificationCommentView(nickname: nickname, commentPreview: preview)
+        case .comment(let nickname, let preview, let matchID, _):
+            Button { Task { await openComment(item, matchID: matchID) } } label: {
+                NotificationCommentView(nickname: nickname, commentPreview: preview)
+            }
+            .buttonStyle(.plain)
+        case .remote(let title, let body, let target):
+            Button { Task { await openRemote(item, target: target) } } label: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title).font(.label4SB).foregroundStyle(.white)
+                    if let body, !body.isEmpty {
+                        Text(body).font(.body4R).foregroundStyle(.gray300).lineLimit(2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(Color.gray800, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
         case .withFriend(let nickname, let matchDate):
             NotificationWithFriendView(nickname: nickname, matchDate: matchDate)
         case .myPlay(let record):
-            // DESIGN-GAP: Figma annotation대로라면 첫 진입/이후를 나눠서 분석 준비
-            // (ReadyForDetailView) vs 분석 결과(WorkoutDetailView)로 갈라야 하는데,
-            // ReadyForDetailView/AnalyzingView(이슈 #43)가 이 브랜치엔 없어서 지금은
-            // 항상 결과 화면으로 바로 보낸다.
             NotificationMyPlayView(matchDate: record.date) {
-                pushedRecord = record
+                Task { await openAnalysis(item, record: record) }
             }
+        }
+    }
+
+    private func openAnalysis(_ item: NotificationItem, record: WorkoutRecord) async {
+        guard let entry = AnalysisEntry.grouped(from: records).first(where: {
+            $0.records.contains { $0.persistentModelID == record.persistentModelID }
+        }) else {
+            // DESIGN-GAP: 삭제된 대상의 별도 시안이 없어 기본 시스템 알림으로 안내한다.
+            routingError = "경기 기록이 삭제되었거나 이 기기에 저장되어 있지 않아요"
+            return
+        }
+        router.showAnalysis(entry)
+        await markRead(item)
+    }
+
+    private func openComment(_ item: NotificationItem, matchID: UUID) async {
+        guard let targetRecord = records.first(where: { $0.matchId == matchID }),
+              let entry = AnalysisEntry.grouped(from: records).first(where: {
+                  $0.records.contains { $0.persistentModelID == targetRecord.persistentModelID }
+              }) else {
+            routingError = "댓글의 경기 기록이 삭제되었거나 이 기기에 저장되어 있지 않아요"
+            return
+        }
+        router.showAnalysis(entry, showComments: true)
+        await markRead(item)
+    }
+
+    private func openRemote(_ item: NotificationItem, target: NotificationTarget) async {
+        guard target.type == "MATCH" else {
+            routingError = "이 알림의 이동 대상을 아직 열 수 없어요"
+            return
+        }
+        guard let record = records.first(where: { $0.matchId == target.id }) else {
+            routingError = "경기 기록이 삭제되었거나 이 기기에 저장되어 있지 않아요"
+            return
+        }
+        await openAnalysis(item, record: record)
+    }
+
+    private func markRead(_ item: NotificationItem) async {
+        guard !item.isRead, serverNotificationIDs.contains(item.id),
+              let index = notifications.firstIndex(where: { $0.id == item.id }) else { return }
+        do {
+            let _: Envelope<NotificationResponse> = try await NetworkService.provider.request(
+                with: NotificationEndpoints.markRead(notificationId: item.id, idempotencyKey: UUID())
+            )
+            notifications[index].isRead = true
+        } catch {
+            // 읽음 상태는 서버 응답이 확인된 뒤에만 바꾼다. 다음 탭에서 재시도한다.
         }
     }
 
@@ -161,11 +270,11 @@ struct NotificationListView: View {
     }
 
     private func updateStatus(of item: NotificationItem, to status: FriendRequestStatus) {
-        guard let index = sessionManager.notifications.firstIndex(where: { $0.id == item.id }),
-              case .friendRequest(let requestId, _, let nickname) = sessionManager.notifications[index].kind else { return }
-        sessionManager.notifications[index] = NotificationItem(
+        guard let index = notifications.firstIndex(where: { $0.id == item.id }),
+              case .friendRequest(let requestId, _, let nickname) = notifications[index].kind else { return }
+        notifications[index] = NotificationItem(
             id: item.id, date: item.date, kind: .friendRequest(requestId: requestId, status: status, nickname: nickname),
-            isRead: sessionManager.notifications[index].isRead
+            isRead: notifications[index].isRead
         )
     }
 }
@@ -184,7 +293,8 @@ private extension View {
 
 #Preview {
     NavigationStack {
-        NotificationListView()
+        NotificationListView(notifications: .constant([]), syncsFriendRequests: false)
     }
-    .environment(SessionManager.shared)
+    .environment(AppRouter())
+    .modelContainer(for: [WorkoutRecord.self, Field.self], inMemory: true)
 }

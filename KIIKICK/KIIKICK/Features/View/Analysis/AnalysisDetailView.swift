@@ -31,14 +31,21 @@ struct AnalysisDetailView: View {
     @State private var friendHeatmapModels: [UUID: FriendHeatmapModel] = [:]
     @State private var pushedTimeline = false
     @State private var pushedShare = false
-    @State private var commentSheetDetent: PresentationDetent = .height(70)
+    @State private var commentSheetDetent: PresentationDetent
 
-    init(entry: AnalysisEntry, friendNickname: String? = nil, matchID: UUID? = nil, friendUserID: UUID? = nil) {
+    init(
+        entry: AnalysisEntry,
+        friendNickname: String? = nil,
+        matchID: UUID? = nil,
+        friendUserID: UUID? = nil,
+        showComments: Bool = false
+    ) {
         self.entry = entry
         self.friendNickname = friendNickname
         self.friendUserID = friendUserID
         friendMatchID = matchID
         _commentsModel = State(initialValue: MatchCommentsModel(matchID: matchID ?? entry.records.first?.matchId))
+        _commentSheetDetent = State(initialValue: showComments ? .large : .height(70))
     }
 
     private var currentQuarter: AnalysisQuarter? {

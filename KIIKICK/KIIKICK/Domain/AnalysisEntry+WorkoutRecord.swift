@@ -14,10 +14,27 @@
 //
 
 import Foundation
+import SwiftData
 import CoreLocation
 import SwiftUI
 
 extension AnalysisEntry {
+    /// 분석 목록과 알림에서 같은 경기/쿼터 묶음을 사용한다.
+    static func grouped(from records: [WorkoutRecord]) -> [AnalysisEntry] {
+        let sorted = records.sorted { $0.date < $1.date }
+        var groups: [[WorkoutRecord]] = []
+        for record in sorted {
+            if let last = groups.last?.last,
+               last.field?.persistentModelID == record.field?.persistentModelID,
+               record.date.timeIntervalSince(last.date.addingTimeInterval(last.duration)) <= 10 * 60 {
+                groups[groups.count - 1].append(record)
+            } else {
+                groups.append([record])
+            }
+        }
+        return groups.compactMap { Self.build(from: $0) }.sorted { $0.date > $1.date }
+    }
+
     static func build(from records: [WorkoutRecord]) -> AnalysisEntry? {
         let sortedRecords = records.sorted { $0.date < $1.date }
         guard let first = sortedRecords.first else { return nil }

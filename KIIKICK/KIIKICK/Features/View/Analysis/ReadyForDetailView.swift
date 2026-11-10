@@ -28,6 +28,7 @@ struct ReadyForDetailView: View {
     @Environment(AppRouter.self) private var router
 
     let entry: AnalysisEntry
+    let navigationTab: AppRouter.AppTab
     @State private var positions: [String]
     @State private var flips: [Bool]
     @State private var isPositionConfirmed: [Bool]
@@ -41,8 +42,9 @@ struct ReadyForDetailView: View {
 
     private var quarters: [AnalysisQuarter] { entry.detail.quarters }
 
-    init(entry: AnalysisEntry) {
+    init(entry: AnalysisEntry, navigationTab: AppRouter.AppTab = .analysis) {
         self.entry = entry
+        self.navigationTab = navigationTab
         _positions = State(initialValue: entry.detail.quarters.map { $0.position ?? Self.unselectedPositionPlaceholder })
         _flips = State(initialValue: entry.detail.quarters.map(\.isAttackDirectionReversed))
         _isPositionConfirmed = State(initialValue: entry.detail.quarters.map { $0.position != nil })
@@ -140,10 +142,11 @@ struct ReadyForDetailView: View {
             isPresentingPositionRequiredAlert = true
             return
         }
-        let originals = quarters.map { ($0.sourceRecord?.position, $0.sourceRecord?.isAttackDirectionReversed ?? false) }
+        let originals = quarters.map { ($0.sourceRecord?.position, $0.sourceRecord?.isAttackDirectionReversed ?? false, $0.sourceRecord?.hasViewedAnalysis ?? false) }
         for (index, quarter) in quarters.enumerated() {
             quarter.sourceRecord?.position = Position(rawValue: positions[index].lowercased())
             quarter.sourceRecord?.isAttackDirectionReversed = flips[index]
+            quarter.sourceRecord?.hasViewedAnalysis = true
         }
         do {
             try modelContext.save()
@@ -168,11 +171,12 @@ struct ReadyForDetailView: View {
                 records: entry.records
             )
             Task { await submitWorkouts() }
-            router.paths[.analysis, default: .init()].append(AnalysisRoute.analyzing(updatedEntry))
+            router.pushAnalysis(.analyzing(updatedEntry), in: navigationTab)
         } catch {
             for (index, quarter) in quarters.enumerated() {
                 quarter.sourceRecord?.position = originals[index].0
                 quarter.sourceRecord?.isAttackDirectionReversed = originals[index].1
+                quarter.sourceRecord?.hasViewedAnalysis = originals[index].2
             }
             saveError = error.localizedDescription
         }

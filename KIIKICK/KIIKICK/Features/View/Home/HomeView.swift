@@ -9,13 +9,7 @@
 //  DESIGN-GAP: 탭바 아이콘(ic_ovr류)을 받지 못해 SF Symbol로 대체했다 — MainView.swift
 //  주석 참고.
 //
-//  데이터 관련 TODO 모음(전부 "View만 먼저 만든다"는 전제로 자리만 잡아둔 부분):
-//  - overallStat: 서버 Overall API가 아직 없다(OverallStat.swift 참고). 항상 .empty.
-//  - PerformanceTrendsView에 넘기는 포인트 배열: 쿼터별 추세 집계 로직이 아직 없어
-//    항상 빈 배열이다. 실제 집계가 생기면 selectedMetric에 따라 분기해서 채울 것.
-//  - 총 경기 수/총 이동거리/평균 소모 칼로리는 지금 있는 로컬 SwiftData 기록에서 바로
-//    계산한다(가짜 데이터 아님) — 다만 나중에 서버 집계 API가 생기면 그쪽으로 옮길 수도
-//    있다.
+//  저장된 WorkoutRecord의 속도 샘플로 누적 OVR을 계산한다.
 //
 
 import SwiftUI
@@ -31,8 +25,15 @@ struct HomeView: View {
     @State private var isSelectingField = false
     @State private var selectedMetric: PerformanceMetric = .overall
     
-    // TODO: 서버 Overall API 연동 전까지는 항상 비어있다. OverallStat.swift 참고.
-    @State private var overallStat: OverallStat = .empty
+    @State private var overallHistory: OverallHistory = .empty
+
+    private var overallInputs: [OverallWorkoutInput] {
+        records.map(OverallWorkoutInput.init(record:))
+    }
+
+    private var overallStat: OverallStat {
+        OverallStat(score: overallHistory.current?.score, delta: overallHistory.delta)
+    }
     
     private var matchState: HomeMatchState {
         if sessionManager.isMatchInProgress {
@@ -55,7 +56,7 @@ struct HomeView: View {
     private var totalDistanceKm: Double {
         records.reduce(0) { $0 + $1.totalDistance } / 1000
     }
-    
+
     private var avgCalories: Int {
         guard !records.isEmpty else { return 0 }
         let total = records.reduce(0) { $0 + $1.totalCalories }
@@ -138,6 +139,9 @@ struct HomeView: View {
                 return
             }
             try? await UserSession.refreshProfile()
+        }
+        .task(id: overallInputs) {
+            overallHistory = OverallCalculator.history(from: overallInputs.compactMap { $0.workout() })
         }
     }
     

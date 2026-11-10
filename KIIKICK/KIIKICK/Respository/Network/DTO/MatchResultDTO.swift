@@ -11,14 +11,14 @@
 
 import Foundation
 
-enum QuarterSummaryCalculationStatus: String, Decodable {
+enum QuarterSummaryCalculationStatus: String, Codable {
     case processing = "PROCESSING"
     case partial = "PARTIAL"
     case ready = "READY"
     case failed = "FAILED"
 }
 
-struct ResultWorkout: Decodable {
+struct ResultWorkout: Codable {
     let id: UUID
     let quarterId: UUID
     let startDate: Date
@@ -29,12 +29,12 @@ struct ResultWorkout: Decodable {
     var field: WorkoutFieldPayload? = nil
 }
 
-struct MetricStatusEntry: Decodable {
+struct MetricStatusEntry: Codable {
     let status: String
     let reason: String?
 }
 
-struct QuarterSummary: Decodable {
+struct QuarterSummary: Codable {
     let quarterId: UUID
     let workoutPayloadId: UUID
     let calculationStatus: QuarterSummaryCalculationStatus
@@ -59,7 +59,7 @@ struct QuarterSummary: Decodable {
     let updatedAt: Date
 }
 
-struct QuarterResultResponse: Decodable {
+struct QuarterResultResponse: Codable {
     let quarter: QuarterResponse
     let stats: QuarterPlayerStatsResponse?
     let position: PositionEntryResponse?
@@ -67,7 +67,7 @@ struct QuarterResultResponse: Decodable {
     let summary: QuarterSummary?
 }
 
-struct SummaryAvailability: Decodable {
+struct SummaryAvailability: Codable {
     let ready: Int
     let partial: Int
     let processing: Int
@@ -75,7 +75,7 @@ struct SummaryAvailability: Decodable {
     let missing: Int
 }
 
-struct MatchResultResponse: Decodable {
+struct MatchResultResponse: Codable {
     let match: MatchResponse
     let quarterCount: Int
     let goals: Int?

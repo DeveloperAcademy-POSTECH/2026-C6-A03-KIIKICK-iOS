@@ -29,6 +29,9 @@ final class WorkoutRecord {
     // AnalysisEntry.build(from:)에서 맞춰준다(harmonize) — 묶이기 전까지는 레코드마다 다르다.
     var matchId: UUID = UUID()
     var quarterId: UUID = UUID()
+    /// 업로드 재시도에도 같은 요청 키를 사용한다.
+    var submissionIdempotencyKey: UUID?
+    var submissionIfMatch: String?
 
     init(payload: WorkoutPayload) {
         self.date = payload.startDate

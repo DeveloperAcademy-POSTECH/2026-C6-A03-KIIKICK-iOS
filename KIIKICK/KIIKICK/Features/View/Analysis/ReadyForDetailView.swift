@@ -37,6 +37,7 @@ struct ReadyForDetailView: View {
     @State private var isPresentingFieldRequiredAlert = false
     @State private var fieldsByQuarterID: [UUID: Field]
     @State private var saveError: String?
+    @State private var isSubmitting = false
 
     private static let unselectedPositionPlaceholder = "선택 필요"
 
@@ -90,10 +91,10 @@ struct ReadyForDetailView: View {
                         .font(.caption1M)
                         .foregroundStyle(.colorTextSecondary)
                     CtaView(
-                        text: "분석 보기",
+                        text: isSubmitting ? "업로드 중..." : "분석 보기",
                         type: .primary,
                         size: .large,
-                        isActive: !hasMissingFields,
+                        isActive: !hasMissingFields && !isSubmitting,
                         action: saveAndAnalyze
                     )
                 }
@@ -134,6 +135,7 @@ struct ReadyForDetailView: View {
     }
 
     private func saveAndAnalyze() {
+        guard !isSubmitting else { return }
         guard !hasMissingFields else {
             isPresentingFieldRequiredAlert = true
             return
@@ -142,11 +144,10 @@ struct ReadyForDetailView: View {
             isPresentingPositionRequiredAlert = true
             return
         }
-        let originals = quarters.map { ($0.sourceRecord?.position, $0.sourceRecord?.isAttackDirectionReversed ?? false, $0.sourceRecord?.hasViewedAnalysis ?? false) }
+        let originals = quarters.map { ($0.sourceRecord?.position, $0.sourceRecord?.isAttackDirectionReversed ?? false) }
         for (index, quarter) in quarters.enumerated() {
             quarter.sourceRecord?.position = Position(rawValue: positions[index].lowercased())
             quarter.sourceRecord?.isAttackDirectionReversed = flips[index]
-            quarter.sourceRecord?.hasViewedAnalysis = true
         }
         do {
             try modelContext.save()
@@ -170,13 +171,22 @@ struct ReadyForDetailView: View {
                     sections: detail.sections, disclaimer: detail.disclaimer),
                 records: entry.records
             )
-            Task { await submitWorkouts() }
-            router.pushAnalysis(.analyzing(updatedEntry), in: navigationTab)
+            isSubmitting = true
+            Task {
+                defer { isSubmitting = false }
+                do {
+                    try await submitWorkouts()
+                    for record in entry.records { record.hasViewedAnalysis = true }
+                    try modelContext.save()
+                    router.pushAnalysis(.analyzing(updatedEntry), in: navigationTab)
+                } catch {
+                    saveError = error.localizedDescription
+                }
+            }
         } catch {
             for (index, quarter) in quarters.enumerated() {
                 quarter.sourceRecord?.position = originals[index].0
                 quarter.sourceRecord?.isAttackDirectionReversed = originals[index].1
-                quarter.sourceRecord?.hasViewedAnalysis = originals[index].2
             }
             saveError = error.localizedDescription
         }
@@ -227,23 +237,15 @@ struct ReadyForDetailView: View {
         }
     }
 
-    /// 이슈 #66: quarter-workout-controller의 4번째 엔드포인트(workout-submissions)만
-    /// 연동한다. 실제 서버 매치/쿼터가 아직 없어서(WorkoutRecord.matchId 주석 참고)
-    /// iOS가 만든 matchId/quarterId를 그대로 보낸다 — 지금은 API가 호출되고 응답이
-    /// 오는지 확인하는 디버깅 용도라, 결과는 콘솔 로그로만 남기고 분석 플로우 진행을
-    /// 막지 않는다(화면은 호출부가 바로 다음으로 넘어간다).
-    private func submitWorkouts() async {
-        guard let matchId = entry.records.first?.matchId else { return }
-        do {
-            let repairedCount = try repairDuplicateQuarterIDs(in: entry.records)
-            if repairedCount > 0 {
-                Self.logger.debug("workout-submissions: 중복 quarterId \(repairedCount, privacy: .public)개를 새 UUID로 복구했습니다.")
-            }
-            try await ensureFieldsAreUploaded(for: entry.records)
-        } catch {
-            Self.logger.error("workout-submissions 준비 실패: \(String(describing: error), privacy: .public)")
-            return
+    /// 완료 경기와 쿼터를 원자적으로 제출한 뒤에만 분석 상세로 진행한다.
+    private func submitWorkouts() async throws {
+        guard let firstRecord = entry.records.first else { throw NetworkError.emptyData }
+        let matchId = firstRecord.matchId
+        let repairedCount = try repairDuplicateQuarterIDs(in: entry.records)
+        if repairedCount > 0 {
+            Self.logger.debug("workout-submissions: 중복 quarterId \(repairedCount, privacy: .public)개를 새 UUID로 복구했습니다.")
         }
+        try await ensureFieldsAreUploaded(for: entry.records)
 
         let quarters = zip(entry.records, positions).map { record, position in
             // 서버가 points/heartRateSamples/events의 timestamp가 startDate~endDate
@@ -274,28 +276,27 @@ struct ReadyForDetailView: View {
         // If-Match: 제출 직전에 최신 경기 version을 조회해서 그대로 넘긴다. 조회가
         // 실패하면(서버에 아직 등록 안 된 경기 — 지금 이 디버깅 플로우에서는 보통 이쪽)
         // 버전을 모른다는 뜻이라 헤더 자체를 생략한다(submit의 ifMatch: nil).
-        let ifMatch: String?
-        do {
-            let detail = try await NetworkService.provider.request(with: MatchEndpoints.detail(matchId: matchId))
-            ifMatch = String(detail.data.version)
-        } catch {
-            ifMatch = nil
+        if firstRecord.submissionIdempotencyKey == nil {
+            do {
+                let detail = try await NetworkService.provider.request(
+                    with: MatchEndpoints.detail(matchId: matchId))
+                firstRecord.submissionIfMatch = String(detail.data.version)
+            } catch NetworkError.invalidHttpStatusCode(404, _) {
+                firstRecord.submissionIfMatch = nil
+            } catch {
+                throw error
+            }
+            firstRecord.submissionIdempotencyKey = UUID()
+            try modelContext.save()
         }
-        // 디버깅용 — 실제로 어떤 모양으로 요청했는지 전체 JSON과 요약을 콘솔에 남긴다.
-        let requestBodyJSON = Self.prettyPrintedJSON(SubmissionBody(quarters: quarters))
+        let ifMatch = firstRecord.submissionIfMatch
         let requestSummary = Self.requestSummary(matchId: matchId, ifMatch: ifMatch, quarters: quarters)
         Self.logger.debug("workout-submissions 요청: \(requestSummary, privacy: .public)")
-        Self.logger.debug("workout-submissions 요청 바디: \(requestBodyJSON, privacy: .public)")
-        do {
-            let result = try await NetworkService.provider.request(
-                with: QuarterWorkoutEndpoints.submit(matchId: matchId, quarters: quarters, ifMatch: ifMatch)
-            )
-            Self.logger.debug("workout-submissions 성공: \(String(describing: result.data), privacy: .public)")
-        } catch let NetworkError.invalidHttpStatusCode(statusCode, message) {
-            Self.logger.debug("workout-submissions 실패: HTTP \(statusCode, privacy: .public) \(message ?? "", privacy: .public)")
-        } catch {
-            Self.logger.debug("workout-submissions 실패: \(String(describing: error), privacy: .public)")
-        }
+        let result: MatchResultEnvelope<SubmissionReceipt> = try await NetworkService.provider.request(
+            with: QuarterWorkoutEndpoints.submit(matchId: matchId, quarters: quarters,
+                ifMatch: ifMatch, idempotencyKey: firstRecord.submissionIdempotencyKey)
+        )
+        Self.logger.debug("workout-submissions 성공: \(String(describing: result.data), privacy: .public)")
     }
 
     /// 과거 앱 버전에서 같은 UUID로 저장된 여러 쿼터는 서버가 하나의 제출로 처리할 수

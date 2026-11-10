@@ -61,7 +61,8 @@ enum QuarterWorkoutEndpoints {
         Endpoint(
             path: "/api/v1/quarters/\(quarterId.uuidString)/track-points",
             method: .get,
-            queryParameters: PageQuery(cursor: cursor, limit: limit)
+            queryParameters: PageQuery(cursor: cursor, limit: limit),
+            headers: bearerHeaders()
         )
     }
 
@@ -112,12 +113,14 @@ enum QuarterWorkoutEndpoints {
     /// DevAuthView("로그인 화면 보기")로 실제 로그인해서 받은 토큰이 여기서 처음으로
     /// 쓰인다. AuthHeader.swift 주석의 DESIGN-GAP(다른 도메인은 아직 미적용)은 그대로
     /// 유효하다 — 이 엔드포인트 하나만 먼저 붙였다.
-    static func submit(matchId: UUID, quarters: [SubmissionQuarter], ifMatch: String?) -> Endpoint<MatchResultEnvelope<SubmissionReceipt>> {
-        Endpoint(
+    static func submit(matchId: UUID, quarters: [SubmissionQuarter], ifMatch: String?, idempotencyKey: UUID? = nil) -> Endpoint<MatchResultEnvelope<SubmissionReceipt>> {
+        var headers = optionalIfMatchHeaders(ifMatch).merging(bearerHeaders()) { _, new in new }
+        if let idempotencyKey { headers["Idempotency-Key"] = idempotencyKey.uuidString }
+        return Endpoint(
             path: "/api/v1/matches/\(matchId.uuidString.lowercased())/workout-submissions",
             method: .post,
             bodyParameters: SubmissionBody(quarters: quarters),
-            headers: optionalIfMatchHeaders(ifMatch).merging(bearerHeaders()) { _, new in new }
+            headers: headers
         )
     }
 }

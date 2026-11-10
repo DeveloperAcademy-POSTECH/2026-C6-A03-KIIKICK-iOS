@@ -13,7 +13,7 @@ import Foundation
 
 /// WORK-04 GPS 원본 페이지 조회 응답 원소. 조회 응답의 timestamp는 +09:00 서울 시각 문자열로,
 /// 업로드 요청의 Apple epoch Double과 다르므로 별도 타입을 둔다.
-struct TrackPointResponse: Decodable {
+struct TrackPointResponse: Codable {
     let sampleSeq: Int
     let latitude: Double
     let longitude: Double

@@ -26,7 +26,8 @@ enum MatchEndpoints {
         Endpoint(
             path: "/api/v1/matches",
             method: .get,
-            queryParameters: ListQuery(status: status, cursor: cursor, limit: limit)
+            queryParameters: ListQuery(status: status, cursor: cursor, limit: limit),
+            headers: bearerHeaders()
         )
     }
 

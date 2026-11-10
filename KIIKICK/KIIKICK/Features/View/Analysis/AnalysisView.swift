@@ -30,9 +30,14 @@ import SwiftUI
 import SwiftData
 
 struct AnalysisView: View {
+    @Environment(\.modelContext) private var modelContext
     @Environment(AppRouter.self) private var router
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
+    @Query(sort: \CachedAnalysisMatch.savedAt, order: .reverse) private var cachedMatches: [CachedAnalysisMatch]
 
+    @State private var loadedUserID: UUID? = UserSession.userId
+    @State private var isLoadingRemote = false
+    @State private var loadError: String?
     @State private var year = 2026
     @State private var month = 10
 
@@ -41,8 +46,11 @@ struct AnalysisView: View {
     /// 이내에 시작한 레코드만 같은 경기로 본다 — 운동장이 다르거나 간격이 벌어지면
     /// 새 경기로 끊는다.
     private var entries: [AnalysisEntry] {
-        WorkoutMatchGrouping.groups(from: records)
-            .compactMap(AnalysisEntry.build(from:))
+        let local = WorkoutMatchGrouping.groups(from: records).compactMap(AnalysisEntry.build(from:))
+        let localIDs = Set(local.compactMap { $0.records.first?.matchId })
+        let cached = cachedMatches.filter { $0.ownerID == loadedUserID && !localIDs.contains($0.matchID) }
+            .compactMap(\.entry)
+        return (local + cached)
             .sorted { $0.date > $1.date }
     }
 
@@ -68,11 +76,18 @@ struct AnalysisView: View {
                         Text("분석")
                             .font(.head1B)
                             .foregroundStyle(.gray50)
-                        EmptyStateView(
-                            title: "아직 경기 기록이 없어요",
-                            subtitle: "경기를 완료하면 이곳에서 분석 결과를 볼 수 있어요"
-                        )
-                        .padding(.top, 135)
+                        if isLoadingRemote {
+                            ProgressView("경기 기록을 불러오는 중...")
+                                .tint(.mint500)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 135)
+                        } else {
+                            EmptyStateView(
+                                title: "아직 경기 기록이 없어요",
+                                subtitle: "경기를 완료하면 이곳에서 분석 결과를 볼 수 있어요"
+                            )
+                            .padding(.top, 135)
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
@@ -99,8 +114,12 @@ struct AnalysisView: View {
         }
         .background(Color.gray950)
         .navigationBarHidden(true)
+        .alert("경기 기록을 불러오지 못했어요", isPresented: Binding(
+            get: { loadError != nil }, set: { if !$0 { loadError = nil } }
+        )) { } message: { Text(loadError ?? "") }
         .onAppear {
             syncToLatestMonthIfNeeded()
+            Task { await loadRemoteEntries() }
         }
         .onChange(of: records) { _, _ in
             // 탭이 계속 떠 있는 동안(TabView가 형제 탭을 메모리에서 안 지운다) 새 경기가
@@ -108,6 +127,38 @@ struct AnalysisView: View {
             // entries엔 있는데 entriesInSelectedMonth만 비어서 "경기가 안 보이는" 것처럼
             // 보였다(이슈 #50 확인 중 발견). records가 바뀔 때마다 다시 확인한다.
             syncToLatestMonthIfNeeded()
+        }
+        .onChange(of: cachedMatches) { _, _ in
+            syncToLatestMonthIfNeeded()
+        }
+    }
+
+    private func loadRemoteEntries() async {
+        guard !isLoadingRemote else { return }
+        guard await UserSession.reauthenticateIfNeeded() else {
+            router.didLogOut()
+            return
+        }
+        let userID = UserSession.userId
+        loadedUserID = userID
+        isLoadingRemote = true
+        defer { isLoadingRemote = false }
+        do {
+            guard let userID else { return }
+            let localIDs = Set(WorkoutMatchGrouping.groups(from: records).compactMap { $0.first?.matchId })
+            let cachedIDs = Set(cachedMatches.filter { $0.ownerID == userID }.map(\.matchID))
+            let loaded = try await OwnMatchAnalysisLoader.load(excluding: localIDs.union(cachedIDs))
+            guard UserSession.userId == userID else { return }
+            for snapshot in loaded {
+                let cached = try CachedAnalysisMatch(matchID: snapshot.result.match.id,
+                    ownerID: userID, snapshot: snapshot)
+                modelContext.insert(cached)
+            }
+            try modelContext.save()
+            syncToLatestMonthIfNeeded()
+        } catch {
+            // 로컬 기록은 계속 표시하고, 다음 진입 때 다시 조회한다.
+            if entries.isEmpty { loadError = error.localizedDescription }
         }
     }
 

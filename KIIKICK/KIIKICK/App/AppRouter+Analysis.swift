@@ -13,7 +13,7 @@ extension AppRouter {
 
     @discardableResult
     func showAnalysis(_ entry: AnalysisEntry, showComments: Bool = false, in tab: AppTab? = nil) -> AnalysisRoute {
-        let route: AnalysisRoute = showComments || entry.hasViewedAnalysis
+        let route: AnalysisRoute = showComments || entry.records.isEmpty || entry.hasViewedAnalysis
             ? .detail(entry, showComments: showComments) : .ready(entry)
         pushAnalysis(route, in: tab)
         return route

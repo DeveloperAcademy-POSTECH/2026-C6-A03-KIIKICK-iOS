@@ -16,7 +16,6 @@ import SwiftUI
 import SwiftData
 
 struct HomeView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(AppRouter.self) private var router
     @Environment(SessionManager.self) private var sessionManager
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
@@ -25,10 +24,47 @@ struct HomeView: View {
     @State private var isSelectingField = false
     @State private var selectedMetric: PerformanceMetric = .overall
     
-    @State private var overallHistory: OverallHistory = .empty
+    @State private var remoteMatches: [HomeSyncedMatch]?
+    @State private var isSyncing = false
+    @State private var didAuthenticate = false
 
-    private var overallInputs: [OverallWorkoutInput] {
-        records.map(OverallWorkoutInput.init(record:))
+    private var localGroupsNotOnServer: [[WorkoutRecord]] {
+        let serverIDs = Set((remoteMatches ?? []).map(\.id))
+        return WorkoutMatchGrouping.groups(from: records).filter { group in
+            guard let first = group.first else { return false }
+            return !serverIDs.contains(first.matchId)
+        }
+    }
+
+    private var visibleRecords: [WorkoutRecord] {
+        remoteMatches == nil ? records : localGroupsNotOnServer.flatMap { $0 }
+    }
+
+    private var localOverallRecords: [WorkoutRecord] {
+        let remoteWithOverall = Set((remoteMatches ?? []).filter { !$0.workouts.isEmpty }.map(\.id))
+        return WorkoutMatchGrouping.groups(from: records)
+            .filter { group in group.first.map { !remoteWithOverall.contains($0.matchId) } ?? false }
+            .flatMap { $0 }
+    }
+
+    private var localMetricRecords: [WorkoutRecord] {
+        let remoteWithMetrics = Set((remoteMatches ?? [])
+            .filter { $0.quarterCount > 0 && ($0.totalDistanceMeters > 0 || $0.totalCalories > 0) }
+            .map(\.id))
+        return WorkoutMatchGrouping.groups(from: records)
+            .filter { group in group.first.map { !remoteWithMetrics.contains($0.matchId) } ?? false }
+            .flatMap { $0 }
+    }
+
+    private var overallHistory: OverallHistory {
+        let local = localOverallRecords.compactMap { OverallWorkoutInput(record: $0).workout() }
+        let remote = remoteMatches?.flatMap(\.workouts) ?? []
+        return OverallCalculator.history(from: local + remote)
+    }
+
+    private var matchCount: Int {
+        let remote = remoteMatches?.filter { $0.status == .completed }.count ?? 0
+        return remote + WorkoutMatchGrouping.groups(from: visibleRecords).count
     }
 
     private var overallStat: OverallStat {
@@ -39,6 +75,9 @@ struct HomeView: View {
         if sessionManager.isMatchInProgress {
             return .inProgress
         }
+        if remoteMatches?.contains(where: { $0.status == .inProgress }) == true {
+            return .inProgress
+        }
         // 경기가 막 도착했을 때도 더 이상 배너를 안 띄운다 — 그 이벤트는 알림으로 간다
         // (SessionManager.didReceive(file:) 참고). 바로 다음 상태로 넘어간다.
         if let preparedField {
@@ -47,20 +86,54 @@ struct HomeView: View {
         if !sessionManager.isReachable {
             return .watchDisconnected
         }
-        if records.isEmpty {
+        if records.isEmpty && matchCount == 0 {
             return .noRecords
         }
         return .idle
     }
     
     private var totalDistanceKm: Double {
-        records.reduce(0) { $0 + $1.totalDistance } / 1000
+        (localMetricRecords.reduce(0) { $0 + $1.totalDistance }
+            + (remoteMatches?.reduce(0) { $0 + $1.totalDistanceMeters } ?? 0)) / 1000
     }
 
     private var avgCalories: Int {
-        guard !records.isEmpty else { return 0 }
-        let total = records.reduce(0) { $0 + $1.totalCalories }
-        return Int(total / Double(records.count))
+        let remoteQuarters = remoteMatches?.reduce(0) { count, match in
+            count + ((match.totalDistanceMeters > 0 || match.totalCalories > 0) ? match.quarterCount : 0)
+        } ?? 0
+        let count = localMetricRecords.count + remoteQuarters
+        guard count > 0 else { return 0 }
+        let total = localMetricRecords.reduce(0) { $0 + $1.totalCalories }
+            + (remoteMatches?.reduce(0) { $0 + $1.totalCalories } ?? 0)
+        return Int(total / Double(count))
+    }
+
+    private var trendPoints: [PerformanceTrendPoint] {
+        overallHistory.workouts.enumerated().map { index, workout in
+            let value: Double
+            switch selectedMetric {
+            case .overall: value = Double(overallHistory.cumulative[index].score)
+            case .speed: value = workout.peakSpeedKmh
+            case .distance: value = workout.distanceMeters / 1000
+            case .calories: value = workout.calories
+            }
+            return PerformanceTrendPoint(quarterIndex: index + 1, value: value)
+        }
+    }
+
+    private var trendUnit: String {
+        switch selectedMetric {
+        case .overall: "OVR"
+        case .speed: "km/h"
+        case .distance: "km"
+        case .calories: "kcal"
+        }
+    }
+
+    private var trendAxisValues: [Double] {
+        let maximum = trendPoints.map(\.value).max() ?? 0
+        let ceiling = max(1, (maximum / 4).rounded(.up)) * 4
+        return (0...4).map { Double($0) * ceiling / 4 }
     }
 
     private var hasUnreadNotifications: Bool {
@@ -86,20 +159,19 @@ struct HomeView: View {
                     
                     OverallSummaryView(
                         stat: overallStat,
-                        matchCount: WorkoutMatchGrouping.groups(from: records).count,
+                        matchCount: matchCount,
                         totalDistanceKm: totalDistanceKm,
                         avgCalories: avgCalories
                     )
                     .padding(.horizontal, 24)
                     
-                    if !records.isEmpty {
+                    if matchCount > 0 {
                         PerformanceTrendsView(
                             selectedMetric: $selectedMetric,
-                            // TODO: 쿼터별 추세 집계가 아직 없어 항상 빈 배열 — 그래프 자리만 보여준다.
-                            points: [],
-                            unit: selectedMetric == .overall ? "OVR" : "",
-                            dateLabel: "",
-                            yAxisValues: [0, 25, 50, 75, 100]
+                            points: trendPoints,
+                            unit: trendUnit,
+                            dateLabel: overallHistory.workouts.last?.date.formatted(date: .abbreviated, time: .omitted) ?? "",
+                            yAxisValues: trendAxisValues
                         )
                         .padding(.horizontal, 24)
                     }
@@ -138,10 +210,29 @@ struct HomeView: View {
                 router.didLogOut()
                 return
             }
+            didAuthenticate = true
             try? await UserSession.refreshProfile()
+            await synchronizeMatches()
         }
-        .task(id: overallInputs) {
-            overallHistory = OverallCalculator.history(from: overallInputs.compactMap { $0.workout() })
+        .onAppear {
+            Task { await synchronizeMatches() }
+        }
+        .onChange(of: records) { _, _ in
+            Task { await synchronizeMatches() }
+        }
+    }
+
+    private func synchronizeMatches() async {
+        guard didAuthenticate, !isSyncing, UserSession.token != nil else { return }
+        isSyncing = true
+        defer { isSyncing = false }
+        do {
+            let ownerID = UserSession.userId
+            let result = try await HomeMatchSync.load()
+            guard UserSession.userId == ownerID else { return }
+            remoteMatches = result
+        } catch {
+            // 네트워크 오류 중에는 SwiftData의 기록을 그대로 보여준다.
         }
     }
     

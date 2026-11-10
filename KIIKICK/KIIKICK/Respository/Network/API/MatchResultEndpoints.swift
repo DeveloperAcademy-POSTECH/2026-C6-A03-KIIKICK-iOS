@@ -16,12 +16,12 @@ enum MatchResultEndpoints {
     
     /// RESULT 개별 쿼터 결과 조회
     static func quarterResult(quarterId: UUID) -> Endpoint<MatchResultEnvelope<QuarterResultResponse>> {
-        Endpoint(path: "/api/v1/quarters/\(quarterId.uuidString)/result", method: .get)
+        Endpoint(path: "/api/v1/quarters/\(quarterId.uuidString)/result", method: .get, headers: bearerHeaders())
     }
     
     /// RESULT  개인 경기 결과 조회
     static func matchResult(matchId: UUID) -> Endpoint<MatchResultEnvelope<MatchResultResponse>> {
-        Endpoint(path: "/api/v1/matches/\(matchId.uuidString)/result", method: .get)
+        Endpoint(path: "/api/v1/matches/\(matchId.uuidString)/result", method: .get, headers: bearerHeaders())
     }
     
     /// RESULT 경기 내 쿼터별 결과 조회
@@ -29,7 +29,8 @@ enum MatchResultEndpoints {
         Endpoint(
             path: "/api/v1/matches/\(matchId.uuidString)/result/quarters",
             method: .get,
-            queryParameters: QuartersQuery(cursor: cursor, limit: limit)
+            queryParameters: QuartersQuery(cursor: cursor, limit: limit),
+            headers: bearerHeaders()
         )
     }
 }

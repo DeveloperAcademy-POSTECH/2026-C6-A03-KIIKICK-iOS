@@ -8,7 +8,10 @@
 import Foundation
 
 enum NotificationKind: Hashable {
-    case friendRequest(status: FriendRequestStatus, nickname: String)
+    /// `requestId`는 FriendEndpoints.acceptFriendRequest/cancelOrRejectFriendRequest에
+    /// 그대로 넘기는 실제 친구 요청 id다(이슈 #65) — GET /friend-requests(RECEIVED)로
+    /// 받아온 값을 그대로 들고 다닌다.
+    case friendRequest(requestId: UUID, status: FriendRequestStatus, nickname: String)
     case comment(nickname: String, preview: String)
     /// 상대가 나를 "함께 뛴 친구"로 추가했을 때. `matchDate`는 그 계기가 된 경기 날짜.
     case withFriend(nickname: String, matchDate: Date)

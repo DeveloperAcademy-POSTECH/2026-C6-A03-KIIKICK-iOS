@@ -85,17 +85,50 @@ struct NotificationListView: View {
             WorkoutDetailView(record: record)
                 .toolbar(.hidden, for: .tabBar)
         }
+        // 이슈 #65: GET /friend-requests(RECEIVED)로 받은 대기 중인 친구 요청을
+        // sessionManager.notifications에 합친다 — 알림 목록은 이 저장소 하나를 그대로
+        // 보여주므로, 수락/거절 버튼이 실제 requestId를 들고 있게 하려면 여기서
+        // 채워 넣어야 한다. 이미 들어있는 요청(같은 requestId)은 중복 추가하지 않는다.
+        .task { await syncPendingFriendRequests() }
+    }
+
+    private func syncPendingFriendRequests() async {
+        let existingRequestIds: Set<UUID> = Set(sessionManager.notifications.compactMap {
+            if case .friendRequest(let requestId, _, _) = $0.kind { return requestId }
+            return nil
+        })
+        do {
+            let page = try await NetworkService.provider.request(
+                with: FriendEndpoints.listFriendRequests(direction: .received)
+            )
+            let newRequests = page.data.filter { $0.status == .pending && !existingRequestIds.contains($0.id) }
+            for request in newRequests {
+                // Request에는 닉네임이 없어서 요청자 프로필을 따로 조회한다.
+                guard let profile = try? await NetworkService.provider.request(
+                    with: FriendEndpoints.profile(userId: request.requesterId)
+                ) else { continue }
+                sessionManager.notifications.insert(
+                    NotificationItem(
+                        date: request.createdAt,
+                        kind: .friendRequest(requestId: request.id, status: .pending, nickname: profile.data.nickname)
+                    ),
+                    at: 0
+                )
+            }
+        } catch {
+            // 목록을 못 받아와도 기존 알림(myPlay 등)은 그대로 보여준다.
+        }
     }
 
     @ViewBuilder
     private func notificationRow(for item: NotificationItem) -> some View {
         switch item.kind {
-        case .friendRequest(let status, let nickname):
+        case .friendRequest(let requestId, let status, let nickname):
             NotificationFriendView(
                 nickname: nickname,
                 status: status,
-                onAccept: { updateStatus(of: item, to: .accepted) },
-                onReject: { updateStatus(of: item, to: .rejected) }
+                onAccept: { Task { await respondToFriendRequest(item: item, requestId: requestId, accept: true) } },
+                onReject: { Task { await respondToFriendRequest(item: item, requestId: requestId, accept: false) } }
             )
         case .comment(let nickname, let preview):
             NotificationCommentView(nickname: nickname, commentPreview: preview)
@@ -112,11 +145,26 @@ struct NotificationListView: View {
         }
     }
 
+    /// 이슈 #65: FRIEND-06(수락)/FRIEND-07(거절)을 실제로 호출한다. 성공해야만 뱃지를
+    /// 바꾼다 — 실패하면 버튼이 그대로 남아 다시 누를 수 있다.
+    private func respondToFriendRequest(item: NotificationItem, requestId: UUID, accept: Bool) async {
+        do {
+            if accept {
+                _ = try await NetworkService.provider.request(with: FriendEndpoints.acceptFriendRequest(requestId: requestId))
+            } else {
+                try await NetworkService.provider.requestWithoutResponse(with: FriendEndpoints.cancelOrRejectFriendRequest(requestId: requestId))
+            }
+            updateStatus(of: item, to: accept ? .accepted : .rejected)
+        } catch {
+            // 실패하면 버튼을 그대로 둬서 다시 시도할 수 있게 한다.
+        }
+    }
+
     private func updateStatus(of item: NotificationItem, to status: FriendRequestStatus) {
         guard let index = sessionManager.notifications.firstIndex(where: { $0.id == item.id }),
-              case .friendRequest(_, let nickname) = sessionManager.notifications[index].kind else { return }
+              case .friendRequest(let requestId, _, let nickname) = sessionManager.notifications[index].kind else { return }
         sessionManager.notifications[index] = NotificationItem(
-            id: item.id, date: item.date, kind: .friendRequest(status: status, nickname: nickname),
+            id: item.id, date: item.date, kind: .friendRequest(requestId: requestId, status: status, nickname: nickname),
             isRead: sessionManager.notifications[index].isRead
         )
     }

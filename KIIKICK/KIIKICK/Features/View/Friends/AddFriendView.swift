@@ -7,17 +7,48 @@
 //  DESIGN-GAP: 입력 중(SearchBarView state == .writing) 상태의 목업이 Figma에 따로 없어,
 //  빈 값이 아니면 바로 .completed(민트 테두리, 삭제 버튼 없음) 스타일을 적용했다 — 309:1460과 동일.
 //
+//  이슈 #65: FRIEND-01(GET /users/search)을 연결한다.
+//  - 2글자 미만이면 호출하지 않는다("이"/"잇"은 X, "이스"는 O — 이슈에 적힌 기준 그대로
+//    String.count로 판단, 조합 중인 자모 하나도 1글자로 센다).
+//  - 매 키 입력마다 바로 호출하지 않고, 타이핑이 멈춘 뒤 한 번만 호출한다(디바운싱).
+//    `.task(id: query)`가 query 값이 바뀌면 이전 Task를 자동으로 취소해주는 걸 그대로
+//    디바운스로 쓴다 — 취소된 Task는 Task.sleep에서 바로 멈춘다.
+//
 
+import OSLog
 import SwiftUI
 
 struct AddFriendView: View {
-    @State private var query: String = ""
-    @State private var pushedProfile: UserProfile?
-    let users: [UserProfile]
+    private static let logger = Logger(subsystem: "KIIKICK", category: "FriendSearch")
+    private static let minimumQueryLength = 2
+    private static let debounceDelay = Duration.milliseconds(400)
 
-    private var results: [UserProfile] {
-        guard !query.isEmpty else { return [] }
-        return users.filter { $0.nickname.localizedCaseInsensitiveContains(query) }
+    @State private var query: String = ""
+    @State private var results: [UserProfile] = []
+    @State private var isSearching = false
+    @State private var pushedProfile: UserProfile?
+
+    private func search(for query: String) async {
+        guard query.count >= Self.minimumQueryLength else {
+            results = []
+            return
+        }
+        try? await Task.sleep(for: Self.debounceDelay)
+        guard !Task.isCancelled else { return }
+        isSearching = true
+        defer { isSearching = false }
+        // Swagger에 직접 넣어서 비교해볼 수 있게 토큰을 그대로 찍는다 — 디버깅용.
+        Self.logger.debug("users/search 호출 중 accessToken: \(UserSession.token ?? "nil", privacy: .public)")
+        do {
+            let page = try await NetworkService.provider.request(with: FriendEndpoints.searchUsers(query: query))
+            guard !Task.isCancelled else { return }
+            results = page.data.map { UserProfile(response: $0) }
+            Self.logger.debug("users/search(\(query, privacy: .public)) 성공: \(page.data.count)건 — \(page.data.map(\.nickname), privacy: .public)")
+        } catch let NetworkError.invalidHttpStatusCode(statusCode, message) {
+            Self.logger.debug("users/search(\(query, privacy: .public)) 실패: HTTP \(statusCode, privacy: .public) \(message ?? "", privacy: .public)")
+        } catch {
+            Self.logger.debug("users/search(\(query, privacy: .public)) 실패: \(String(describing: error), privacy: .public)")
+        }
     }
 
     var body: some View {
@@ -38,10 +69,15 @@ struct AddFriendView: View {
                     onClear: { query = "" }
                 )
 
-                if query.isEmpty {
+                if query.count < Self.minimumQueryLength {
                     Text("닉네임으로 친구를 찾아보세요")
                         .font(.body4R)
                         .foregroundStyle(.gray400)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 48)
+                } else if isSearching {
+                    ProgressView()
+                        .tint(.mint500)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 48)
                 } else {
@@ -86,15 +122,12 @@ struct AddFriendView: View {
         .navigationDestination(item: $pushedProfile) { user in
             UserProfileView(user: user)
         }
+        .task(id: query) { await search(for: query) }
     }
 }
 
 #Preview {
     NavigationStack {
-        AddFriendView(users: [
-            UserProfile(nickname: "갱아", status: .friend),
-            UserProfile(nickname: "조승연", status: .requestSent),
-            UserProfile(nickname: "조승연아", status: .none),
-        ])
+        AddFriendView()
     }
 }

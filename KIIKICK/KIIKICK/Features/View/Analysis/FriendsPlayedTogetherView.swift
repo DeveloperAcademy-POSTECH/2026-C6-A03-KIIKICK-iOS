@@ -44,7 +44,7 @@ struct FriendsPlayedTogetherView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .navigationDestination(isPresented: $pushedAddFriend) {
-            AddFriendView(users: [])
+            AddFriendView()
         }
     }
 }

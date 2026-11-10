@@ -4,6 +4,11 @@
 //
 //  Figma node 309:1384 "friend" (iOS 화면)
 //
+//  이슈 #65: FRIEND-03(GET /friends)을 이 화면 진입 시 호출해 실제 목록을 채운다.
+//  커서 기반 페이지네이션은 아직 "더 보기" UI가 없어 첫 페이지만 불러온다 — 친구가
+//  아주 많아지면 추가 페이지 로딩이 필요하지만, 지금 범위는 이슈 표에 적힌 목록
+//  표시/프로필 연결까지다.
+//
 
 import SwiftUI
 
@@ -11,6 +16,11 @@ struct FriendsView: View {
     @State private var friends: [UserProfile] = []
     @State private var pushedProfile: UserProfile?
     @State private var pushedAddFriend = false
+
+    private func loadFriends() async {
+        guard let page = try? await NetworkService.provider.request(with: FriendEndpoints.listFriends()) else { return }
+        friends = page.data.map { UserProfile(response: $0.profile) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -56,8 +66,9 @@ struct FriendsView: View {
             )
         }
         .navigationDestination(isPresented: $pushedAddFriend) {
-            AddFriendView(users: [])
+            AddFriendView()
         }
+        .task { await loadFriends() }
     }
 }
 

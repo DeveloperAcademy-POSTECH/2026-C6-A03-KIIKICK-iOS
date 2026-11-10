@@ -8,9 +8,7 @@
 //  CardStatView(node 732:6866 "card_stat")로 분리했다 — 전부 get_design_context로 받은
 //  실제 Figma 컴포넌트다.
 //
-//  Overall 점수/증감(delta)은 서버 API 연동 전이라 항상 OverallStat.empty다
-//  (OverallStat.swift 참고) — "00"이 표시된다. ProfileRingView가 score를 그대로 받아서
-//  진행률을 계산하므로 점수와 링이 항상 같이 움직인다(100 이상이면 Overdrive).
+//  점수와 링은 같은 누적 계산 결과를 사용하며, 100점 이상은 Overdrive로 표시한다.
 //
 
 import SwiftUI

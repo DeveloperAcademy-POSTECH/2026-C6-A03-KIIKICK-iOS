@@ -26,8 +26,9 @@ final class ProviderImpl: Provider {
     }
     
     func request(_ url: URL) async throws -> Data {
-        let (data, response) = try await transport { try await self.session.data(from: url) }
-        try validate(response, data: data)
+        let request = URLRequest(url: url)
+        let (data, response) = try await transport(request: request) { try await self.session.data(from: url) }
+        try validate(response, data: data, request: request)
         return data
     }
     
@@ -39,23 +40,33 @@ final class ProviderImpl: Provider {
             throw NetworkError.urlRequest(error)
         }
         
-        let (data, response) = try await transport { try await self.session.data(for: urlRequest) }
-        try validate(response, data: data)
+        let (data, response) = try await transport(request: urlRequest) { try await self.session.data(for: urlRequest) }
+        try validate(response, data: data, request: urlRequest)
         return data
     }
     
-    private func transport(_ work: () async throws -> (Data, URLResponse)) async throws -> (Data, URLResponse) {
+    private func transport(request: URLRequest, _ work: () async throws -> (Data, URLResponse)) async throws -> (Data, URLResponse) {
+        #if DEBUG
+        print("[API] → \(request.httpMethod ?? "GET") \(request.url?.path ?? "") START")
+        #endif
         do {
             return try await work()
         } catch {
+            #if DEBUG
+            let failure = error as NSError
+            print("[API] ← \(request.httpMethod ?? "GET") \(request.url?.path ?? "") transportError=\(failure.domain):\(failure.code)")
+            #endif
             throw NetworkError.urlRequest(error)
         }
     }
     
-    private func validate(_ response: URLResponse, data: Data) throws {
+    private func validate(_ response: URLResponse, data: Data, request: URLRequest) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NetworkError.unknownError
         }
+        #if DEBUG
+        logHTTPResponse(httpResponse, data: data, request: request)
+        #endif
         guard (200...299).contains(httpResponse.statusCode) else {
             let message = (try? JSONDecoder().decode(ServerErrorBody.self, from: data))?.error.fullMessage
                 ?? String(data: data, encoding: .utf8)
@@ -63,6 +74,22 @@ final class ProviderImpl: Provider {
         }
     }
     
+    #if DEBUG
+    private func logHTTPResponse(_ response: HTTPURLResponse, data: Data, request: URLRequest) {
+        let method = request.httpMethod ?? "GET"
+        let path = request.url?.path ?? ""
+        if (200...299).contains(response.statusCode) {
+            print("[API] ← \(method) \(path) HTTP \(response.statusCode)")
+        } else {
+            // details나 메시지 형식이 달라도 진단 코드는 읽는다. 본문·쿼리·헤더는 기록하지 않는다.
+            let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            let code = (body?["error"] as? [String: Any])?["code"] as? String ?? "UNKNOWN"
+            let requestID = (body?["meta"] as? [String: Any])?["requestId"] as? String ?? "UNKNOWN"
+            print("[API] ← \(method) \(path) HTTP \(response.statusCode) code=\(code) requestId=\(requestID)")
+        }
+    }
+    #endif
+
     private func decode<T: Decodable>(data: Data) throws -> T {
         do {
             return try Self.decoder.decode(T.self, from: data)
@@ -78,6 +105,9 @@ final class ProviderImpl: Provider {
             }
             // 토큰·이메일·인증번호가 담긴 본문 대신 실패한 필드 경로만 기록한다.
             let field = path.map(\.stringValue).joined(separator: ".")
+            #if DEBUG
+            print("[API] DECODE_ERROR type=\(String(reflecting: T.self)) field=\(field)")
+            #endif
             Self.logger.error("API 응답 디코딩 실패: \(String(reflecting: T.self), privacy: .public), 필드: \(field, privacy: .public)")
             throw NetworkError.decodeError
         } catch {

@@ -15,8 +15,8 @@ import SwiftUI
 struct SignUpNicknameView: View {
     @Environment(\.dismiss) private var dismiss
 
-    let registrationToken: String
-    let password: String
+    let registrationToken: String?
+    let password: String?
 
     @State private var nickname: String = ""
     @State private var goNext = false
@@ -54,8 +54,10 @@ struct SignUpNicknameView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { dismiss() } label: { Image(systemName: "chevron.backward") }
+            if registrationToken != nil {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: { Image(systemName: "chevron.backward") }
+                }
             }
         }
         .navigationDestination(isPresented: $goNext) {

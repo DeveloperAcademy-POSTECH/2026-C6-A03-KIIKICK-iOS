@@ -10,35 +10,67 @@
 //  "함께 뛴 경기"를 걸러낼 실제 데이터가 없어서(WorkoutRecord는 같이 뛴 사람을 기록하지
 //  않는다. 이슈 #26도 뷰 구현만 범위) 항상 빈 목록이다.
 //
+//  이슈 #65: FRIEND-02(GET /users/{userId}/profile)로 들어올 때 상태를 다시 확인하고,
+//  FRIEND-05(친구 추가)/FRIEND-08(친구 삭제)을 실제로 호출한다. pendingReceived/blocked는
+//  이 화면엔 액션이 없다 — 수락/거절은 알림 탭 몫(이슈 설명 그대로), 차단 해제는 아직
+//  연결할 뷰가 없다(이슈 표에 "없음").
+//
 
 import SwiftUI
 
 struct UserProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var status: FriendshipStatus
+    @State private var avatarUrl: String?
     @State private var isPresentingRemoveConfirm = false
+    @State private var isSubmitting = false
     // availableYearMonths가 항상 빈 배열이라 DatePickerView가 비활성 상태로 뜬다 —
     // 초깃값은 아무 의미 없어 오늘 날짜로 둔다.
     @State private var year = Calendar.current.component(.year, from: Date())
     @State private var month = Calendar.current.component(.month, from: Date())
+    let userId: UUID
     let nickname: String
     var onAddFriend: () -> Void = {}
     var onRemoveFriend: () -> Void = {}
 
     init(user: UserProfile, onAddFriend: @escaping () -> Void = {}, onRemoveFriend: @escaping () -> Void = {}) {
+        self.userId = user.id
         self.nickname = user.nickname
         self._status = State(initialValue: user.status)
+        self._avatarUrl = State(initialValue: user.avatarUrl)
         self.onAddFriend = onAddFriend
         self.onRemoveFriend = onRemoveFriend
+    }
+
+    private func refreshProfile() async {
+        guard let profile = try? await NetworkService.provider.request(with: FriendEndpoints.profile(userId: userId)) else { return }
+        status = FriendshipStatus(relationship: profile.data.relationship)
+        avatarUrl = profile.data.avatarUrl
+    }
+
+    private func sendFriendRequest() async {
+        guard !isSubmitting else { return }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        guard (try? await NetworkService.provider.request(with: FriendEndpoints.sendFriendRequest(targetUserId: userId))) != nil else { return }
+        status = .requestSent
+        onAddFriend()
+    }
+
+    private func removeFriend() async {
+        guard !isSubmitting else { return }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        guard (try? await NetworkService.provider.requestWithoutResponse(with: FriendEndpoints.removeFriend(userId: userId))) != nil else { return }
+        onRemoveFriend()
+        dismiss()
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
                 VStack(spacing: 24) {
-                    Image("img_profile_default")
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
+                    profileImage
                         .frame(width: 100, height: 100)
                         .clipShape(Circle())
                     Text(nickname)
@@ -69,9 +101,8 @@ struct UserProfileView: View {
 
                 case .none:
                     VStack(spacing: 8) {
-                        CtaView(text: "친구 추가", type: .primary, size: .large) {
-                            status = .requestSent
-                            onAddFriend()
+                        CtaView(text: "친구 추가", type: .primary, size: .large, isActive: !isSubmitting) {
+                            Task { await sendFriendRequest() }
                         }
                     }
                     .padding(.top, 48)
@@ -89,6 +120,26 @@ struct UserProfileView: View {
                         }
                     }
                     .padding(.top, 48)
+
+                // 이슈 #65: 상대가 먼저 보낸 요청 — 수락/거절은 알림 탭 몫이라 여기엔
+                // 안내만 둔다.
+                case .pendingReceived:
+                    VStack(spacing: 8) {
+                        Text("\(nickname)님이 친구 신청을 보냈어요")
+                            .font(.caption1M)
+                            .foregroundStyle(.mint500)
+                        Text("알림 탭에서 수락하거나 거절할 수 있어요")
+                            .font(.caption1M)
+                            .foregroundStyle(.gray400)
+                    }
+                    .padding(.top, 48)
+
+                // 이슈 #65: 차단 해제를 연결할 뷰가 아직 없어(표에 "없음") 안내만 둔다.
+                case .blocked:
+                    Text("차단한 사용자예요")
+                        .font(.caption1M)
+                        .foregroundStyle(.gray400)
+                        .padding(.top, 48)
                 }
             }
             .padding(.horizontal, 16)
@@ -98,6 +149,7 @@ struct UserProfileView: View {
         .navigationTitle("프로필")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .task { await refreshProfile() }
         .toolbar {
             if status == .friend {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -114,11 +166,25 @@ struct UserProfileView: View {
         .alert("\(nickname)님을 친구에서 삭제할까요?", isPresented: $isPresentingRemoveConfirm) {
             Button("취소", role: .cancel) {}
             Button("삭제", role: .destructive) {
-                onRemoveFriend()
-                dismiss()
+                Task { await removeFriend() }
             }
         } message: {
             Text("친구 목록에서 사라지며, 다시 친구가 되려면 친구 신청이 필요해요")
+        }
+    }
+
+    @ViewBuilder
+    private var profileImage: some View {
+        if let avatarUrl, let url = URL(string: avatarUrl) {
+            AsyncImage(url: url) { phase in
+                if let image = phase.image {
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } else {
+                    Image("img_profile_default").resizable().aspectRatio(contentMode: .fill)
+                }
+            }
+        } else {
+            Image("img_profile_default").resizable().aspectRatio(contentMode: .fill)
         }
     }
 }

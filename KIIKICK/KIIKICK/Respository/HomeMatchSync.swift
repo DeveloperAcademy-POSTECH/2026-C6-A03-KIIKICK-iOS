@@ -48,7 +48,7 @@ enum HomeMatchSync {
         var result: [MatchResponse] = []
         var cursor: String?
         repeat {
-            let page = try await provider.request(with: MatchEndpoints.list(cursor: cursor, limit: 100))
+            let page = try await provider.request(with: MatchEndpoints.list(status: .completed, cursor: cursor, limit: 100))
             result += page.data
             cursor = page.meta.pagination.hasNext ? page.meta.pagination.nextCursor : nil
         } while cursor != nil

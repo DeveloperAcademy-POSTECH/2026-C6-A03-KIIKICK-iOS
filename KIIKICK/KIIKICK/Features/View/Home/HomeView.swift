@@ -28,43 +28,24 @@ struct HomeView: View {
     @State private var isSyncing = false
     @State private var didAuthenticate = false
 
-    private var localGroupsNotOnServer: [[WorkoutRecord]] {
-        let serverIDs = Set((remoteMatches ?? []).map(\.id))
-        return WorkoutMatchGrouping.groups(from: records).filter { group in
-            guard let first = group.first else { return false }
-            return !serverIDs.contains(first.matchId)
-        }
+    private var localGroups: [[WorkoutRecord]] {
+        WorkoutMatchGrouping.groups(from: records)
     }
 
-    private var visibleRecords: [WorkoutRecord] {
-        remoteMatches == nil ? records : localGroupsNotOnServer.flatMap { $0 }
-    }
-
-    private var localOverallRecords: [WorkoutRecord] {
-        let remoteWithOverall = Set((remoteMatches ?? []).filter { !$0.workouts.isEmpty }.map(\.id))
-        return WorkoutMatchGrouping.groups(from: records)
-            .filter { group in group.first.map { !remoteWithOverall.contains($0.matchId) } ?? false }
-            .flatMap { $0 }
-    }
-
-    private var localMetricRecords: [WorkoutRecord] {
-        let remoteWithMetrics = Set((remoteMatches ?? [])
-            .filter { $0.quarterCount > 0 && ($0.totalDistanceMeters > 0 || $0.totalCalories > 0) }
-            .map(\.id))
-        return WorkoutMatchGrouping.groups(from: records)
-            .filter { group in group.first.map { !remoteWithMetrics.contains($0.matchId) } ?? false }
-            .flatMap { $0 }
+    /// 로컬에 있는 경기는 로컬 값을 사용하고, 다른 기기에서 올린 경기만 서버 값으로 보탠다.
+    private var additionalRemoteMatches: [HomeSyncedMatch] {
+        let localIDs = Set(localGroups.compactMap { $0.first?.matchId })
+        return (remoteMatches ?? []).filter { $0.status == .completed && !localIDs.contains($0.id) }
     }
 
     private var overallHistory: OverallHistory {
-        let local = localOverallRecords.compactMap { OverallWorkoutInput(record: $0).workout() }
-        let remote = remoteMatches?.flatMap(\.workouts) ?? []
+        let local = records.compactMap { OverallWorkoutInput(record: $0).workout() }
+        let remote = additionalRemoteMatches.flatMap(\.workouts)
         return OverallCalculator.history(from: local + remote)
     }
 
     private var matchCount: Int {
-        let remote = remoteMatches?.filter { $0.status == .completed }.count ?? 0
-        return remote + WorkoutMatchGrouping.groups(from: visibleRecords).count
+        localGroups.count + additionalRemoteMatches.count
     }
 
     private var overallStat: OverallStat {
@@ -73,9 +54,6 @@ struct HomeView: View {
     
     private var matchState: HomeMatchState {
         if sessionManager.isMatchInProgress {
-            return .inProgress
-        }
-        if remoteMatches?.contains(where: { $0.status == .inProgress }) == true {
             return .inProgress
         }
         // 경기가 막 도착했을 때도 더 이상 배너를 안 띄운다 — 그 이벤트는 알림으로 간다
@@ -93,18 +71,16 @@ struct HomeView: View {
     }
     
     private var totalDistanceKm: Double {
-        (localMetricRecords.reduce(0) { $0 + $1.totalDistance }
-            + (remoteMatches?.reduce(0) { $0 + $1.totalDistanceMeters } ?? 0)) / 1000
+        (records.reduce(0) { $0 + $1.totalDistance }
+            + additionalRemoteMatches.reduce(0) { $0 + $1.totalDistanceMeters }) / 1000
     }
 
     private var avgCalories: Int {
-        let remoteQuarters = remoteMatches?.reduce(0) { count, match in
-            count + ((match.totalDistanceMeters > 0 || match.totalCalories > 0) ? match.quarterCount : 0)
-        } ?? 0
-        let count = localMetricRecords.count + remoteQuarters
+        let remoteQuarters = additionalRemoteMatches.reduce(0) { $0 + $1.quarterCount }
+        let count = records.count + remoteQuarters
         guard count > 0 else { return 0 }
-        let total = localMetricRecords.reduce(0) { $0 + $1.totalCalories }
-            + (remoteMatches?.reduce(0) { $0 + $1.totalCalories } ?? 0)
+        let total = records.reduce(0) { $0 + $1.totalCalories }
+            + additionalRemoteMatches.reduce(0) { $0 + $1.totalCalories }
         return Int(total / Double(count))
     }
 

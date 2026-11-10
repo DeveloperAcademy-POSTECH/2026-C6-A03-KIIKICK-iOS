@@ -41,8 +41,10 @@ final class WorkoutManager: NSObject {
     private(set) var currentQuarterEvents: [MatchEvent] = []
     private var currentQuarterStartActiveEnergy: Double = 0
     private var currentQuarterStartDistance: Double = 0
-    /// 골/어시스트를 기록한 순간 위치로 쓸, 가장 최근에 받은 위치.
+    /// 골/어시스트 위치로 쓸, 이 쿼터에서 가장 최근에 받은 GPS 위치.
     private var lastLocation: CLLocation?
+    /// 첫 GPS 수신 전에 누른 이벤트도 시각과 종류를 보관했다가 첫 좌표에 연결한다.
+    private var pendingEvents: [(type: MatchEventType, timestamp: Date)] = []
 
     /// 경기 전체 시작 — 매치당 한 번만 호출. HealthKit 워크아웃 세션을 연다.
     func startMatch() async {
@@ -82,6 +84,8 @@ final class WorkoutManager: NSObject {
         currentQuarterPoints = []
         currentQuarterHeartRateSamples = []
         currentQuarterEvents = []
+        pendingEvents = []
+        lastLocation = nil
         currentQuarterStartDate = Date()
         currentQuarterStartActiveEnergy = activeEnergy
         currentQuarterStartDistance = distance
@@ -89,15 +93,24 @@ final class WorkoutManager: NSObject {
         isRecordingQuarter = true
     }
 
-    /// 골/어시스트 스테퍼를 +1 했을 때 그 순간의 위치를 이벤트로 기록한다. 아직 위치를
-    /// 한 번도 못 받았으면(GPS 픽스 전) 조용히 무시한다.
+    /// 골/어시스트 스테퍼를 +1 했을 때 버튼 시각과 최근 GPS 위치를 기록한다.
+    /// 아직 GPS가 없다면 첫 위치 수신 때 좌표를 채운다.
     func recordEvent(type: MatchEventType) {
-        guard let lastLocation else { return }
-        currentQuarterEvents.append(MatchEvent(type: type, location: TrackPoint(location: lastLocation)))
+        guard isRecordingQuarter else { return }
+        let timestamp = Date.now
+        if let lastLocation {
+            currentQuarterEvents.append(MatchEvent(type: type, location: TrackPoint(location: lastLocation, timestamp: timestamp)))
+        } else {
+            pendingEvents.append((type: type, timestamp: timestamp))
+        }
     }
 
     /// 스테퍼를 -1 했을 때(잘못 눌러서 되돌리는 경우) 같은 타입의 가장 최근 이벤트를 지운다.
     func removeLastEvent(type: MatchEventType) {
+        if let index = pendingEvents.lastIndex(where: { $0.type == type }) {
+            pendingEvents.remove(at: index)
+            return
+        }
         if let index = currentQuarterEvents.lastIndex(where: { $0.type == type }) {
             currentQuarterEvents.remove(at: index)
         }
@@ -233,8 +246,15 @@ extension WorkoutManager: CLLocationManagerDelegate {
         guard let location = locations.last else { return }
         let point = TrackPoint(location: location)
         DispatchQueue.main.async {
+            guard self.isRecordingQuarter else { return }
             self.currentQuarterPoints.append(point)
             self.lastLocation = location
+            for event in self.pendingEvents {
+                self.currentQuarterEvents.append(
+                    MatchEvent(type: event.type, location: TrackPoint(location: location, timestamp: event.timestamp))
+                )
+            }
+            self.pendingEvents.removeAll()
         }
         routeBuilder?.insertRouteData(locations) { success, error in
             if !success {

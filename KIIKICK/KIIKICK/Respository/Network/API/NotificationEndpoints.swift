@@ -19,21 +19,22 @@ enum NotificationEndpoints {
         Endpoint(
             path: "/api/v1/notifications",
             method: .get,
-            queryParameters: ListQuery(unreadOnly: unreadOnly, cursor: cursor, limit: limit)
+            queryParameters: ListQuery(unreadOnly: unreadOnly, cursor: cursor, limit: limit),
+            headers: bearerHeaders()
         )
     }
 
     /// NOTI-02 읽지 않은 알림 수 조회
     static func unreadCount() -> Endpoint<Envelope<UnreadCountResponse>> {
-        Endpoint(path: "/api/v1/notifications/unread-count", method: .get)
+        Endpoint(path: "/api/v1/notifications/unread-count", method: .get, headers: bearerHeaders())
     }
 
     /// NOTI-03 알림 읽음 처리
-    static func markRead(notificationId: UUID) -> Endpoint<Envelope<NotificationResponse>> {
+    static func markRead(notificationId: UUID, idempotencyKey: UUID = UUID()) -> Endpoint<Envelope<NotificationResponse>> {
         Endpoint(
             path: "/api/v1/notifications/\(notificationId.uuidString)/read",
             method: .put,
-            headers: idempotencyHeaders()
+            headers: bearerHeaders().merging(idempotencyHeaders(idempotencyKey)) { _, new in new }
         )
     }
 

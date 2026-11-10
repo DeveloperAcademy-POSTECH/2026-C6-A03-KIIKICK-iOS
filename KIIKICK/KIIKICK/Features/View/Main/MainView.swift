@@ -6,16 +6,23 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct MainView: View {
     @Environment(AppRouter.self) private var router
+    @Environment(SessionManager.self) private var sessionManager
     
     var body: some View {
         @Bindable var router = router
+        @Bindable var sessionManager = sessionManager
         
         TabView(selection: $router.selection) {
             NavigationStack(path: router.path(for: .home)) {
                 HomeView()
+                    .navigationDestination(for: AppRouter.NotificationRoute.self) { _ in
+                        NotificationListView(notifications: $sessionManager.notifications)
+                    }
+                    .modifier(AnalysisRouteDestinations(tab: .home))
             }
             // 이슈 #42: Figma "overall" 프레임부터는 이 탭이 집 아이콘이 아니라
             // "OVR" 글자 탭으로 바뀌었다. DESIGN-GAP: 실제 탭바 아이콘 에셋을 받지
@@ -31,6 +38,7 @@ struct MainView: View {
 
             NavigationStack(path: router.path(for: .analysis)) {
                 AnalysisView()
+                    .modifier(AnalysisRouteDestinations(tab: .analysis))
             }
                 .tabItem { Label("분석", systemImage: "chart.bar.fill") }
                 .tag(AppRouter.AppTab.analysis)
@@ -60,4 +68,6 @@ struct MainView: View {
 #Preview {
     MainView()
         .environment(AppRouter())
+        .environment(SessionManager.shared)
+        .modelContainer(for: [WorkoutRecord.self, Field.self], inMemory: true)
 }

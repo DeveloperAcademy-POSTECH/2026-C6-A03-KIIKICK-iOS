@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct NotificationTarget: Decodable {
+struct NotificationTarget: Decodable, Hashable {
     let type: String
     let id: UUID
 }

@@ -28,6 +28,7 @@ struct ReadyForDetailView: View {
     @Environment(AppRouter.self) private var router
 
     let entry: AnalysisEntry
+    let navigationTab: AppRouter.AppTab
     @State private var positions: [String]
     @State private var flips: [Bool]
     @State private var isPositionConfirmed: [Bool]
@@ -42,8 +43,9 @@ struct ReadyForDetailView: View {
 
     private var quarters: [AnalysisQuarter] { entry.detail.quarters }
 
-    init(entry: AnalysisEntry) {
+    init(entry: AnalysisEntry, navigationTab: AppRouter.AppTab = .analysis) {
         self.entry = entry
+        self.navigationTab = navigationTab
         _positions = State(initialValue: entry.detail.quarters.map { $0.position ?? Self.unselectedPositionPlaceholder })
         _flips = State(initialValue: entry.detail.quarters.map(\.isAttackDirectionReversed))
         _isPositionConfirmed = State(initialValue: entry.detail.quarters.map { $0.position != nil })
@@ -174,7 +176,9 @@ struct ReadyForDetailView: View {
                 defer { isSubmitting = false }
                 do {
                     try await submitWorkouts()
-                    router.paths[.analysis, default: .init()].append(AnalysisRoute.analyzing(updatedEntry))
+                    for record in entry.records { record.hasViewedAnalysis = true }
+                    try modelContext.save()
+                    router.pushAnalysis(.analyzing(updatedEntry), in: navigationTab)
                 } catch {
                     saveError = error.localizedDescription
                 }

@@ -14,9 +14,9 @@
 //  쿼터가 끝난 시각(date+duration) 대비 이 레코드가 matchGroupingGap 안에서 시작했는지"
 //  로 묶는다 — 진짜 매치 ID가 생기기 전까지의 휴리스틱이다.
 //
-//  경기 카드를 누르면 분석 상세로 바로 가지 않고, 분석 플로우대로
+//  처음 경기 카드를 누르면 분석 플로우대로
 //  ReadyForDetailView(포지션/반전 확인) → AnalyzingView(분석 중) → AnalysisDetailView
-//  순서를 거친다.
+//  순서를 거친다. 분석 보기를 저장한 경기는 상세로 바로 이동한다.
 //
 //  이 세 화면은 전부 router.paths[.analysis](AppRouter가 들고 있는 NavigationPath)에
 //  직접 쌓는다 — item/isPresented 기반 로컬 push로는 "분석이 끝나면 ready+analyzing을
@@ -28,12 +28,6 @@
 
 import SwiftUI
 import SwiftData
-
-enum AnalysisRoute: Hashable {
-    case ready(AnalysisEntry)
-    case analyzing(AnalysisEntry)
-    case detail(AnalysisEntry)
-}
 
 struct AnalysisView: View {
     @Environment(\.modelContext) private var modelContext
@@ -109,7 +103,7 @@ struct AnalysisView: View {
                                 dateAndQuarter: entry.dateAndQuarter,
                                 fieldName: entry.fieldName,
                                 stats: entry.stats.map { CardSummaryView.Stat(label: $0.label, value: $0.value, unit: $0.unit) },
-                                action: { open(entry) }
+                                action: { router.showAnalysis(entry, in: .analysis) }
                             )
                         }
                     }
@@ -120,16 +114,6 @@ struct AnalysisView: View {
         }
         .background(Color.gray950)
         .navigationBarHidden(true)
-        .navigationDestination(for: AnalysisRoute.self) { route in
-            switch route {
-            case .ready(let entry):
-                ReadyForDetailView(entry: entry)
-            case .analyzing(let entry):
-                AnalyzingView(entry: entry)
-            case .detail(let entry):
-                AnalysisDetailView(entry: entry)
-            }
-        }
         .alert("경기 기록을 불러오지 못했어요", isPresented: Binding(
             get: { loadError != nil }, set: { if !$0 { loadError = nil } }
         )) { } message: { Text(loadError ?? "") }
@@ -147,12 +131,6 @@ struct AnalysisView: View {
         .onChange(of: cachedMatches) { _, _ in
             syncToLatestMonthIfNeeded()
         }
-    }
-
-    private func open(_ entry: AnalysisEntry) {
-        let route: AnalysisRoute = entry.records.isEmpty || entry.records.allSatisfy(\.hasViewedAnalysis)
-            ? .detail(entry) : .ready(entry)
-        router.paths[.analysis, default: .init()].append(route)
     }
 
     private func loadRemoteEntries() async {

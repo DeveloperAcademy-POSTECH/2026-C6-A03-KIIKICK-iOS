@@ -14,6 +14,7 @@ final class AppRouter {
     enum AppFlow {
         case splash
         case auth
+        case onboarding
         case main
     }
     
@@ -62,11 +63,18 @@ extension AppRouter {
         if !isLoggedIn {
             flow = .auth
         } else {
-            flow = .main
+            didLogIn()
         }
     }
     
-    func didLogIn() { flow = .main }
+    func didLogIn() {
+        flow = UserSession.requiresOnboarding ? .onboarding : .main
+    }
+
+    func didCompleteOnboarding() {
+        reset()
+        flow = .main
+    }
     func didLogOut() { reset(); flow = .auth }
     func didSignOut() { reset(); flow = .auth }
     

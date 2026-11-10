@@ -177,29 +177,9 @@ private struct AnalysisTabContent: View {
     /// 운동장이 있으면 히트맵/스프린트 두 페이지(WorkoutDetailView와 같은 구성)를, 없으면
     /// 빈 자리를 보여준다.
     private func heatmapCarousel(_ quarter: AnalysisQuarter) -> some View {
-        TabView {
-            if let field = quarter.field {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.gray850)
-                    .overlay(FieldHeatmapView(field: field, points: quarter.points).padding(8))
-                    .tag(0)
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.gray850)
-                    .overlay(SprintMapView(field: field, points: quarter.points).padding(8))
-                    .tag(1)
-            } else {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.gray850)
-                    .overlay(
-                        Image(systemName: "map")
-                            .font(.system(size: 32))
-                            .foregroundStyle(.gray500)
-                    )
-                    .tag(0)
-            }
-        }
-        .tabViewStyle(.page)
-        .frame(height: 220)
+        TrackingMapPager(field: quarter.field, points: quarter.points,
+                         isAttackDirectionReversed: quarter.isAttackDirectionReversed)
+        .frame(height: 248)
         .overlay(alignment: .bottomTrailing) {
             Button(action: onShowTimeline) {
                 HStack(spacing: 0) {
@@ -343,8 +323,10 @@ private struct CommentsSheetContent: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         AnalysisDetailView(entry: .previewSample)
     }
 }
+#endif

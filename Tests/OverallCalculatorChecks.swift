@@ -55,11 +55,15 @@ struct OverallCalculatorChecks {
         )
         precondition(missingSamples.workout() == nil, "속도 기록 누락을 0점으로 처리하지 않음")
 
-        let mock = OverallCalculator.history(from: OverallMockData.workouts.reversed())
-        precondition(mock.current?.score == 106 && mock.delta == 6,
-                     "정렬 후 누적 목업 결과와 직전 누적 대비 증감")
-        precondition(abs(mock.totalDistanceKm - 7.8) < 0.000001)
-        precondition(mock.averageCalories == 225)
-        print("PASS: OVR 공식·시간 가중·증감·100점 초과·잘못된 입력·가감속 구간·목업 106(+6)")
+        let history = OverallCalculator.history(from: [
+            doublePerformance,
+            workout(offset: -900)
+        ])
+        precondition(history.workouts.first?.date == date.addingTimeInterval(-900), "날짜순 누적")
+        precondition(history.current?.score == 121 && history.delta == 26,
+                     "기존 공식을 유지한 누적 결과와 직전 누적 대비 증감")
+        precondition(abs(history.totalDistanceKm - 4.5) < 0.000001)
+        precondition(history.averageCalories == 200)
+        print("PASS: OVR 공식·시간 가중·증감·100점 초과·잘못된 입력·가감속 구간")
     }
 }

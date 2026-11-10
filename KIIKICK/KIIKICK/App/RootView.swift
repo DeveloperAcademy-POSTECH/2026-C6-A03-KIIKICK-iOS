@@ -17,6 +17,10 @@ struct RootView: View {
                 SplashView()
             case .auth:
                 StartView()
+            case .onboarding:
+                NavigationStack {
+                    SignUpNicknameView(registrationToken: nil, password: nil)
+                }
             case .main:
                 MainView()
                     .environment(SessionManager.shared)
@@ -27,7 +31,10 @@ struct RootView: View {
         .onAppear {
             Task {
                 // sleep(1)
-                router.finishSplash(isLoggedIn: UserSession.isLoggedIn)
+                // 이슈 #63: accessToken이 만료됐으면 refreshToken으로 재인증한다 —
+                // 실패(refreshToken도 무효)하면 세션이 지워진 채로 false가 돌아온다.
+                let isLoggedIn = await UserSession.reauthenticateIfNeeded()
+                router.finishSplash(isLoggedIn: isLoggedIn)
             }
         }
     }

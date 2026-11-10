@@ -50,9 +50,11 @@ enum MatchEndpoints {
         )
     }
 
-    /// SET-08 경기 상세·최신 버전
+    /// SET-08 경기 상세·최신 버전. 이슈 #66: workout-submissions 제출 직전에 최신
+    /// version(=ETag)을 가져오는 용도로도 쓴다 — Authorization을 직접 붙인다(다른
+    /// match/quarter 엔드포인트의 DESIGN-GAP은 그대로 유효, 이 호출만 먼저 붙였다).
     static func detail(matchId: UUID) -> Endpoint<Envelope<MatchResponse>> {
-        Endpoint(path: "/api/v1/matches/\(matchId.uuidString)", method: .get)
+        Endpoint(path: "/api/v1/matches/\(matchId.uuidString.lowercased())", method: .get, headers: bearerHeaders())
     }
 
     /// SET-09 경기 설정 수정

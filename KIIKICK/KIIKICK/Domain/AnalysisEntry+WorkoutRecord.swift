@@ -22,6 +22,12 @@ extension AnalysisEntry {
         let sortedRecords = records.sorted { $0.date < $1.date }
         guard let first = sortedRecords.first else { return nil }
 
+        // 이슈 #66: 같은 경기로 묶인 레코드들이 workout-submissions에 같은 matchId를
+        // 쓰도록 맞춘다 — 각 레코드는 만들어질 때 각자 다른 matchId를 받았을 수 있다.
+        for record in sortedRecords where record.matchId != first.matchId {
+            record.matchId = first.matchId
+        }
+
         let allPoints = sortedRecords.flatMap(\.points)
         let allEvents = sortedRecords.flatMap(\.events)
         let allHeartRate = sortedRecords.flatMap(\.heartRateSamples)
@@ -39,9 +45,10 @@ extension AnalysisEntry {
         ]
 
         let quarters = sortedRecords.enumerated().map { index, record in
-            AnalysisQuarter(
+            var quarter = AnalysisQuarter(
                 quarterNumber: index + 1,
                 durationText: formattedDuration(record.duration),
+                position: record.position?.uppercased,
                 field: record.field,
                 points: record.points,
                 events: record.events.map { event in
@@ -54,6 +61,9 @@ extension AnalysisEntry {
                 totalDistanceKm: record.totalDistance / 1000,
                 totalCaloriesKcal: record.totalCalories
             )
+            quarter.isAttackDirectionReversed = record.isAttackDirectionReversed
+            quarter.sourceRecord = record
+            return quarter
         }
 
         var sections: [AnalysisSection] = [movementSection(points: allPoints)]
@@ -78,7 +88,8 @@ extension AnalysisEntry {
                 assistCount: assistCount,
                 sections: sections,
                 disclaimer: "히트맵과 포지션이 정확한지 확인해주세요"
-            )
+            ),
+            records: sortedRecords
         )
     }
 

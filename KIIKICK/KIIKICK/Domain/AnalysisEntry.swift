@@ -43,10 +43,11 @@ struct AnalysisQuarter: Identifiable, Hashable {
     let id: UUID
     let quarterNumber: Int
     let durationText: String
-    /// 워치 쪽은 쿼터마다 포지션을 기록하지만(QuarterRecord.position), iOS로 보내는
-    /// WorkoutPayload에는 아직 그 값이 실려 있지 않다 — DESIGN-GAP, 실제 값이 생기기
-    /// 전까진 nil(표시 안 함).
+    /// 워치 PositionView에서 고른 포지션(WorkoutPayload.position → WorkoutRecord.position).
+    /// 강제 종료된 쿼터(이슈 #50)는 PositionView를 거치지 못해 계속 nil이다.
     let position: String?
+    var isAttackDirectionReversed: Bool = false
+    var sourceRecord: WorkoutRecord? = nil
     /// 실제 히트맵을 그릴 수 있는 운동장/경로 — 없으면(운동장 미선택) 히트맵 자리를 비운다.
     let field: Field?
     let points: [TrackPoint]
@@ -140,14 +141,22 @@ struct AnalysisEntry: Identifiable, Hashable {
     let fieldName: String
     let stats: [AnalysisStat]
     let detail: AnalysisDetail
+    /// 이슈 #66: detail.quarters(표시용)와 같은 순서·개수로 대응하는 원본 WorkoutRecord들.
+    /// workout-submissions 제출에 필요한 matchId/quarterId/heartRateSamples 등 표시
+    /// 모델에는 없는 원본 데이터가 필요해서 들고 다닌다.
+    let records: [WorkoutRecord]
 
-    init(id: UUID = UUID(), date: Date, dateAndQuarter: String, fieldName: String, stats: [AnalysisStat], detail: AnalysisDetail) {
+    init(
+        id: UUID = UUID(), date: Date, dateAndQuarter: String, fieldName: String,
+        stats: [AnalysisStat], detail: AnalysisDetail, records: [WorkoutRecord] = []
+    ) {
         self.id = id
         self.date = date
         self.dateAndQuarter = dateAndQuarter
         self.fieldName = fieldName
         self.stats = stats
         self.detail = detail
+        self.records = records
     }
 }
 

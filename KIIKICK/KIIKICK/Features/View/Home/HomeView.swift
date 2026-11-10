@@ -9,7 +9,7 @@
 //  DESIGN-GAP: 탭바 아이콘(ic_ovr류)을 받지 못해 SF Symbol로 대체했다 — MainView.swift
 //  주석 참고.
 //
-//  완료된 쿼터의 누적 지표를 OverallCalculator로 계산한다. DEBUG 목업은 저장하지 않는다.
+//  저장된 WorkoutRecord의 속도 샘플로 누적 OVR을 계산한다.
 //
 
 import SwiftUI
@@ -17,6 +17,7 @@ import SwiftData
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppRouter.self) private var router
     @Environment(SessionManager.self) private var sessionManager
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
     
@@ -25,59 +26,13 @@ struct HomeView: View {
     @State private var selectedMetric: PerformanceMetric = .overall
     
     @State private var overallHistory: OverallHistory = .empty
-    #if DEBUG
-    @AppStorage(OverallMockData.enabledKey) private var usesMockData = true
-    #else
-    private var usesMockData: Bool { false }
-    #endif
 
-    private struct OverallSource: Equatable {
-        let usesMockData: Bool
-        let inputs: [OverallWorkoutInput]
-    }
-
-    private var overallSource: OverallSource {
-        OverallSource(
-            usesMockData: usesMockData,
-            inputs: usesMockData ? [] : records.map(OverallWorkoutInput.init(record:))
-        )
+    private var overallInputs: [OverallWorkoutInput] {
+        records.map(OverallWorkoutInput.init(record:))
     }
 
     private var overallStat: OverallStat {
         OverallStat(score: overallHistory.current?.score, delta: overallHistory.delta)
-    }
-
-    private var trendPoints: [PerformanceTrendPoint] {
-        overallHistory.workouts.enumerated().map { index, workout in
-            let value: Double
-            switch selectedMetric {
-            case .overall: value = Double(overallHistory.cumulative[index].score)
-            case .speed: value = workout.peakSpeedKmh
-            case .distance: value = workout.distanceMeters / 1000
-            case .calories: value = workout.calories
-            }
-            return PerformanceTrendPoint(quarterIndex: index + 1, value: value)
-        }
-    }
-
-    private var trendUnit: String {
-        switch selectedMetric {
-        case .overall: "OVR"
-        case .speed: "km/h"
-        case .distance: "km"
-        case .calories: "kcal"
-        }
-    }
-
-    private var trendAxis: [Double] {
-        let maximum = max(trendPoints.map(\.value).max() ?? 0, selectedMetric == .overall ? 100 : 1)
-        let step = max(1, ceil(maximum / 4))
-        return (0...4).map { Double($0) * step }
-    }
-
-    private var trendDate: String {
-        guard let date = overallHistory.workouts.last?.date else { return "" }
-        return "\(date.formatted(.dateTime.month().day())) · Q\(overallHistory.workouts.count)"
     }
     
     private var matchState: HomeMatchState {
@@ -92,12 +47,22 @@ struct HomeView: View {
         if !sessionManager.isReachable {
             return .watchDisconnected
         }
-        if overallHistory.workouts.isEmpty {
+        if records.isEmpty {
             return .noRecords
         }
         return .idle
     }
     
+    private var totalDistanceKm: Double {
+        records.reduce(0) { $0 + $1.totalDistance } / 1000
+    }
+
+    private var avgCalories: Int {
+        guard !records.isEmpty else { return 0 }
+        let total = records.reduce(0) { $0 + $1.totalCalories }
+        return Int(total / Double(records.count))
+    }
+
     private var hasUnreadNotifications: Bool {
         sessionManager.notifications.contains { !$0.isRead }
     }
@@ -121,27 +86,13 @@ struct HomeView: View {
                     
                     OverallSummaryView(
                         stat: overallStat,
-                        matchCount: overallHistory.workouts.count,
-                        totalDistanceKm: overallHistory.totalDistanceKm,
-                        avgCalories: overallHistory.averageCalories
+                        matchCount: records.count,
+                        totalDistanceKm: totalDistanceKm,
+                        avgCalories: avgCalories
                     )
                     .padding(.horizontal, 24)
                     
-                    #if DEBUG
-                    if usesMockData, let calculation = overallHistory.current {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("목업 데이터 · 임시 기준값 적용")
-                            Text(String(format: "활동량 %.2f× · 속도 %.2f× · 가감속 %.2f×",
-                                        calculation.activityRatio, calculation.speedRatio, calculation.changeRatio))
-                        }
-                        .font(.caption1M)
-                        .foregroundStyle(.gray400)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 24)
-                    }
-                    #endif
-
-                    if !overallHistory.workouts.isEmpty {
+                    if !records.isEmpty {
                         PerformanceTrendsView(
                             selectedMetric: $selectedMetric,
                             // TODO: 쿼터별 추세 집계가 아직 없어 항상 빈 배열 — 그래프 자리만 보여준다.
@@ -163,30 +114,34 @@ struct HomeView: View {
                     preparedField = field
                     isSelectingField = false
                     // 워치에 경기가 준비됐다고 알린다 — StartView가 대기 화면 대신
-                    // "경기 시작" 버튼을 보여주게 된다.
-                    sessionManager.updateMatchPrepared(fieldName: field.name)
+                    // "경기 시작" 버튼을 보여주게 된다. sessionManager가 Field 참조도
+                    // 들고 있다가(이슈 #66) 쿼터가 도착하면 WorkoutRecord.field로 이어준다.
+                    sessionManager.updateMatchPrepared(field: field)
                 })
             }
             .onChange(of: sessionManager.isMatchInProgress) { _, isInProgress in
                 if isInProgress {
                     preparedField = nil
-                    // 경기가 시작되면 "준비됨" 신호를 꺼서, 다음 경기 전까지는 워치가
-                    // 다시 대기 화면(Default 상태)을 보여주게 한다.
-                    sessionManager.updateMatchPrepared(fieldName: nil)
+                    // 경기가 시작되면 "준비됨" 표시만 꺼서, 다음 경기 전까지는 워치가
+                    // 다시 대기 화면(Default 상태)을 보여주게 한다. sessionManager의
+                    // Field 참조는 그대로 둔다 — 쿼터들이 경기 진행 중에 도착한다.
+                    sessionManager.clearPreparedFieldDisplay()
                 }
             }
             headerBar
         }
-        .task { try? await UserSession.refreshProfile() }
-        .task(id: overallSource) {
-            let source = overallSource
-            #if DEBUG
-            if source.usesMockData {
-                overallHistory = OverallCalculator.history(from: OverallMockData.workouts)
+        .task {
+            // 이슈 #63: 홈 화면 진입도 재인증 트리거다 — accessToken이 앱이 떠 있는 동안
+            // 만료됐으면 여기서 refreshToken으로 재인증한다. refreshToken도 무효면
+            // 로그인 화면으로 돌려보낸다.
+            guard await UserSession.reauthenticateIfNeeded() else {
+                router.didLogOut()
                 return
             }
-            #endif
-            overallHistory = OverallCalculator.history(from: source.inputs.compactMap { $0.workout() })
+            try? await UserSession.refreshProfile()
+        }
+        .task(id: overallInputs) {
+            overallHistory = OverallCalculator.history(from: overallInputs.compactMap { $0.workout() })
         }
     }
     

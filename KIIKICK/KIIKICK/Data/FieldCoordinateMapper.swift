@@ -16,27 +16,65 @@ struct FieldCoordinateMapper {
     private let p11: CGPoint
     private let p01: CGPoint
     
+    private let referenceLatitude: Double
+    private let referenceLongitude: Double
+    private let metersPerLongitudeDegree: Double
+    private static let metersPerLatitudeDegree = 111_320.0
+
     init(field: Field) {
-        let corners = [field.cornerA, field.cornerB, field.cornerC, field.cornerD]
-        let points = corners.map { CGPoint(x: $0.longitude, y: $0.latitude) }
-        
-        let centroid = CGPoint(
-            x: points.map(\.x).reduce(0, +) / CGFloat(points.count),
-            y: points.map(\.y).reduce(0, +) / CGFloat(points.count)
-        )
-        // centroid 기준 각도로 정렬하면 둘레를 따라가는 순서(p00->p10->p11->p01)가 나온다.
-        let ordered = points.sorted { a, b in
-            atan2(a.y - centroid.y, a.x - centroid.x) < atan2(b.y - centroid.y, b.x - centroid.x)
-        }
-        p00 = ordered[0]
-        p10 = ordered[1]
-        p11 = ordered[2]
-        p01 = ordered[3]
+        self.init(corners: [field.cornerA, field.cornerB, field.cornerC, field.cornerD].map {
+            CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+        })
     }
-    
+
+    init(corners: [CLLocationCoordinate2D]) {
+        precondition(corners.count == 4)
+        let latitude = corners.map(\.latitude).reduce(0, +) / 4
+        let longitude = corners.map(\.longitude).reduce(0, +) / 4
+        let longitudeScale = Self.metersPerLatitudeDegree * cos(latitude * .pi / 180)
+        referenceLatitude = latitude
+        referenceLongitude = longitude
+        metersPerLongitudeDegree = longitudeScale
+        let points = corners.map {
+            CGPoint(x: ($0.longitude - longitude) * longitudeScale,
+                    y: ($0.latitude - latitude) * Self.metersPerLatitudeDegree)
+        }
+        let centroid = CGPoint(x: points.map(\.x).reduce(0, +) / 4,
+                               y: points.map(\.y).reduce(0, +) / 4)
+        var ordered = points.sorted {
+            atan2($0.y - centroid.y, $0.x - centroid.x) < atan2($1.y - centroid.y, $1.x - centroid.x)
+        }
+        func length(_ a: CGPoint, _ b: CGPoint) -> CGFloat { hypot(b.x - a.x, b.y - a.y) }
+        let firstPair = length(ordered[0], ordered[1]) + length(ordered[2], ordered[3])
+        let secondPair = length(ordered[1], ordered[2]) + length(ordered[3], ordered[0])
+        // 긴 변은 위·경도의 도수가 아닌 미터 단위로 비교하고 대변 쌍의 평균으로 정한다.
+        if secondPair > firstPair {
+            ordered = Array(ordered[1...]) + [ordered[0]]
+        }
+        // 로컬 평면은 동쪽→오른쪽, 북쪽→위쪽이지만 화면 세로축은 아래로 증가한다.
+        // CCW 둘레를 그대로 화면에 대응시키면 긴 축을 기준으로 거울상이 된다.
+        // 긴 변의 진행 방향은 유지하고 위/아래 꼭짓점 쌍을 바꿔 회전만 일어나도록 한다.
+        p00 = ordered[3]
+        p10 = ordered[2]
+        p11 = ordered[1]
+        p01 = ordered[0]
+    }
+
+    /// 정규화 좌표 (0,0) → (1,0) → (1,1) → (0,1)에 대응하는 실제 꼭짓점.
+    var orderedCorners: [CLLocationCoordinate2D] {
+        [p00, p10, p11, p01].map {
+            CLLocationCoordinate2D(latitude: referenceLatitude + $0.y / Self.metersPerLatitudeDegree,
+                                   longitude: referenceLongitude + $0.x / metersPerLongitudeDegree)
+        }
+    }
+
+    var horizontalLengthMeters: Double { hypot(p10.x - p00.x, p10.y - p00.y) }
+    var verticalLengthMeters: Double { hypot(p01.x - p00.x, p01.y - p00.y) }
+
     /// 위도/경도 -> 운동장 내 정규화 좌표 (x: 0...1, y: 0...1 근방).
     func normalize(_ coordinate: CLLocationCoordinate2D) -> CGPoint {
-        let target = CGPoint(x: coordinate.longitude, y: coordinate.latitude)
+        let target = CGPoint(x: (coordinate.longitude - referenceLongitude) * metersPerLongitudeDegree,
+                             y: (coordinate.latitude - referenceLatitude) * Self.metersPerLatitudeDegree)
         var u: CGFloat = 0.5
         var v: CGFloat = 0.5
         

@@ -35,3 +35,26 @@ struct HeartRateSampleResponse: Decodable {
 struct HrMaxReferenceRequest: Encodable {
     let hrMaxReferenceBpm: Double
 }
+
+/// 이슈 #66: 완료 경기의 운동 기록과 포지션 일괄 제출(quarter-workout-controller의
+/// 4번째 엔드포인트, POST /matches/{matchId}/workout-submissions) 요청 본문의 쿼터 원소.
+/// `workout`은 Swagger의 WorkoutPayloadCreateRequest와 동일한 모양이라(WORK-01과 같은
+/// 이유) WorkoutPayload를 그대로 재사용한다.
+struct SubmissionQuarter: Encodable {
+    /// Swift의 UUID.uuidString은 대문자인데 Swagger 예시는 전부 소문자라, 호출부가
+    /// .lowercased()로 넘긴다 — String으로 받아서 그 값을 그대로 보낸다.
+    let quarterId: String
+    /// 서버에 설정된 대표 포지션 코드.
+    let position: String
+    let workout: WorkoutPayload
+}
+
+struct SubmissionBody: Encodable {
+    let quarters: [SubmissionQuarter]
+}
+
+/// 응답의 meta는 MatchResultEnvelope가 쓰는 MatchResultMeta와 모양이 같아 그대로 재사용한다.
+struct SubmissionReceipt: Decodable {
+    let matchId: UUID
+    let quarterCount: Int
+}

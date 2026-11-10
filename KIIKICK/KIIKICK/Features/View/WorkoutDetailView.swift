@@ -108,27 +108,9 @@ struct WorkoutDetailView: View {
                 
                 // 경기장
                 if let field = record.field {
-                    TabView {
-                        GeometryReader { geo in
-                            VStack {
-                                Text("히트맵")
-                                    .font(.headline)
-                                FieldHeatmapView(field: field, points: record.points)
-                                    .frame(width: geo.size.width, height: geo.size.width * 68 / 105)
-                            }
-                        }
-                        GeometryReader { geo in
-                            VStack {
-                                Text("스프린트")
-                                    .font(.headline)
-                                SprintMapView(field: field, points: record.points)
-                                    .frame(width: geo.size.width, height: geo.size.width * 68 / 105)
-                            }
-                        }
-                    }
-                    .frame(height: 300)
-                    .tabViewStyle(.page)                         // 좌우 스와이프 페이징
-                    .indexViewStyle(.page(backgroundDisplayMode: .always)) // 하단 점 표시
+                    TrackingMapPager(field: field, points: record.points,
+                                     isAttackDirectionReversed: record.isAttackDirectionReversed)
+                        .frame(height: 300)
                 }
                 
                 // 운동장 선택
@@ -284,7 +266,9 @@ private struct StatTile: View {
 }
 
 #if DEBUG
+#if DEBUG
 #Preview {
     WorkoutDetailView(record: WorkoutRecord(payload: .fake()))
 }
+#endif
 #endif

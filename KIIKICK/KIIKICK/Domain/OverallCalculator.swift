@@ -6,7 +6,7 @@ struct OverallBenchmark {
     let changesPerMinute: Double
     let accelerationThreshold: Double
 
-    // 목업 확인용으로 합의한 임시 기준. 실제 서비스 기준이 정해지면 이 설정만 교체한다.
+    // OVR 계산에 사용하는 기존 임시 기준. 실제 서비스 기준이 정해지면 이 설정만 교체한다.
     static let provisional = OverallBenchmark(
         metersPerMinute: 100, peakSpeedKmh: 25, changesPerMinute: 2,
         accelerationThreshold: 0.5

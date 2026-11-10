@@ -6,8 +6,7 @@
 //  이슈 #43: 이 화면 전체를 조립하기 전에 컴포넌트만 먼저 만들어 둔다).
 //  bg color-surface-primary(gray850), radius-lg(16), padding 16, 세로 gap 12.
 //
-//  DESIGN-GAP: 실제 히트맵 이미지가 아직 없어 AnalysisDetailView의 heatmapCarousel과
-//  같은 회색 placeholder를 그대로 쓴다.
+//  운동장이 지정된 쿼터는 실제 포인트의 히트맵을 표시한다.
 //
 
 import SwiftUI
@@ -15,6 +14,8 @@ import SwiftUI
 struct CardQuarterView: View {
     let quarterNumber: Int
     let durationText: String
+    var field: Field? = nil
+    var points: [TrackPoint] = []
     @Binding var position: String
     @Binding var isFlipped: Bool
     /// 포지션을 수정했을 때만 "CM → LB"처럼 보여준다. 좌우반전은 별도 표기하지 않는다.
@@ -45,14 +46,8 @@ struct CardQuarterView: View {
                 PositionDropdownView(position: $position)
             }
 
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color.gray850)
-                .frame(height: 220)
-                .overlay(
-                    Image(systemName: "map")
-                        .font(.system(size: 32))
-                        .foregroundStyle(.gray500)
-                )
+            TrackingMapPager(field: field, points: points, isAttackDirectionReversed: isFlipped)
+                .frame(height: 248)
 
             HStack {
                 Text("공격 방향 →")

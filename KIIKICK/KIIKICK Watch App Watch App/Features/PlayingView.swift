@@ -6,11 +6,20 @@
 //
 
 import SwiftUI
+import WatchKit
 
 struct PlayingView: View {
 
     enum ScoreType: String {
         case goal, assist
+
+        /// 득점과 어시스트를 화면을 보지 않고도 구분할 수 있는 기본 햅틱.
+        var hapticType: WKHapticType {
+            switch self {
+            case .goal: .success
+            case .assist: .directionUp
+            }
+        }
 
         var icon: Image {
             switch self {
@@ -74,13 +83,19 @@ struct PlayingView: View {
                     Spacer()
                     StepperWatchView(
                         count: $count,
-                        onIncrement: { workoutManager.recordEvent(type: eventType) },
+                        onIncrement: incrementScore,
                         onDecrement: { workoutManager.removeLastEvent(type: eventType) }
                     )
                     .frame(width: geo.size.width - 32)
                 }
                 .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
             }
+        }
+
+        private func incrementScore() {
+            workoutManager.recordEvent(type: eventType)
+            // GPS 수신 전에도 카운트는 증가하므로 입력 피드백은 항상 제공한다.
+            WKInterfaceDevice.current().play(type.hapticType)
         }
     }
 

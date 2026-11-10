@@ -99,31 +99,10 @@ struct TimelineView: View {
     }
 
     private var mapViewer: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.gray850)
-                if let field = quarter.field {
-                    FieldHeatmapView(field: field, points: quarter.points)
-                        .frame(width: geo.size.width, height: geo.size.height)
-                } else {
-                    Image(systemName: "map")
-                        .font(.system(size: 32))
-                        .foregroundStyle(.gray500)
-                        .frame(width: geo.size.width, height: geo.size.height)
-                }
-
-                ForEach(quarter.events) { event in
-                    Image(event.type.iconName)
-                        .renderingMode(.original)
-                        .resizable()
-                        .frame(width: 28, height: 28)
-                        .position(x: event.position.x * geo.size.width, y: event.position.y * geo.size.height)
-                }
-            }
-        }
-        .frame(height: 236)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
+        TrackingMapPager(field: quarter.field, points: quarter.points,
+                         isAttackDirectionReversed: quarter.isAttackDirectionReversed,
+                         events: quarter.events)
+            .frame(height: 264)
     }
 
     private func timeStat(label: String, value: String, unit: String) -> some View {

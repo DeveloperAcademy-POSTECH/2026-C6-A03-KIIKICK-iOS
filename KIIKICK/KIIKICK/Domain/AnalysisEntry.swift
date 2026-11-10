@@ -48,6 +48,11 @@ struct AnalysisQuarter: Identifiable, Hashable {
     let position: String?
     var isAttackDirectionReversed: Bool = false
     var sourceRecord: WorkoutRecord? = nil
+    /// 친구 결과 API의 쿼터별 집계. 로컬 분석은 기존 경기 집계를 사용한다.
+    var resultStats: [AnalysisStat]? = nil
+    var resultSections: [AnalysisSection]? = nil
+    var resultGoals: Int? = nil
+    var resultAssists: Int? = nil
     /// 실제 히트맵을 그릴 수 있는 운동장/경로 — 없으면(운동장 미선택) 히트맵 자리를 비운다.
     let field: Field?
     let points: [TrackPoint]
@@ -106,8 +111,8 @@ struct AnalysisDetail: Identifiable, Hashable {
     let title: String
     let quarters: [AnalysisQuarter]
     let keyStats: [AnalysisStat]
-    let goalCount: Int
-    let assistCount: Int
+    let goalCount: Int?
+    let assistCount: Int?
     let sections: [AnalysisSection]
     let disclaimer: String
 
@@ -116,8 +121,8 @@ struct AnalysisDetail: Identifiable, Hashable {
         title: String,
         quarters: [AnalysisQuarter],
         keyStats: [AnalysisStat],
-        goalCount: Int,
-        assistCount: Int,
+        goalCount: Int?,
+        assistCount: Int?,
         sections: [AnalysisSection],
         disclaimer: String
     ) {

@@ -36,19 +36,42 @@ struct FieldCreationView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    let editingField: Field?
     /// 등록을 취소해 이 플로우 전체를 닫아야 할 때 호출된다.
-    var onFinish: () -> Void = {}
+    var onFinish: () -> Void
     /// 등록을 마치고 "경기 준비" 화면(ReadyForMatchView)에서 "준비하기"를 눌렀을 때 호출된다.
-    var onFieldPrepared: ((Field) -> Void)? = nil
+    var onFieldPrepared: ((Field) -> Void)?
+    /// 분석 기록처럼 경기 준비 단계 없이 새 경기장을 즉시 사용할 때 호출된다.
+    var onFieldSaved: ((Field) -> Void)?
+    /// 기존 경기장 수정 완료 시 편집 화면 전체를 닫도록 호출부에 알린다.
+    var onFieldUpdated: ((Field) -> Void)?
 
-    @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
+    @State private var cameraPosition: MapCameraPosition
     @State private var locationManager = CLLocationManager()
     @State private var goNext = false
 
     /// 사용자가 찍은 원본 핀. 최대 4개. 찍은 순서는 FieldRectangleCorrector가 중앙값
     /// 기준으로 다시 매기므로 의미가 없다 — "몇 번째 핀을 찍었는지" 안내용으로만 쓴다.
-    @State private var rawPinCoordinates: [CLLocationCoordinate2D] = []
+    @State private var rawPinCoordinates: [CLLocationCoordinate2D]
     @State private var draggingIndex: Int?
+
+    @MainActor
+    init(
+        editingField: Field? = nil,
+        onFinish: @escaping () -> Void = {},
+        onFieldPrepared: ((Field) -> Void)? = nil,
+        onFieldSaved: ((Field) -> Void)? = nil,
+        onFieldUpdated: ((Field) -> Void)? = nil
+    ) {
+        self.editingField = editingField
+        self.onFinish = onFinish
+        self.onFieldPrepared = onFieldPrepared
+        self.onFieldSaved = onFieldSaved
+        self.onFieldUpdated = onFieldUpdated
+        let coordinates = editingField.map(Self.editingCoordinates(for:)) ?? []
+        _rawPinCoordinates = State(initialValue: coordinates)
+        _cameraPosition = State(initialValue: Self.initialCameraPosition(for: coordinates))
+    }
 
     private var guidanceText: String {
         switch rawPinCoordinates.count {
@@ -115,14 +138,19 @@ struct FieldCreationView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 88)
 
-                CtaView(text: "추가", type: .primary, size: .large, isActive: rawPinCoordinates.count == 4) {
+                CtaView(
+                    text: editingField == nil ? "추가" : "다음",
+                    type: .primary,
+                    size: .large,
+                    isActive: rawPinCoordinates.count == 4
+                ) {
                     goNext = rawPinCoordinates.count == 4
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
             }
         }
-        .navigationTitle("경기장 등록")
+        .navigationTitle(editingField == nil ? "경기장 등록" : "경기장 수정")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .tabBar)
@@ -135,8 +163,45 @@ struct FieldCreationView: View {
             locationManager.requestWhenInUseAuthorization()
         }
         .navigationDestination(isPresented: $goNext) {
-            FieldNamingView(rawCoordinates: rawPinCoordinates, onFinish: onFinish, onFieldPrepared: onFieldPrepared)
+            FieldNamingView(
+                rawCoordinates: rawPinCoordinates,
+                editingField: editingField,
+                onFinish: onFinish,
+                onFieldPrepared: onFieldPrepared,
+                onFieldSaved: onFieldSaved,
+                onFieldUpdated: onFieldUpdated
+            )
         }
+    }
+
+    private static func editingCoordinates(for field: Field) -> [CLLocationCoordinate2D] {
+        let rawCorners = [field.rawCornerA, field.rawCornerB, field.rawCornerC, field.rawCornerD]
+        let corners: [FieldCorner]
+        if rawCorners.allSatisfy({ $0 != nil }) {
+            corners = rawCorners.compactMap { $0 }
+        } else {
+            corners = [field.cornerA, field.cornerB, field.cornerC, field.cornerD]
+        }
+        return corners.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+    }
+
+    private static func initialCameraPosition(for coordinates: [CLLocationCoordinate2D]) -> MapCameraPosition {
+        guard !coordinates.isEmpty else { return .userLocation(fallback: .automatic) }
+        let latitudes = coordinates.map(\.latitude)
+        let longitudes = coordinates.map(\.longitude)
+        guard let minLatitude = latitudes.min(), let maxLatitude = latitudes.max(),
+              let minLongitude = longitudes.min(), let maxLongitude = longitudes.max() else {
+            return .automatic
+        }
+        let center = CLLocationCoordinate2D(
+            latitude: (minLatitude + maxLatitude) / 2,
+            longitude: (minLongitude + maxLongitude) / 2
+        )
+        let span = MKCoordinateSpan(
+            latitudeDelta: max((maxLatitude - minLatitude) * 2, 0.0005),
+            longitudeDelta: max((maxLongitude - minLongitude) * 2, 0.0005)
+        )
+        return .region(MKCoordinateRegion(center: center, span: span))
     }
 
     // MARK: - 핀 (드래그로 조정)

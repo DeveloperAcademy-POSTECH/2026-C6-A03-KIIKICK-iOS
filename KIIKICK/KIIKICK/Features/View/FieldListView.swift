@@ -25,24 +25,48 @@ import SwiftData
 
 struct FieldListView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    // `isArchived` 조건을 SwiftData predicate로 넣으면, 비어 있는 저장소에서도
+    // `@Query`가 계속 재평가되어 화면 렌더링 루프에 빠진다. 정렬만 SwiftData에
+    // 맡기고, 보관 항목은 표시 직전에 제외한다.
     @Query(sort: \Field.name) private var fields: [Field]
     @State private var isPresentingRegistration = false
     @State private var selectedField: Field?
+    @State private var isSynchronizing = false
+    @State private var synchronizationError: String?
     var onFieldPrepared: ((Field) -> Void)? = nil
+    /// 분석 준비 중 기존 기록에 운동장을 연결할 때는 경기 준비 화면을 거치지 않는다.
+    var onFieldSelected: ((Field) -> Void)? = nil
 
     var body: some View {
+        let activeFields = fields.filter { !$0.isArchived }
+
         ScrollView {
             VStack(spacing: 16) {
-                CtaView(text: "새 경기장 등록하기", type: .secondary, size: .large) {
+                CtaView(
+                    text: "새 경기장 등록하기",
+                    type: .secondary,
+                    size: .large,
+                    isActive: !isSynchronizing
+                ) {
                     isPresentingRegistration = true
                 }
 
-                if fields.isEmpty {
+                if isSynchronizing && activeFields.isEmpty {
+                    ProgressView("경기장을 불러오는 중...")
+                        .tint(.mint500)
+                        .foregroundStyle(.gray300)
+                        .padding(.top, 32)
+                } else if let synchronizationError {
+                    synchronizationErrorView(synchronizationError)
+                }
+
+                if activeFields.isEmpty && !isSynchronizing {
                     emptyState
                         .padding(.top, 48)
                 } else {
-                    VStack(spacing: 16) {
-                        ForEach(fields) { field in
+                    LazyVStack(spacing: 16) {
+                        ForEach(activeFields) { field in
                             fieldRow(field)
                         }
                     }
@@ -59,6 +83,8 @@ struct FieldListView: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             header
         }
+        .task { await synchronizeFields() }
+        .refreshable { await synchronizeFields() }
         .navigationDestination(item: $selectedField) { field in
             ReadyForMatchView(
                 field: field,
@@ -73,22 +99,48 @@ struct FieldListView: View {
                     onFieldPrepared: { field in
                         isPresentingRegistration = false
                         onFieldPrepared?(field)
-                    }
+                    },
+                    onFieldSaved: directFieldSaveHandler
                 )
             }
         }
     }
 
-    @ViewBuilder
     private func fieldRow(_ field: Field) -> some View {
-        if onFieldPrepared != nil {
-            Button { selectedField = field } label: {
-                NaviRowView(text: field.name, textStyle: .title3M)
+        Button {
+            if let onFieldSelected {
+                onFieldSelected(field)
+                dismiss()
+            } else {
+                selectedField = field
             }
-            .buttonStyle(.plain)
-        } else {
+        } label: {
             NaviRowView(text: field.name, textStyle: .title3M)
         }
+        .buttonStyle(.plain)
+        .disabled(isSynchronizing)
+    }
+
+    private var directFieldSaveHandler: ((Field) -> Void)? {
+        guard let onFieldSelected else { return nil }
+        return { field in
+            isPresentingRegistration = false
+            onFieldSelected(field)
+        }
+    }
+
+    private func synchronizationErrorView(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Text(message)
+                .font(.body4R)
+                .foregroundStyle(.gray300)
+                .multilineTextAlignment(.center)
+            Button("다시 불러오기") { Task { await synchronizeFields() } }
+                .font(.label4SB)
+                .foregroundStyle(.mint500)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
     }
 
     private var emptyState: some View {
@@ -126,6 +178,19 @@ struct FieldListView: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .background(Color.gray950)
+    }
+
+    private func synchronizeFields() async {
+        guard UserSession.token != nil, !isSynchronizing else { return }
+        isSynchronizing = true
+        synchronizationError = nil
+        defer { isSynchronizing = false }
+        do {
+            try await VenueStore.synchronize(context: modelContext)
+        } catch {
+            guard !Task.isCancelled else { return }
+            synchronizationError = "경기장 목록을 동기화하지 못했어요.\n로컬 경기장은 그대로 사용할 수 있어요."
+        }
     }
 }
 

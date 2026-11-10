@@ -2,6 +2,7 @@ import SwiftUI
 
 protocol HeatmapRenderer {
     func render(in context: GraphicsContext, size: CGSize, normalizedPoints: [CGPoint])
+    func render(in context: GraphicsContext, size: CGSize, weightedNormalizedPoints: [WeightedHeatmapPoint])
 }
 
 struct GridDensityHeatmapRenderer: HeatmapRenderer {
@@ -15,7 +16,11 @@ struct GridDensityHeatmapRenderer: HeatmapRenderer {
     }
 
     func render(in context: GraphicsContext, size: CGSize, normalizedPoints: [CGPoint]) {
-        let values = density.values(for: normalizedPoints)
+        render(in: context, size: size, weightedNormalizedPoints: normalizedPoints.map { WeightedHeatmapPoint(location: $0, weight: 1) })
+    }
+
+    func render(in context: GraphicsContext, size: CGSize, weightedNormalizedPoints: [WeightedHeatmapPoint]) {
+        let values = density.values(for: weightedNormalizedPoints)
         let width = size.width / CGFloat(density.columns)
         let height = size.height / CGFloat(density.rows)
         context.drawLayer { layer in

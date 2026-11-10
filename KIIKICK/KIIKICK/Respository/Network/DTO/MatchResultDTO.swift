@@ -25,6 +25,8 @@ struct ResultWorkout: Decodable {
     let endDate: Date
     let totalCalories: Double
     let totalDistance: Double
+    var events: [ResultWorkoutEvent]? = nil
+    var field: WorkoutFieldPayload? = nil
 }
 
 struct MetricStatusEntry: Decodable {

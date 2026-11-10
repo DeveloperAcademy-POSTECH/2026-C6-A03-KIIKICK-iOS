@@ -17,6 +17,10 @@ struct RootView: View {
                 SplashView()
             case .auth:
                 StartView()
+            case .onboarding:
+                NavigationStack {
+                    SignUpNicknameView(registrationToken: nil, password: nil)
+                }
             case .main:
                 MainView()
                     .environment(SessionManager.shared)

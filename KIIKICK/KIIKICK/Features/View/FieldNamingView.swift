@@ -30,33 +30,47 @@ struct FieldNamingView: View {
 
     /// 사용자가 찍은 순서 그대로의 원본 4핀. 보정된 직사각형은 이 값으로부터 계산한다.
     let rawCoordinates: [CLLocationCoordinate2D]
+    let editingField: Field?
     /// 등록 자체를 취소하고 이 플로우 전체를 닫을 때(뒤로가기/등록 취소) 호출된다.
     var onFinish: () -> Void = {}
     /// 저장된 Field에서 "경기 준비" 화면의 "준비하기"를 눌렀을 때 호출된다.
     var onFieldPrepared: ((Field) -> Void)? = nil
+    /// 분석 기록처럼 경기 준비 단계 없이 새 경기장을 즉시 사용할 때 호출된다.
+    var onFieldSaved: ((Field) -> Void)? = nil
+    var onFieldUpdated: ((Field) -> Void)? = nil
 
-    @State private var fieldName: String = ""
+    @State private var fieldName: String
     @State private var isPresentingLeaveConfirm = false
     @State private var saveErrorMessage: String?
     @State private var savedField: Field?
+    @State private var isSaving = false
+    @State private var pendingCreateName: String?
+    @State private var pendingCreateKey: UUID?
 
-    private static let maxNameLength = 18
-
-    private var trimmedName: String {
-        fieldName.trimmingCharacters(in: .whitespacesAndNewlines)
+    init(
+        rawCoordinates: [CLLocationCoordinate2D],
+        editingField: Field? = nil,
+        onFinish: @escaping () -> Void = {},
+        onFieldPrepared: ((Field) -> Void)? = nil,
+        onFieldSaved: ((Field) -> Void)? = nil,
+        onFieldUpdated: ((Field) -> Void)? = nil
+    ) {
+        self.rawCoordinates = rawCoordinates
+        self.editingField = editingField
+        self.onFinish = onFinish
+        self.onFieldPrepared = onFieldPrepared
+        self.onFieldSaved = onFieldSaved
+        self.onFieldUpdated = onFieldUpdated
+        _fieldName = State(initialValue: editingField?.name ?? "")
     }
 
-    /// 이모지만 막는다 — 일반 특수문자는 Figma 주석에 "사용 가능"이라고 명시돼 있다.
-    private var containsDisallowedCharacter: Bool {
-        fieldName.contains { $0.isKiikickFieldNameDisallowed }
+    private var trimmedName: String {
+        FieldNameRules.normalized(fieldName)
     }
 
     private var validationErrorMessage: String? {
         if let saveErrorMessage { return saveErrorMessage }
-        if fieldName.count > Self.maxNameLength { return "경기장 이름은 최대 \(Self.maxNameLength)자까지 입력할 수 있어요" }
-        if !fieldName.isEmpty && trimmedName.isEmpty { return "공백만으로는 이름을 설정할 수 없어요" }
-        if containsDisallowedCharacter { return "사용할 수 없는 문자가 포함되어 있어요" }
-        return nil
+        return FieldNameRules.validationMessage(for: fieldName)
     }
 
     private var textFieldState: KiikickTextFieldState {
@@ -65,9 +79,7 @@ struct FieldNamingView: View {
     }
 
     private var canSave: Bool {
-        !trimmedName.isEmpty
-            && fieldName.count <= Self.maxNameLength
-            && !containsDisallowedCharacter
+        FieldNameRules.canSave(fieldName) && !isSaving
     }
 
     private var correctedCoordinates: [CLLocationCoordinate2D] {
@@ -84,15 +96,15 @@ struct FieldNamingView: View {
                 placeholder: "경기장 이름을 지어주세요",
                 state: textFieldState,
                 errorMessage: validationErrorMessage ?? "",
-                maxCount: Self.maxNameLength
+                maxCount: FieldNameRules.maxLength
             )
             .onChange(of: fieldName) { _, _ in saveErrorMessage = nil }
             .padding(.horizontal, 24)
 
             Spacer()
 
-            CtaView(text: "등록 완료", type: .primary, size: .large, isActive: canSave) {
-                save()
+            CtaView(text: actionTitle, type: .primary, size: .large, isActive: canSave) {
+                Task { await save() }
             }
             .padding(.horizontal, 24)
         }
@@ -100,7 +112,7 @@ struct FieldNamingView: View {
         .padding(.top, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.gray950)
-        .navigationTitle("경기장 등록")
+        .navigationTitle(editingField == nil ? "경기장 등록" : "경기장 수정")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .tabBar)
@@ -109,9 +121,9 @@ struct FieldNamingView: View {
                 Button { handleBack() } label: { Image(systemName: "chevron.backward") }
             }
         }
-        .alert("경기장 등록을 취소할까요?", isPresented: $isPresentingLeaveConfirm) {
-            Button("계속 등록", role: .cancel) {}
-            Button("등록 취소", role: .destructive) { onFinish() }
+        .alert(editingField == nil ? "경기장 등록을 취소할까요?" : "경기장 수정을 취소할까요?", isPresented: $isPresentingLeaveConfirm) {
+            Button(editingField == nil ? "계속 등록" : "계속 수정", role: .cancel) {}
+            Button(editingField == nil ? "등록 취소" : "수정 취소", role: .destructive) { onFinish() }
         } message: {
             Text("입력한 내용은 저장되지 않아요.")
         }
@@ -136,37 +148,56 @@ struct FieldNamingView: View {
         }
     }
 
-    private func save() {
-        guard canSave, rawCoordinates.count == 4 else { return }
-        let corrected = correctedCoordinates
-        let field = Field(
-            name: trimmedName,
-            cornerA: FieldCorner(latitude: corrected[0].latitude, longitude: corrected[0].longitude),
-            cornerB: FieldCorner(latitude: corrected[1].latitude, longitude: corrected[1].longitude),
-            cornerC: FieldCorner(latitude: corrected[2].latitude, longitude: corrected[2].longitude),
-            cornerD: FieldCorner(latitude: corrected[3].latitude, longitude: corrected[3].longitude),
-            rawCornerA: FieldCorner(latitude: rawCoordinates[0].latitude, longitude: rawCoordinates[0].longitude),
-            rawCornerB: FieldCorner(latitude: rawCoordinates[1].latitude, longitude: rawCoordinates[1].longitude),
-            rawCornerC: FieldCorner(latitude: rawCoordinates[2].latitude, longitude: rawCoordinates[2].longitude),
-            rawCornerD: FieldCorner(latitude: rawCoordinates[3].latitude, longitude: rawCoordinates[3].longitude)
-        )
-        modelContext.insert(field)
-        do {
-            try modelContext.save()
-            savedField = field
-        } catch {
-            modelContext.delete(field)
-            saveErrorMessage = "경기장을 등록하지 못했어요. 다시 시도해 주세요"
-        }
+    private var actionTitle: String {
+        if isSaving { return editingField == nil ? "등록 중..." : "수정 중..." }
+        return editingField == nil ? "등록 완료" : "수정 완료"
     }
-}
 
-private extension Character {
-    /// 이모지(실제로 그려지는 것들)만 걸러낸다 — 숫자/# 같은 "isEmoji=true"지만 평소엔
-    /// 일반 글자로 보이는 스칼라까지 막으면 과하다.
-    var isKiikickFieldNameDisallowed: Bool {
-        guard let scalar = unicodeScalars.first else { return false }
-        return scalar.properties.isEmojiPresentation || (scalar.properties.isEmoji && scalar.value > 0x238C)
+    private func save() async {
+        guard canSave, rawCoordinates.count == 4 else { return }
+        isSaving = true
+        defer { isSaving = false }
+        let corrected = correctedCoordinates
+        let correctedCorners = corrected.map { FieldCorner(latitude: $0.latitude, longitude: $0.longitude) }
+        let rawCorners = rawCoordinates.map { FieldCorner(latitude: $0.latitude, longitude: $0.longitude) }
+        if pendingCreateName != trimmedName {
+            pendingCreateName = trimmedName
+            pendingCreateKey = UUID()
+        }
+        guard let idempotencyKey = pendingCreateKey else { return }
+        do {
+            if let editingField {
+                try await VenueStore.update(
+                    editingField,
+                    name: trimmedName,
+                    correctedCorners: correctedCorners,
+                    rawCorners: rawCorners,
+                    idempotencyKey: idempotencyKey,
+                    context: modelContext
+                )
+                onFieldUpdated?(editingField)
+            } else {
+                let field = try await VenueStore.create(
+                    name: trimmedName,
+                    correctedCorners: correctedCorners,
+                    rawCorners: rawCorners,
+                    idempotencyKey: idempotencyKey,
+                    context: modelContext
+                )
+                if let onFieldSaved {
+                    onFieldSaved(field)
+                } else {
+                    savedField = field
+                }
+            }
+        } catch {
+            guard !Task.isCancelled else { return }
+            if case let NetworkError.invalidHttpStatusCode(_, message) = error {
+                saveErrorMessage = message ?? "경기장을 등록하지 못했어요. 다시 시도해 주세요"
+            } else {
+                saveErrorMessage = "경기장을 등록하지 못했어요. 네트워크 연결을 확인해 주세요"
+            }
+        }
     }
 }
 

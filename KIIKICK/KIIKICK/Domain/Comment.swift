@@ -28,6 +28,7 @@ struct Comment: Identifiable, Hashable {
     let id: UUID
     let authorNickname: String
     let avatarImageName: String?
+    let avatarURL: String?
     let content: String
     let timestamp: String
     let replies: [CommentReply]
@@ -36,6 +37,7 @@ struct Comment: Identifiable, Hashable {
         id: UUID = UUID(),
         authorNickname: String,
         avatarImageName: String? = nil,
+        avatarURL: String? = nil,
         content: String,
         timestamp: String,
         replies: [CommentReply] = []
@@ -43,6 +45,7 @@ struct Comment: Identifiable, Hashable {
         self.id = id
         self.authorNickname = authorNickname
         self.avatarImageName = avatarImageName
+        self.avatarURL = avatarURL
         self.content = content
         self.timestamp = timestamp
         self.replies = replies

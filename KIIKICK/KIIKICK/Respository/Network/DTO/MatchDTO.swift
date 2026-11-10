@@ -21,7 +21,7 @@ struct VenueSnapshot: Codable {
     let address: String?
 }
 
-struct MatchResponse: Decodable, Identifiable {
+struct MatchResponse: Codable, Identifiable {
     let id: UUID
     let ownerId: UUID
     let title: String?

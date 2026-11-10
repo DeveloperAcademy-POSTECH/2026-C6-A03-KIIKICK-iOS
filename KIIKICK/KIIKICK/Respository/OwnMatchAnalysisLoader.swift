@@ -3,9 +3,15 @@ import Foundation
 import SwiftUI
 
 /// 업로드가 끝난 본인 경기만 분석 탭에 복원한다.
+struct OwnMatchAnalysisSnapshot: Codable {
+    let result: MatchResultResponse
+    let quarters: [QuarterResultResponse]
+    let pointsByQuarter: [UUID: [TrackPointResponse]]
+}
+
 @MainActor
 enum OwnMatchAnalysisLoader {
-    static func load(provider: (any Provider)? = nil) async throws -> [AnalysisEntry] {
+    static func load(excluding knownIDs: Set<UUID>, provider: (any Provider)? = nil) async throws -> [OwnMatchAnalysisSnapshot] {
         let provider = provider ?? NetworkService.provider
         var matches: [MatchResponse] = []
         var cursor: String?
@@ -20,12 +26,12 @@ enum OwnMatchAnalysisLoader {
             cursor = next
         } while true
 
-        var entries: [AnalysisEntry] = []
-        for match in matches {
+        var snapshots: [OwnMatchAnalysisSnapshot] = []
+        for match in matches where !knownIDs.contains(match.id) {
             try Task.checkCancellation()
             do {
-                guard let entry = try await loadMatch(match.id, provider: provider, includePoints: false) else { continue }
-                entries.append(entry)
+                guard let snapshot = try await loadMatch(match.id, provider: provider) else { continue }
+                snapshots.append(snapshot)
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -33,14 +39,10 @@ enum OwnMatchAnalysisLoader {
                 continue
             }
         }
-        return entries.sorted { $0.date > $1.date }
+        return snapshots
     }
 
-    static func loadDetail(matchID: UUID, provider: (any Provider)? = nil) async throws -> AnalysisEntry? {
-        try await loadMatch(matchID, provider: provider ?? NetworkService.provider, includePoints: true)
-    }
-
-    private static func loadMatch(_ id: UUID, provider: any Provider, includePoints: Bool) async throws -> AnalysisEntry? {
+    private static func loadMatch(_ id: UUID, provider: any Provider) async throws -> OwnMatchAnalysisSnapshot? {
         let response = try await provider.request(with: MatchResultEndpoints.matchResult(matchId: id))
         var quarters: [QuarterResultResponse] = []
         var cursor: String?
@@ -55,12 +57,25 @@ enum OwnMatchAnalysisLoader {
             cursor = next
         } while true
         // 현재 workout-submissions는 분석 보기에서만 호출된다. 완전한 제출 결과만 목록에 둔다.
-        guard let base = FriendMatchAnalysis(result: response.data, quarters: quarters)?.entry else { return nil }
-        let resultsByID = Dictionary(uniqueKeysWithValues: quarters.map { ($0.quarter.id, $0) })
+        guard FriendMatchAnalysis(result: response.data, quarters: quarters) != nil else { return nil }
+        var pointsByQuarter: [UUID: [TrackPointResponse]] = [:]
+        for quarter in quarters {
+            pointsByQuarter[quarter.quarter.id] = try await loadPoints(quarterID: quarter.quarter.id, provider: provider)
+        }
+        return OwnMatchAnalysisSnapshot(result: response.data, quarters: quarters, pointsByQuarter: pointsByQuarter)
+    }
+
+    static func entry(from snapshot: OwnMatchAnalysisSnapshot) -> AnalysisEntry? {
+        guard let base = FriendMatchAnalysis(result: snapshot.result, quarters: snapshot.quarters)?.entry else { return nil }
+        let resultsByID = Dictionary(uniqueKeysWithValues: snapshot.quarters.map { ($0.quarter.id, $0) })
         var restored: [AnalysisQuarter] = []
         for quarter in base.detail.quarters {
-            guard let result = resultsByID[quarter.id] else { throw NetworkError.decodeError }
-            let points = includePoints ? try await loadPoints(quarterID: quarter.id, provider: provider) : []
+            guard let result = resultsByID[quarter.id] else { return nil }
+            let points = (snapshot.pointsByQuarter[quarter.id] ?? []).map { value in
+                TrackPoint(latitude: value.latitude, longitude: value.longitude, altitude: value.altitude,
+                    horizontalAccuracy: value.horizontalAccuracy, speed: value.speed,
+                    course: value.course, timestamp: value.timestamp)
+            }
             let events = (result.workout?.events ?? []).compactMap { event -> AnalysisMatchEvent? in
                 guard let location = event.location else { return nil }
                 let timestamp = Date(timeIntervalSinceReferenceDate: location.timestamp)
@@ -91,25 +106,21 @@ enum OwnMatchAnalysisLoader {
             restored.append(item)
         }
         let detail = base.detail
-        return AnalysisEntry(id: id, date: base.date, dateAndQuarter: base.dateAndQuarter,
+        return AnalysisEntry(id: snapshot.result.match.id, date: base.date, dateAndQuarter: base.dateAndQuarter,
             fieldName: base.fieldName, stats: base.stats,
             detail: AnalysisDetail(id: detail.id, title: detail.title, quarters: restored,
                 keyStats: detail.keyStats, goalCount: detail.goalCount, assistCount: detail.assistCount,
                 sections: detail.sections, disclaimer: "히트맵과 포지션이 정확한지 확인해주세요"))
     }
 
-    private static func loadPoints(quarterID: UUID, provider: any Provider) async throws -> [TrackPoint] {
-        var points: [TrackPoint] = []
+    private static func loadPoints(quarterID: UUID, provider: any Provider) async throws -> [TrackPointResponse] {
+        var points: [TrackPointResponse] = []
         var cursor: String?
         var seenCursors = Set<String>()
         repeat {
             let page = try await provider.request(with: QuarterWorkoutEndpoints.trackPoints(
                 quarterId: quarterID, cursor: cursor, limit: 100))
-            points += page.data.map { value in
-                TrackPoint(latitude: value.latitude, longitude: value.longitude, altitude: value.altitude,
-                    horizontalAccuracy: value.horizontalAccuracy, speed: value.speed,
-                    course: value.course, timestamp: value.timestamp)
-            }
+            points += page.data
             guard page.meta.pagination.hasNext else { break }
             guard let next = page.meta.pagination.nextCursor, seenCursors.insert(next).inserted else {
                 throw NetworkError.components

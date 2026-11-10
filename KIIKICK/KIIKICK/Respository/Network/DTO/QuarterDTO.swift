@@ -8,13 +8,13 @@
 
 import Foundation
 
-enum QuarterStatus: String, Decodable {
+enum QuarterStatus: String, Codable {
     case ready = "READY"
     case inProgress = "IN_PROGRESS"
     case completed = "COMPLETED"
 }
 
-struct QuarterResponse: Decodable, Identifiable {
+struct QuarterResponse: Codable, Identifiable {
     let id: UUID
     let matchId: UUID
     let number: Int
@@ -31,7 +31,7 @@ struct QuarterDurationRequest: Encodable {
     let durationSeconds: Int
 }
 
-struct QuarterPlayerStatsResponse: Decodable {
+struct QuarterPlayerStatsResponse: Codable {
     let quarterId: UUID
     let goals: Int
     let assists: Int
@@ -43,7 +43,7 @@ struct QuarterPlayerStatsRequest: Encodable {
     let assists: Int
 }
 
-struct PositionEntryResponse: Decodable {
+struct PositionEntryResponse: Codable {
     let quarterId: UUID
     let positionCode: String
     let updatedAt: Date

@@ -1,9 +1,9 @@
 /// 업로드 이벤트의 좌표·시각은 친구에게 받은 GPS 경로로 간주하지 않는다. 개수만 집계한다.
-struct ResultWorkoutEvent: Decodable {
+struct ResultWorkoutEvent: Codable {
     let type: String
     let location: Location?
 
-    struct Location: Decodable {
+    struct Location: Codable {
         let latitude: Double
         let longitude: Double
         let timestamp: Double

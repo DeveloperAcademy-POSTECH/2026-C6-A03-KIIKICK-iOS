@@ -36,13 +36,13 @@ enum AnalysisRoute: Hashable {
 }
 
 struct AnalysisView: View {
+    @Environment(\.modelContext) private var modelContext
     @Environment(AppRouter.self) private var router
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
+    @Query(sort: \CachedAnalysisMatch.savedAt, order: .reverse) private var cachedMatches: [CachedAnalysisMatch]
 
-    @State private var remoteEntries: [AnalysisEntry] = []
-    @State private var loadedUserID: UUID?
+    @State private var loadedUserID: UUID? = UserSession.userId
     @State private var isLoadingRemote = false
-    @State private var loadingDetailID: UUID?
     @State private var loadError: String?
     @State private var year = 2026
     @State private var month = 10
@@ -54,7 +54,9 @@ struct AnalysisView: View {
     private var entries: [AnalysisEntry] {
         let local = WorkoutMatchGrouping.groups(from: records).compactMap(AnalysisEntry.build(from:))
         let localIDs = Set(local.compactMap { $0.records.first?.matchId })
-        return (local + remoteEntries.filter { !localIDs.contains($0.id) })
+        let cached = cachedMatches.filter { $0.ownerID == loadedUserID && !localIDs.contains($0.matchID) }
+            .compactMap(\.entry)
+        return (local + cached)
             .sorted { $0.date > $1.date }
     }
 
@@ -109,10 +111,6 @@ struct AnalysisView: View {
                                 stats: entry.stats.map { CardSummaryView.Stat(label: $0.label, value: $0.value, unit: $0.unit) },
                                 action: { open(entry) }
                             )
-                            .disabled(loadingDetailID != nil)
-                        }
-                        if loadingDetailID != nil {
-                            ProgressView("분석 결과를 불러오는 중...").tint(.mint500)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -146,27 +144,15 @@ struct AnalysisView: View {
             // 보였다(이슈 #50 확인 중 발견). records가 바뀔 때마다 다시 확인한다.
             syncToLatestMonthIfNeeded()
         }
+        .onChange(of: cachedMatches) { _, _ in
+            syncToLatestMonthIfNeeded()
+        }
     }
 
     private func open(_ entry: AnalysisEntry) {
-        guard entry.records.isEmpty else {
-            let route: AnalysisRoute = entry.records.allSatisfy(\.hasViewedAnalysis)
-                ? .detail(entry) : .ready(entry)
-            router.paths[.analysis, default: .init()].append(route)
-            return
-        }
-        guard loadingDetailID == nil else { return }
-        loadingDetailID = entry.id
-        Task {
-            defer { loadingDetailID = nil }
-            do {
-                guard let detail = try await OwnMatchAnalysisLoader.loadDetail(matchID: entry.id),
-                      UserSession.userId == loadedUserID else { return }
-                router.paths[.analysis, default: .init()].append(AnalysisRoute.detail(detail))
-            } catch {
-                loadError = error.localizedDescription
-            }
-        }
+        let route: AnalysisRoute = entry.records.isEmpty || entry.records.allSatisfy(\.hasViewedAnalysis)
+            ? .detail(entry) : .ready(entry)
+        router.paths[.analysis, default: .init()].append(route)
     }
 
     private func loadRemoteEntries() async {
@@ -176,16 +162,21 @@ struct AnalysisView: View {
             return
         }
         let userID = UserSession.userId
-        if loadedUserID != userID {
-            remoteEntries = []
-            loadedUserID = userID
-        }
+        loadedUserID = userID
         isLoadingRemote = true
         defer { isLoadingRemote = false }
         do {
-            let loaded = try await OwnMatchAnalysisLoader.load()
+            guard let userID else { return }
+            let localIDs = Set(WorkoutMatchGrouping.groups(from: records).compactMap { $0.first?.matchId })
+            let cachedIDs = Set(cachedMatches.filter { $0.ownerID == userID }.map(\.matchID))
+            let loaded = try await OwnMatchAnalysisLoader.load(excluding: localIDs.union(cachedIDs))
             guard UserSession.userId == userID else { return }
-            remoteEntries = loaded
+            for snapshot in loaded {
+                let cached = try CachedAnalysisMatch(matchID: snapshot.result.match.id,
+                    ownerID: userID, snapshot: snapshot)
+                modelContext.insert(cached)
+            }
+            try modelContext.save()
             syncToLatestMonthIfNeeded()
         } catch {
             // 로컬 기록은 계속 표시하고, 다음 진입 때 다시 조회한다.

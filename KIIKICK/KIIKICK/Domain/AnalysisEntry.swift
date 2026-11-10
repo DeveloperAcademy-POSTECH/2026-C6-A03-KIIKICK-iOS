@@ -24,17 +24,19 @@ enum TimelineEventType {
 }
 
 /// TimelineView(이슈 #43)의 지도 위에 찍을 골/어시스트 한 건. `position`은 지도 뷰 안에서의
-/// 상대 좌표(0...1, 왼쪽위가 원점)다 — 실제 위치 변환 로직이 없어 목업 좌표를 그대로 쓴다.
+/// 상대 좌표(0...1, 왼쪽위가 원점)다. timestamp는 워치에서 이벤트를 누른 시각이다.
 struct AnalysisMatchEvent: Identifiable, Hashable {
     let id: UUID
     let type: TimelineEventType
     let timeText: String
+    let timestamp: Date
     let position: UnitPoint
 
-    init(id: UUID = UUID(), type: TimelineEventType, timeText: String, position: UnitPoint) {
+    init(id: UUID = UUID(), type: TimelineEventType, timeText: String, timestamp: Date, position: UnitPoint) {
         self.id = id
         self.type = type
         self.timeText = timeText
+        self.timestamp = timestamp
         self.position = position
     }
 }
@@ -43,6 +45,8 @@ struct AnalysisQuarter: Identifiable, Hashable {
     let id: UUID
     let quarterNumber: Int
     let durationText: String
+    let startDate: Date?
+    let duration: TimeInterval
     /// 워치 PositionView에서 고른 포지션(WorkoutPayload.position → WorkoutRecord.position).
     /// 강제 종료된 쿼터(이슈 #50)는 PositionView를 거치지 못해 계속 nil이다.
     let position: String?
@@ -61,13 +65,16 @@ struct AnalysisQuarter: Identifiable, Hashable {
     var maxSpeedKmh: Double { (points.map(\.speed).max() ?? 0) * 3.6 }
 
     init(
-        id: UUID = UUID(), quarterNumber: Int, durationText: String, position: String? = nil,
+        id: UUID = UUID(), quarterNumber: Int, durationText: String,
+        startDate: Date? = nil, duration: TimeInterval = 0, position: String? = nil,
         field: Field? = nil, points: [TrackPoint] = [], events: [AnalysisMatchEvent] = [],
         totalDistanceKm: Double = 0, totalCaloriesKcal: Double = 0
     ) {
         self.id = id
         self.quarterNumber = quarterNumber
         self.durationText = durationText
+        self.startDate = startDate
+        self.duration = duration
         self.position = position
         self.field = field
         self.points = points
@@ -165,8 +172,10 @@ struct AnalysisEntry: Identifiable, Hashable {
 /// WorkoutRecord 빌더(AnalysisEntry+WorkoutRecord.swift)가 채우는 모양을 그대로
 /// 손으로 흉내 낸 값이라, 운동장/실제 좌표 없이도 Preview가 뜬다.
 extension AnalysisEntry {
+    private static let previewDate = DateComponents(calendar: .current, year: 2026, month: 10, day: 28).date!
+
     static let previewSample = AnalysisEntry(
-        date: DateComponents(calendar: .current, year: 2026, month: 10, day: 28).date!,
+        date: previewDate,
         dateAndQuarter: "10월 28일 • 총 2Q",
         fieldName: "우리 집 앞 풋살장",
         stats: [
@@ -178,10 +187,10 @@ extension AnalysisEntry {
             title: "10월 28일",
             quarters: [
                 AnalysisQuarter(
-                    quarterNumber: 1, durationText: "26:03",
+                    quarterNumber: 1, durationText: "26:03", startDate: previewDate, duration: 1563,
                     events: [
-                        AnalysisMatchEvent(type: .goal, timeText: "03:12", position: UnitPoint(x: 0.72, y: 0.72)),
-                        AnalysisMatchEvent(type: .assist, timeText: "11:40", position: UnitPoint(x: 0.33, y: 0.42)),
+                        AnalysisMatchEvent(type: .goal, timeText: "03:12", timestamp: previewDate.addingTimeInterval(192), position: UnitPoint(x: 0.72, y: 0.72)),
+                        AnalysisMatchEvent(type: .assist, timeText: "11:40", timestamp: previewDate.addingTimeInterval(700), position: UnitPoint(x: 0.33, y: 0.42)),
                     ]
                 ),
                 AnalysisQuarter(quarterNumber: 2, durationText: "24:51"),

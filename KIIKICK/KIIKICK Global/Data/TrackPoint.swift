@@ -28,6 +28,11 @@ struct TrackPoint: Codable {
     }
     
     init(location: CLLocation) {
+        self.init(location: location, timestamp: location.timestamp)
+    }
+
+    /// 이벤트는 마지막 GPS 좌표를 사용하되, 시각은 버튼을 누른 순간으로 기록한다.
+    init(location: CLLocation, timestamp: Date) {
         self.init(
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude,
@@ -35,7 +40,7 @@ struct TrackPoint: Codable {
             horizontalAccuracy: location.horizontalAccuracy,
             speed: location.speed,
             course: location.course,
-            timestamp: location.timestamp
+            timestamp: timestamp
         )
     }
 }

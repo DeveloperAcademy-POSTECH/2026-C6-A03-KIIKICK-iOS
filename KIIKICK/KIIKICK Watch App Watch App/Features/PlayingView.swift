@@ -94,7 +94,7 @@ struct PlayingView: View {
 
         private func incrementScore() {
             workoutManager.recordEvent(type: eventType)
-            // GPS 수신 전에도 카운트는 증가하므로 입력 피드백은 항상 제공한다.
+            // GPS 수신 전 이벤트는 WorkoutManager가 보관했다가 첫 위치에 연결한다.
             WKInterfaceDevice.current().play(type.hapticType)
         }
     }

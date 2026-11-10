@@ -119,6 +119,7 @@ struct ReadyForDetailView: View {
             let updatedQuarters = quarters.enumerated().map { index, quarter in
                 var updated = AnalysisQuarter(
                     id: quarter.id, quarterNumber: quarter.quarterNumber, durationText: quarter.durationText,
+                    startDate: quarter.startDate, duration: quarter.duration,
                     position: positions[index], field: quarter.field, points: quarter.points, events: quarter.events,
                     totalDistanceKm: quarter.totalDistanceKm, totalCaloriesKcal: quarter.totalCaloriesKcal
                 )

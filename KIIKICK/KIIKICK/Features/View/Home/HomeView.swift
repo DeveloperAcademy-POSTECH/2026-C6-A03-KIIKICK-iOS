@@ -86,7 +86,7 @@ struct HomeView: View {
                     
                     OverallSummaryView(
                         stat: overallStat,
-                        matchCount: records.count,
+                        matchCount: WorkoutMatchGrouping.groups(from: records).count,
                         totalDistanceKm: totalDistanceKm,
                         avgCalories: avgCalories
                     )

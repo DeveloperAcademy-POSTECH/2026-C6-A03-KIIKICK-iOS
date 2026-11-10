@@ -36,8 +36,14 @@ struct AnalysisView: View {
     @State private var year = 2026
     @State private var month = 10
 
+    /// 한 경기 안에서 연달아 기록된 WorkoutRecord(쿼터)들을 모아 경기(AnalysisEntry)
+    /// 하나로 묶는다. 같은 운동장에서, 직전 쿼터가 끝난 시각으로부터 matchGroupingGap
+    /// 이내에 시작한 레코드만 같은 경기로 본다 — 운동장이 다르거나 간격이 벌어지면
+    /// 새 경기로 끊는다.
     private var entries: [AnalysisEntry] {
-        AnalysisEntry.grouped(from: records)
+        WorkoutMatchGrouping.groups(from: records)
+            .compactMap(AnalysisEntry.build(from:))
+            .sorted { $0.date > $1.date }
     }
 
     private var availableYearMonths: [YearMonth] {

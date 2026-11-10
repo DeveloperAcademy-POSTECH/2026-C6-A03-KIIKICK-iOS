@@ -15,8 +15,10 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct AnalysisDetailView: View {
+    @Environment(\.modelContext) private var modelContext
     let entry: AnalysisEntry
     let friendNickname: String?
     let friendUserID: UUID?
@@ -110,6 +112,11 @@ struct AnalysisDetailView: View {
         }
         .navigationDestination(isPresented: $pushedShare) {
             ShareImageView(keyStats: entry.detail.keyStats)
+        }
+        .onAppear {
+            guard friendNickname == nil, entry.records.contains(where: { !$0.hasViewedAnalysis }) else { return }
+            for record in entry.records { record.hasViewedAnalysis = true }
+            try? modelContext.save()
         }
         // 댓글은 세그먼트 전환이 아니라, 화면 아래 항상 떠 있는 바텀시트로 보여준다
         // (Figma "sheet/collapsed", node 735:11489) — 접힌 상태에서도 "댓글 N" 헤더가

@@ -7,9 +7,8 @@
 //  반복한다.
 //
 //  분석 플로우: AnalysisView(목록) → ReadyForDetailView(여기) → AnalyzingView →
-//  AnalysisDetailView → TimelineView. 실제 분석 API가 아직 없어서 "분석 보기"를
-//  누르면 포지션과 공격 방향을 로컬 기록에 저장하고 수정한 분석 데이터를 넘긴다.
-//  서버 저장 API 연동은 범위 밖.
+//  AnalysisDetailView → TimelineView. "분석 보기"를 누르면 포지션과 공격 방향을
+//  로컬 기록에 저장하고, 운동장은 venues API에 저장한 뒤 workout-submissions를 보낸다.
 //
 //  이슈 #50: iOS에서 경기를 강제 종료하면 워치가 PositionView를 거치지 못해 쿼터의
 //  포지션이 nil로 들어온다(AnalysisQuarter.position). 그런 쿼터는 "CM" 같은 값으로
@@ -34,6 +33,9 @@ struct ReadyForDetailView: View {
     @State private var flips: [Bool]
     @State private var isPositionConfirmed: [Bool]
     @State private var isPresentingPositionRequiredAlert = false
+    @State private var isPresentingFieldPicker = false
+    @State private var isPresentingFieldRequiredAlert = false
+    @State private var fieldsByQuarterID: [UUID: Field]
     @State private var saveError: String?
 
     private static let unselectedPositionPlaceholder = "선택 필요"
@@ -46,6 +48,13 @@ struct ReadyForDetailView: View {
         _positions = State(initialValue: entry.detail.quarters.map { $0.position ?? Self.unselectedPositionPlaceholder })
         _flips = State(initialValue: entry.detail.quarters.map(\.isAttackDirectionReversed))
         _isPositionConfirmed = State(initialValue: entry.detail.quarters.map { $0.position != nil })
+        var fields: [UUID: Field] = [:]
+        for quarter in entry.detail.quarters {
+            if let field = quarter.sourceRecord?.field ?? quarter.field {
+                fields[quarter.id] = field
+            }
+        }
+        _fieldsByQuarterID = State(initialValue: fields)
     }
 
     var body: some View {
@@ -57,11 +66,15 @@ struct ReadyForDetailView: View {
 
                 directionGuide
 
+                if hasMissingFields {
+                    fieldAssignmentNotice
+                }
+
                 ForEach(Array(quarters.enumerated()), id: \.element.id) { index, quarter in
                     CardQuarterView(
                         quarterNumber: quarter.quarterNumber,
                         durationText: quarter.durationText,
-                        field: quarter.field,
+                        field: field(for: quarter),
                         points: quarter.points,
                         position: Binding(
                             get: { positions[index] },
@@ -76,7 +89,13 @@ struct ReadyForDetailView: View {
                     Text("모든 쿼터의 설정을 한 번에 저장합니다.")
                         .font(.caption1M)
                         .foregroundStyle(.colorTextSecondary)
-                    CtaView(text: "분석 보기", type: .primary, size: .large, action: saveAndAnalyze)
+                    CtaView(
+                        text: "분석 보기",
+                        type: .primary,
+                        size: .large,
+                        isActive: !hasMissingFields,
+                        action: saveAndAnalyze
+                    )
                 }
             }
             .padding(.horizontal, 20)
@@ -104,9 +123,21 @@ struct ReadyForDetailView: View {
         } message: {
             Text("경기가 강제로 종료돼 포지션이 기록되지 않은 쿼터가 있어요. 분석을 보려면 모든 쿼터의 포지션을 선택해주세요.")
         }
+        .alert("운동장을 지정해주세요", isPresented: $isPresentingFieldRequiredAlert) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("운동장이 없는 쿼터가 있어요. 분석을 보려면 운동장을 지정해주세요.")
+        }
+        .navigationDestination(isPresented: $isPresentingFieldPicker) {
+            FieldListView(onFieldSelected: assignMissingFields)
+        }
     }
 
     private func saveAndAnalyze() {
+        guard !hasMissingFields else {
+            isPresentingFieldRequiredAlert = true
+            return
+        }
         guard !isPositionConfirmed.contains(false) else {
             isPresentingPositionRequiredAlert = true
             return
@@ -122,6 +153,7 @@ struct ReadyForDetailView: View {
             let updatedQuarters = quarters.enumerated().map { index, quarter in
                 var updated = AnalysisQuarter(
                     id: quarter.id, quarterNumber: quarter.quarterNumber, durationText: quarter.durationText,
+                    startDate: quarter.startDate, duration: quarter.duration,
                     position: positions[index], field: quarter.field, points: quarter.points, events: quarter.events,
                     totalDistanceKm: quarter.totalDistanceKm, totalCaloriesKcal: quarter.totalCaloriesKcal
                 )
@@ -132,7 +164,7 @@ struct ReadyForDetailView: View {
             let detail = entry.detail
             let updatedEntry = AnalysisEntry(
                 id: entry.id, date: entry.date, dateAndQuarter: entry.dateAndQuarter,
-                fieldName: entry.fieldName, stats: entry.stats,
+                fieldName: quarters.first.flatMap(field(for:))?.name ?? entry.fieldName, stats: entry.stats,
                 detail: AnalysisDetail(id: detail.id, title: detail.title, quarters: updatedQuarters,
                     keyStats: detail.keyStats, goalCount: detail.goalCount, assistCount: detail.assistCount,
                     sections: detail.sections, disclaimer: detail.disclaimer),
@@ -150,6 +182,51 @@ struct ReadyForDetailView: View {
         }
     }
 
+    private var hasMissingFields: Bool {
+        quarters.contains { field(for: $0) == nil }
+    }
+
+    private func field(for quarter: AnalysisQuarter) -> Field? {
+        fieldsByQuarterID[quarter.id] ?? quarter.sourceRecord?.field ?? quarter.field
+    }
+
+    private var fieldAssignmentNotice: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("운동장이 지정되지 않은 쿼터가 있어요")
+                .font(.label1M)
+                .foregroundStyle(.colorTextPrimary)
+            Text("운동장을 지정하면 히트맵과 분석 결과를 정확히 볼 수 있어요.")
+                .font(.body4R)
+                .foregroundStyle(.colorTextSecondary)
+            CtaView(text: "운동장 지정하기", type: .secondary, size: .small) {
+                isPresentingFieldPicker = true
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color.colorBackgroundSecondary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func assignMissingFields(_ field: Field) {
+        let missingQuarters = quarters.filter { self.field(for: $0) == nil }
+        let previousFields = missingQuarters.map { $0.sourceRecord?.field }
+        for quarter in missingQuarters {
+            quarter.sourceRecord?.field = field
+            fieldsByQuarterID[quarter.id] = field
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            for (index, quarter) in missingQuarters.enumerated() {
+                quarter.sourceRecord?.field = previousFields[index]
+                if previousFields[index] == nil {
+                    fieldsByQuarterID.removeValue(forKey: quarter.id)
+                }
+            }
+            saveError = error.localizedDescription
+        }
+    }
+
     /// 이슈 #66: quarter-workout-controller의 4번째 엔드포인트(workout-submissions)만
     /// 연동한다. 실제 서버 매치/쿼터가 아직 없어서(WorkoutRecord.matchId 주석 참고)
     /// iOS가 만든 matchId/quarterId를 그대로 보낸다 — 지금은 API가 호출되고 응답이
@@ -157,6 +234,17 @@ struct ReadyForDetailView: View {
     /// 막지 않는다(화면은 호출부가 바로 다음으로 넘어간다).
     private func submitWorkouts() async {
         guard let matchId = entry.records.first?.matchId else { return }
+        do {
+            let repairedCount = try repairDuplicateQuarterIDs(in: entry.records)
+            if repairedCount > 0 {
+                Self.logger.debug("workout-submissions: 중복 quarterId \(repairedCount, privacy: .public)개를 새 UUID로 복구했습니다.")
+            }
+            try await ensureFieldsAreUploaded(for: entry.records)
+        } catch {
+            Self.logger.error("workout-submissions 준비 실패: \(String(describing: error), privacy: .public)")
+            return
+        }
+
         let quarters = zip(entry.records, positions).map { record, position in
             // 서버가 points/heartRateSamples/events의 timestamp가 startDate~endDate
             // 범위 안에 있는지 검증한다(422 "points[0].timestamp"로 확인됨) — 워치에서
@@ -207,6 +295,41 @@ struct ReadyForDetailView: View {
             Self.logger.debug("workout-submissions 실패: HTTP \(statusCode, privacy: .public) \(message ?? "", privacy: .public)")
         } catch {
             Self.logger.debug("workout-submissions 실패: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// 과거 앱 버전에서 같은 UUID로 저장된 여러 쿼터는 서버가 하나의 제출로 처리할 수
+    /// 없다. 아직 서버에 저장되지 않은 로컬 기록이므로 두 번째 항목부터 새 ID로 바꿔
+    /// 이후 재시도에도 같은 ID를 사용한다.
+    private func repairDuplicateQuarterIDs(in records: [WorkoutRecord]) throws -> Int {
+        var seen = Set<UUID>()
+        var repairedCount = 0
+
+        for record in records {
+            guard !seen.insert(record.quarterId).inserted else { continue }
+            var replacement = UUID()
+            while !seen.insert(replacement).inserted {
+                replacement = UUID()
+            }
+            record.quarterId = replacement
+            repairedCount += 1
+        }
+
+        if repairedCount > 0 {
+            try modelContext.save()
+        }
+        return repairedCount
+    }
+
+    /// 새 UI가 생기기 전에 로컬에만 저장된 운동장도 분석 제출 전에 venues API에
+    /// 등록한다. 새 경기장 생성은 FieldNamingView에서 즉시 등록하지만, 이 보정 경로는
+    /// 기존 목록에서 선택한 운동장까지 보장한다.
+    private func ensureFieldsAreUploaded(for records: [WorkoutRecord]) async throws {
+        var uploaded: [Field] = []
+        for field in records.compactMap(\.field) {
+            guard !uploaded.contains(where: { $0 === field }) else { continue }
+            try await VenueStore.ensureUploaded(field, context: modelContext)
+            uploaded.append(field)
         }
     }
 

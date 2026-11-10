@@ -9,15 +9,19 @@ import SwiftUI
 
 struct CommentComposerView: View {
     @Binding var text: String
+    var isActive = true
+    var isSubmitting = false
     var onSend: () -> Void
 
     private var isSendDisabled: Bool {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !isActive || isSubmitting || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
         HStack(spacing: 12) {
-            TextField("댓글을 입력하세요", text: $text)
+            TextField("댓글을 입력하세요", text: $text, axis: .vertical)
+                .lineLimit(1...5)
+                .disabled(isSubmitting)
                 .font(.body4R)
                 .foregroundStyle(.gray50)
                 .padding(.horizontal, 16)

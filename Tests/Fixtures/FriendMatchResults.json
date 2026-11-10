@@ -1,0 +1,228 @@
+{
+  "list": {
+    "data": [
+      {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "ownerId": "00000000-0000-4000-8000-000000000001",
+        "title": null,
+        "venueId": null,
+        "venueSnapshot": null,
+        "scheduledAt": null,
+        "status": "COMPLETED",
+        "startedAt": "2026-11-10T12:00:00.123456+09:00",
+        "endedAt": "2026-11-10T12:10:00.123456+09:00",
+        "version": 1,
+        "createdAt": "2026-11-10T12:00:00.123456+09:00",
+        "updatedAt": "2026-11-10T12:10:00.123456+09:00"
+      }
+    ],
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-000000000099",
+      "serverTime": "2026-11-10T12:00:00.123456+09:00",
+      "pagination": {
+        "nextCursor": null,
+        "hasNext": false
+      }
+    }
+  },
+  "result": {
+    "data": {
+      "match": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "ownerId": "00000000-0000-4000-8000-000000000001",
+        "title": null,
+        "venueId": null,
+        "venueSnapshot": null,
+        "scheduledAt": null,
+        "status": "COMPLETED",
+        "startedAt": "2026-11-10T12:00:00.123456+09:00",
+        "endedAt": "2026-11-10T12:10:00.123456+09:00",
+        "version": 1,
+        "createdAt": "2026-11-10T12:00:00.123456+09:00",
+        "updatedAt": "2026-11-10T12:10:00.123456+09:00"
+      },
+      "quarterCount": 1,
+      "goals": null,
+      "assists": null,
+      "missingStatsQuarterIds": [
+        "00000000-0000-4000-8000-000000000003"
+      ],
+      "summaryAvailability": {
+        "ready": 1,
+        "partial": 0,
+        "processing": 0,
+        "failed": 0,
+        "missing": 0
+      }
+    },
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-000000000099",
+      "serverTime": "2026-11-10T12:00:00.123456+09:00",
+      "matchVersion": 1
+    }
+  },
+  "quarters": {
+    "data": [
+      {
+        "quarter": {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "matchId": "00000000-0000-4000-8000-000000000002",
+          "number": 1,
+          "durationSeconds": 600,
+          "status": "COMPLETED",
+          "startedAt": "2026-11-10T12:00:00.123456+09:00",
+          "endedAt": "2026-11-10T12:10:00.123456+09:00",
+          "matchVersion": 1,
+          "createdAt": "2026-11-10T12:00:00.123456+09:00",
+          "updatedAt": "2026-11-10T12:10:00.123456+09:00"
+        },
+        "stats": null,
+        "position": {
+          "quarterId": "00000000-0000-4000-8000-000000000003",
+          "positionCode": "CM",
+          "updatedAt": "2026-11-10T12:10:00.123456+09:00"
+        },
+        "workout": {
+          "id": "00000000-0000-4000-8000-000000000004",
+          "quarterId": "00000000-0000-4000-8000-000000000003",
+          "startDate": "2026-11-10T12:00:00.123456+09:00",
+          "endDate": "2026-11-10T12:10:00.123456+09:00",
+          "totalCalories": 100,
+          "totalDistance": 1200,
+          "events": [
+            {
+              "type": "goal",
+              "location": {
+                "timestamp": 815000000
+              }
+            }
+          ],
+          "field": {
+            "name": "테스트 경기장",
+            "cornerA": {
+              "latitude": 37.0,
+              "longitude": 127.0
+            },
+            "cornerB": {
+              "latitude": 37.0,
+              "longitude": 127.001
+            },
+            "cornerC": {
+              "latitude": 37.001,
+              "longitude": 127.001
+            },
+            "cornerD": {
+              "latitude": 37.001,
+              "longitude": 127.0
+            },
+            "rawCornerA": null,
+            "rawCornerB": null,
+            "rawCornerC": null,
+            "rawCornerD": null
+          }
+        },
+        "summary": {
+          "quarterId": "00000000-0000-4000-8000-000000000003",
+          "workoutPayloadId": "00000000-0000-4000-8000-000000000004",
+          "calculationStatus": "READY",
+          "calculationVersion": "1",
+          "metricStatus": {},
+          "durationSeconds": 600,
+          "maxSpeedMps": 8,
+          "totalDistanceM": 1200,
+          "totalCaloriesKcal": 100,
+          "averageSpeedMps": 2,
+          "highIntensityDistanceM": 200,
+          "accelerationCount": 4,
+          "decelerationCount": 3,
+          "directionChangeCount": 6,
+          "averageHeartRateBpm": 130,
+          "maxHeartRateBpm": 170,
+          "trimpEdwards": null,
+          "hrMaxReferenceBpm": null,
+          "validHrDurationSeconds": 600,
+          "validGpsDurationSeconds": 600,
+          "calculatedAt": "2026-11-10T12:10:00.123456+09:00",
+          "updatedAt": "2026-11-10T12:10:00.123456+09:00"
+        }
+      }
+    ],
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-000000000099",
+      "serverTime": "2026-11-10T12:00:00.123456+09:00",
+      "pagination": {
+        "nextCursor": null,
+        "hasNext": false
+      },
+      "matchVersion": 1
+    }
+  },
+  "comments": {
+    "data": [
+      {
+        "id": "00000000-0000-4000-8000-000000000005",
+        "matchId": "00000000-0000-4000-8000-000000000002",
+        "authorId": "00000000-0000-4000-8000-000000000001",
+        "content": "좋은 경기였어!",
+        "createdAt": "2026-11-10T12:00:00.123456+09:00"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000005",
+        "matchId": "00000000-0000-4000-8000-000000000002",
+        "authorId": "00000000-0000-4000-8000-000000000001",
+        "content": "좋은 경기였어!",
+        "createdAt": "2026-11-10T12:00:00.123456+09:00"
+      }
+    ],
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-000000000099",
+      "serverTime": "2026-11-10T12:00:00.123456+09:00",
+      "pagination": {
+        "nextCursor": null,
+        "hasNext": false
+      }
+    }
+  },
+  "created": {
+    "data": {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "matchId": "00000000-0000-4000-8000-000000000002",
+      "authorId": "00000000-0000-4000-8000-000000000001",
+      "content": "좋은 경기였어!",
+      "createdAt": "2026-11-10T12:00:00.123456+09:00"
+    },
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-000000000099",
+      "serverTime": "2026-11-10T12:00:00.123456+09:00"
+    }
+  },
+  "heatmap": {
+    "data": {
+      "quarterId": "00000000-0000-4000-8000-000000000003",
+      "status": "READY",
+      "cellSizeDegrees": 0.00005,
+      "sampleCount": 7,
+      "cells": [
+        { "latitude": 37.00025, "longitude": 127.00025, "sampleCount": 5 },
+        { "latitude": 37.00075, "longitude": 127.00075, "sampleCount": 2 }
+      ]
+    },
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-000000000099",
+      "serverTime": "2026-11-10T12:00:00.123456+09:00",
+      "matchVersion": 1
+    }
+  },
+  "profile": {
+    "data": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "nickname": "친구",
+      "avatarUrl": null,
+      "relationship": "FRIEND"
+    },
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-000000000099",
+      "serverTime": "2026-11-10T12:00:00.123456+09:00"
+    }
+  }
+}

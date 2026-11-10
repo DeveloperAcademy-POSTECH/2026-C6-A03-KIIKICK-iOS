@@ -65,6 +65,8 @@ extension AnalysisEntry {
             var quarter = AnalysisQuarter(
                 quarterNumber: index + 1,
                 durationText: formattedDuration(record.duration),
+                startDate: record.date,
+                duration: record.duration,
                 position: record.position?.uppercased,
                 field: record.field,
                 points: record.points,
@@ -72,6 +74,7 @@ extension AnalysisEntry {
                     AnalysisMatchEvent(
                         type: event.type == .goal ? .goal : .assist,
                         timeText: formattedDuration(event.location.timestamp.timeIntervalSince(record.date)),
+                        timestamp: event.location.timestamp,
                         position: normalizedPosition(of: event.location, in: record.field)
                     )
                 },

@@ -7,8 +7,7 @@
 //
 //  DESIGN-GAP: 스크롤하면 상단 타이틀이 "프로필"에서 닉네임으로 바뀌는 variant(575:5868)가
 //  있지만, 이 앱에 그런 스크롤 연동 타이틀 패턴이 아직 없어 "프로필" 고정으로 구현했다.
-//  "함께 뛴 경기"를 걸러낼 실제 데이터가 없어서(WorkoutRecord는 같이 뛴 사람을 기록하지
-//  않는다. 이슈 #26도 뷰 구현만 범위) 항상 빈 목록이다.
+//  친구 경기 목록과 분석 결과는 #75의 서버 API로 조회한다.
 //
 //  이슈 #65: FRIEND-02(GET /users/{userId}/profile)로 들어올 때 상태를 다시 확인하고,
 //  FRIEND-05(친구 추가)/FRIEND-08(친구 삭제)을 실제로 호출한다. pendingReceived/blocked는
@@ -20,12 +19,13 @@ import SwiftUI
 
 struct UserProfileView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var matches: FriendMatchListModel
+    @State private var selectedMatch: FriendMatchAnalysis?
     @State private var status: FriendshipStatus
     @State private var avatarUrl: String?
     @State private var isPresentingRemoveConfirm = false
     @State private var isSubmitting = false
-    // availableYearMonths가 항상 빈 배열이라 DatePickerView가 비활성 상태로 뜬다 —
-    // 초깃값은 아무 의미 없어 오늘 날짜로 둔다.
+    // 조회 후 기록이 있는 가장 최근 월로 맞춘다.
     @State private var year = Calendar.current.component(.year, from: Date())
     @State private var month = Calendar.current.component(.month, from: Date())
     let userId: UUID
@@ -34,12 +34,36 @@ struct UserProfileView: View {
     var onRemoveFriend: () -> Void = {}
 
     init(user: UserProfile, onAddFriend: @escaping () -> Void = {}, onRemoveFriend: @escaping () -> Void = {}) {
+        _matches = State(initialValue: FriendMatchListModel(userID: user.id))
         self.userId = user.id
         self.nickname = user.nickname
         self._status = State(initialValue: user.status)
         self._avatarUrl = State(initialValue: user.avatarUrl)
         self.onAddFriend = onAddFriend
         self.onRemoveFriend = onRemoveFriend
+    }
+
+    private var availableYearMonths: [YearMonth] {
+        Array(Set(matches.entries.map {
+            let parts = Calendar.current.dateComponents([.year, .month], from: $0.entry.date)
+            return YearMonth(year: parts.year ?? year, month: parts.month ?? month)
+        }))
+    }
+    private var entriesInSelectedMonth: [FriendMatchAnalysis] {
+        matches.entries.filter {
+            let parts = Calendar.current.dateComponents([.year, .month], from: $0.entry.date)
+            return parts.year == year && parts.month == month
+        }
+    }
+    private func refreshProfileAndMatches() async {
+        await refreshProfile()
+        guard !Task.isCancelled else { return }
+        if status == .friend { await matches.reload(); syncMonth() } else { matches.clear() }
+    }
+    private func syncMonth() {
+        guard entriesInSelectedMonth.isEmpty, let latest = availableYearMonths.max() else { return }
+        year = latest.year
+        month = latest.month
     }
 
     private func refreshProfile() async {
@@ -82,17 +106,27 @@ struct UserProfileView: View {
                 switch status {
                 case .friend:
                     VStack(alignment: .leading, spacing: 24) {
-                        // 친구와 "함께 뛴 경기"를 식별할 실제 데이터가 없어(WorkoutRecord는
-                        // 같이 뛴 사람을 기록하지 않는다) 항상 빈 목록이다.
-                        DatePickerView(year: $year, month: $month, availableYearMonths: [])
-
-                        VStack(spacing: 24) {
-                            ForEach([AnalysisEntry]()) { entry in
-                                CardSummaryView(
-                                    dateAndQuarter: entry.dateAndQuarter,
-                                    fieldName: entry.fieldName,
-                                    stats: entry.stats.map { CardSummaryView.Stat(label: $0.label, value: $0.value, unit: $0.unit) }
-                                )
+                        DatePickerView(year: $year, month: $month, availableYearMonths: availableYearMonths)
+                        LazyVStack(spacing: 24) {
+                            ForEach(entriesInSelectedMonth) { result in
+                                let entry = result.entry
+                                CardSummaryView(dateAndQuarter: entry.dateAndQuarter, fieldName: entry.fieldName,
+                                    stats: entry.stats.map { CardSummaryView.Stat(label: $0.label, value: $0.value, unit: $0.unit) },
+                                    action: { selectedMatch = result })
+                            }
+                            if matches.isLoading { ProgressView() }
+                            if matches.entries.isEmpty && !matches.isLoading && matches.errorMessage == nil {
+                                EmptyStateView(title: "공개된 경기 기록이 없어요", subtitle: "친구가 분석 보기를 완료하면 기록이 표시돼요")
+                            }
+                            if let message = matches.errorMessage {
+                                Text(message).textStyle(.caption1M).foregroundStyle(.red500)
+                                CtaView(text: "다시 시도", type: .secondary, size: .small, isActive: !matches.isLoading) {
+                                    Task { await matches.loadMore(); syncMonth() }
+                                }
+                            } else if matches.hasNext {
+                                CtaView(text: "경기 더 보기", type: .sub, size: .small, isActive: !matches.isLoading) {
+                                    Task { await matches.loadMore(); syncMonth() }
+                                }
                             }
                         }
                     }
@@ -149,7 +183,11 @@ struct UserProfileView: View {
         .navigationTitle("프로필")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .task { await refreshProfile() }
+        .task { await refreshProfileAndMatches() }
+        .refreshable { await refreshProfileAndMatches() }
+        .navigationDestination(item: $selectedMatch) { match in
+            FriendMatchDetailView(userID: userId, matchID: match.id, nickname: nickname)
+        }
         .toolbar {
             if status == .friend {
                 ToolbarItem(placement: .topBarTrailing) {

@@ -11,5 +11,9 @@
 import Foundation
 
 func idempotencyHeaders() -> [String: String] {
-    ["Idempotency-Key": UUID().uuidString]
+    idempotencyHeaders(UUID())
+}
+
+func idempotencyHeaders(_ key: UUID) -> [String: String] {
+    ["Idempotency-Key": key.uuidString]
 }

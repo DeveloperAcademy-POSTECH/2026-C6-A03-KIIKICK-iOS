@@ -13,6 +13,9 @@ enum NotificationKind: Hashable {
     /// 받아온 값을 그대로 들고 다닌다.
     case friendRequest(requestId: UUID, status: FriendRequestStatus, nickname: String)
     case comment(nickname: String, preview: String, matchID: UUID, commentID: UUID? = nil)
+    /// 서버에서 받은 알림 중 UI 종류가 확정되지 않은 항목이다. target은 탭 시 재조회할
+    /// 대상 힌트로만 쓰며, 실제 권한은 이동한 화면에서 다시 확인한다.
+    case remote(title: String, body: String?, target: NotificationTarget)
     /// 상대가 나를 "함께 뛴 친구"로 추가했을 때. `matchDate`는 그 계기가 된 경기 날짜.
     case withFriend(nickname: String, matchDate: Date)
     /// node 747:5385 "notification_myPlay" — 워치에서 경기 분석 결과(WorkoutRecord)가
@@ -39,6 +42,8 @@ struct NotificationItem: Identifiable, Hashable {
         switch kind {
         case .friendRequest: .friendRequest
         case .comment: .comment
+        case .remote(_, _, let target):
+            target.type == "MATCH" ? .myPlay : .all
         case .withFriend: .withFriend
         case .myPlay: .myPlay
         }

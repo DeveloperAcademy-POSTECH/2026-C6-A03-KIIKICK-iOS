@@ -22,6 +22,7 @@ struct NotificationListView: View {
     var syncsFriendRequests = true
     @State private var filter: NotificationFilter = .all
     @State private var routingError: String?
+    @State private var serverNotificationIDs: Set<UUID> = []
 
     private var filteredItems: [NotificationItem] {
         filter == .all ? notifications : notifications.filter { $0.filterCategory == filter }
@@ -91,7 +92,52 @@ struct NotificationListView: View {
         // notifications에 합친다 — 알림 목록은 이 저장소 하나를 그대로
         // 보여주므로, 수락/거절 버튼이 실제 requestId를 들고 있게 하려면 여기서
         // 채워 넣어야 한다. 이미 들어있는 요청(같은 requestId)은 중복 추가하지 않는다.
-        .task { if syncsFriendRequests { await syncPendingFriendRequests() } }
+        .task {
+            await loadNotifications()
+            if syncsFriendRequests { await syncPendingFriendRequests() }
+        }
+    }
+
+    private func loadNotifications() async {
+        guard UserSession.token != nil else { return }
+
+        do {
+            var cursor: String?
+            var responses: [NotificationResponse] = []
+            repeat {
+                let page: PageEnvelope<NotificationResponse> = try await NetworkService.provider.request(
+                    with: NotificationEndpoints.list(cursor: cursor, limit: 100)
+                )
+                responses.append(contentsOf: page.data)
+                cursor = page.meta.pagination.hasNext ? page.meta.pagination.nextCursor : nil
+            } while cursor != nil
+
+            serverNotificationIDs = Set(responses.map(\.id))
+            let existingIDs = Set(notifications.map(\.id))
+            notifications.append(contentsOf: responses.compactMap { response in
+                guard !existingIDs.contains(response.id) else { return nil }
+                return NotificationItem(
+                    id: response.id,
+                    date: response.createdAt,
+                    kind: notificationKind(from: response),
+                    isRead: response.readAt != nil
+                )
+            })
+        } catch {
+            // 로컬에 수신된 워치 알림은 유지한다. 다음 진입 때 서버 목록을 다시 시도한다.
+        }
+    }
+
+    private func notificationKind(from response: NotificationResponse) -> NotificationKind {
+        let type = response.type.uppercased()
+        if type.contains("COMMENT"), response.target.type == "MATCH" {
+            return .comment(
+                nickname: response.title,
+                preview: response.body ?? "댓글을 남겼어요",
+                matchID: response.target.id
+            )
+        }
+        return .remote(title: response.title, body: response.body, target: response.target)
     }
 
     private func syncPendingFriendRequests() async {
@@ -133,20 +179,33 @@ struct NotificationListView: View {
                 onReject: { Task { await respondToFriendRequest(item: item, requestId: requestId, accept: false) } }
             )
         case .comment(let nickname, let preview, let matchID, _):
-            Button { openComment(item, matchID: matchID) } label: {
+            Button { Task { await openComment(item, matchID: matchID) } } label: {
                 NotificationCommentView(nickname: nickname, commentPreview: preview)
+            }
+            .buttonStyle(.plain)
+        case .remote(let title, let body, let target):
+            Button { Task { await openRemote(item, target: target) } } label: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title).font(.label4SB).foregroundStyle(.white)
+                    if let body, !body.isEmpty {
+                        Text(body).font(.body4R).foregroundStyle(.gray300).lineLimit(2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(Color.gray800, in: RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
         case .withFriend(let nickname, let matchDate):
             NotificationWithFriendView(nickname: nickname, matchDate: matchDate)
         case .myPlay(let record):
             NotificationMyPlayView(matchDate: record.date) {
-                openAnalysis(item, record: record)
+                Task { await openAnalysis(item, record: record) }
             }
         }
     }
 
-    private func openAnalysis(_ item: NotificationItem, record: WorkoutRecord) {
+    private func openAnalysis(_ item: NotificationItem, record: WorkoutRecord) async {
         guard let entry = AnalysisEntry.grouped(from: records).first(where: {
             $0.records.contains { $0.persistentModelID == record.persistentModelID }
         }) else {
@@ -154,11 +213,11 @@ struct NotificationListView: View {
             routingError = "경기 기록이 삭제되었거나 이 기기에 저장되어 있지 않아요"
             return
         }
-        markRead(item)
         router.showAnalysis(entry)
+        await markRead(item)
     }
 
-    private func openComment(_ item: NotificationItem, matchID: UUID) {
+    private func openComment(_ item: NotificationItem, matchID: UUID) async {
         guard let targetRecord = records.first(where: { $0.matchId == matchID }),
               let entry = AnalysisEntry.grouped(from: records).first(where: {
                   $0.records.contains { $0.persistentModelID == targetRecord.persistentModelID }
@@ -166,13 +225,33 @@ struct NotificationListView: View {
             routingError = "댓글의 경기 기록이 삭제되었거나 이 기기에 저장되어 있지 않아요"
             return
         }
-        markRead(item)
         router.showAnalysis(entry, showComments: true)
+        await markRead(item)
     }
 
-    private func markRead(_ item: NotificationItem) {
-        guard let index = notifications.firstIndex(where: { $0.id == item.id }) else { return }
-        notifications[index].isRead = true
+    private func openRemote(_ item: NotificationItem, target: NotificationTarget) async {
+        guard target.type == "MATCH" else {
+            routingError = "이 알림의 이동 대상을 아직 열 수 없어요"
+            return
+        }
+        guard let record = records.first(where: { $0.matchId == target.id }) else {
+            routingError = "경기 기록이 삭제되었거나 이 기기에 저장되어 있지 않아요"
+            return
+        }
+        await openAnalysis(item, record: record)
+    }
+
+    private func markRead(_ item: NotificationItem) async {
+        guard !item.isRead, serverNotificationIDs.contains(item.id),
+              let index = notifications.firstIndex(where: { $0.id == item.id }) else { return }
+        do {
+            let _: Envelope<NotificationResponse> = try await NetworkService.provider.request(
+                with: NotificationEndpoints.markRead(notificationId: item.id, idempotencyKey: UUID())
+            )
+            notifications[index].isRead = true
+        } catch {
+            // 읽음 상태는 서버 응답이 확인된 뒤에만 바꾼다. 다음 탭에서 재시도한다.
+        }
     }
 
     /// 이슈 #65: FRIEND-06(수락)/FRIEND-07(거절)을 실제로 호출한다. 성공해야만 뱃지를

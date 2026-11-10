@@ -19,6 +19,8 @@ final class WorkoutRecord {
     /// 워치 PositionView에서 고른 포지션. 강제 종료된 쿼터(이슈 #50)는 nil.
     var position: Position?
     var isAttackDirectionReversed: Bool = false
+    /// 분석 준비에서 ‘분석 보기’를 눌러 설정을 저장했는지 여부.
+    var hasViewedAnalysis: Bool = false
 
     // 이슈 #66: POST /matches/{matchId}/workout-submissions에 보낼 식별자. 서버 매치
     // 생성 플로우(MatchEndpoints.create 등)가 아직 로컬 녹화와 연결돼 있지 않아서

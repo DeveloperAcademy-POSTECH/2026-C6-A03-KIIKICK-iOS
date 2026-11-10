@@ -26,7 +26,12 @@ struct AnalysisDetailView: View {
     @State private var pushedFriendsPlayedTogether = false
     @State private var pushedTimeline = false
     @State private var pushedShare = false
-    @State private var commentSheetDetent: PresentationDetent = .height(140)
+    @State private var commentSheetDetent: PresentationDetent
+
+    init(entry: AnalysisEntry, showComments: Bool = false) {
+        self.entry = entry
+        _commentSheetDetent = State(initialValue: showComments ? .large : .height(70))
+    }
 
     private var currentQuarter: AnalysisQuarter? {
         guard entry.detail.quarters.indices.contains(selectedQuarterIndex) else { return nil }

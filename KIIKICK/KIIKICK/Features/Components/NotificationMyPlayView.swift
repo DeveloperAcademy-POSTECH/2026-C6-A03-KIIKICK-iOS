@@ -4,9 +4,7 @@
 //
 //  Figma node 747:5385 "notification_myPlay" — 경기 분석 결과(실제 WorkoutRecord)가
 //  도착했을 때 뜨는 알림 행. annotation: "처음 진입 시 분석 준비 페이지로 이동(포지션/공격
-//  방향 설정), 이후엔 분석 결과 페이지로 이동" — ReadyForDetailView/AnalyzingView(이슈
-//  #43)가 이 브랜치엔 아직 없어서 지금은 항상 WorkoutDetailView(결과 화면)로 바로
-//  보낸다(NotificationListView 참고). #43이 머지되면 첫 진입 분기를 추가할 것 — DESIGN-GAP.
+//  방향 설정), 이후엔 분석 결과 페이지로 이동" — NotificationListView에서 AppRouter로 연결한다.
 //
 
 import SwiftUI

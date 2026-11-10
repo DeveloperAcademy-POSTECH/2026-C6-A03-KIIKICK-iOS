@@ -133,6 +133,10 @@ struct AnalysisDetail: Identifiable, Hashable {
 }
 
 struct AnalysisEntry: Identifiable, Hashable {
+    var hasViewedAnalysis: Bool {
+        !records.isEmpty && records.allSatisfy(\.hasViewedAnalysis)
+    }
+
     let id: UUID
     /// 이슈 #43: 날짜 선택 컴포넌트가 "기록이 있는 연도/월만" 고를 수 있게 하려고
     /// 추가했다 — dateAndQuarter는 표시용 문자열이라 거꾸로 파싱하지 않는다.

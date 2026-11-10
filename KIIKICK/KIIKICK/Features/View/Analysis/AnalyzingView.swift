@@ -10,9 +10,9 @@
 //  "API 응답을 기다리는 중"을 Task.sleep으로 흉내 낸다. 분석 준비에서 로컬에 저장한
 //  포지션/공격 방향이 포함된 entry를 분석 상세에 그대로 전달한다.
 //
-//  분석이 끝나면 router.paths[.analysis]에서 ready+analyzing 두 단계를 지우고
+//  분석이 끝나면 진입한 탭의 스택에서 ready+analyzing 두 단계를 지우고
 //  detail만 새로 쌓는다 — 그래야 AnalysisDetailView에서 뒤로 갔을 때 이 로딩 화면이나
-//  ReadyForDetailView로 돌아가지 않고 바로 AnalysisView(목록)로 돌아간다.
+//  ReadyForDetailView로 돌아가지 않고 분석 목록 또는 알림 목록으로 돌아간다.
 //
 
 import SwiftUI
@@ -21,6 +21,7 @@ struct AnalyzingView: View {
     @Environment(AppRouter.self) private var router
 
     let entry: AnalysisEntry
+    var navigationTab: AppRouter.AppTab = .analysis
 
     var body: some View {
         VStack(spacing: 32) {
@@ -39,9 +40,15 @@ struct AnalyzingView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .tabBar)
         .task {
-            try? await Task.sleep(for: .seconds(1.5))
-            router.paths[.analysis]?.removeLast(2)
-            router.paths[.analysis, default: .init()].append(AnalysisRoute.detail(entry))
+            let expectedPathCount = router.paths[navigationTab]?.count
+            do {
+                try await Task.sleep(for: .seconds(1.5))
+                try Task.checkCancellation()
+                guard let expectedPathCount else { return }
+                router.finishAnalysis(entry, in: navigationTab, expectedPathCount: expectedPathCount)
+            } catch {
+                // 화면이 사라지면 다른 탭이나 이전 스택으로 이동하지 않는다.
+            }
         }
     }
 }

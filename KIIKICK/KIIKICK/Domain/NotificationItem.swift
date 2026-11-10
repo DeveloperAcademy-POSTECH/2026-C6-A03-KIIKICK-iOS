@@ -12,12 +12,11 @@ enum NotificationKind: Hashable {
     /// 그대로 넘기는 실제 친구 요청 id다(이슈 #65) — GET /friend-requests(RECEIVED)로
     /// 받아온 값을 그대로 들고 다닌다.
     case friendRequest(requestId: UUID, status: FriendRequestStatus, nickname: String)
-    case comment(nickname: String, preview: String)
+    case comment(nickname: String, preview: String, matchID: UUID, commentID: UUID? = nil)
     /// 상대가 나를 "함께 뛴 친구"로 추가했을 때. `matchDate`는 그 계기가 된 경기 날짜.
     case withFriend(nickname: String, matchDate: Date)
     /// node 747:5385 "notification_myPlay" — 워치에서 경기 분석 결과(WorkoutRecord)가
-    /// 도착했을 때(SessionManager.didReceive(file:)). 실제 기록을 들고 있어서 탭하면
-    /// WorkoutDetailView로 바로 넘어간다 — 목업 AnalysisEntry를 쓰던 자리를 대체했다.
+    /// 도착했을 때(SessionManager.didReceive(file:)). 분석 설정 저장 여부에 따라 준비/상세로 이동한다.
     case myPlay(record: WorkoutRecord)
 }
 
@@ -26,7 +25,7 @@ struct NotificationItem: Identifiable, Hashable {
     let date: Date
     let kind: NotificationKind
     /// 이슈 #42 "Remind" 댓글 — 알림 아이콘을 안 읽은 알림 유무에 따라 바꾸는 데 쓴다.
-    /// DESIGN-GAP: "읽음 처리" 자체가 아직 없다 — 알림 화면에 들어갔다 나와도 안 바뀐다.
+    /// 분석/댓글 알림 진입 시 로컬에서 갱신한다. 서버 읽음 상태 동기화·영속화는 별도 작업이다.
     var isRead: Bool
 
     init(id: UUID = UUID(), date: Date, kind: NotificationKind, isRead: Bool = false) {

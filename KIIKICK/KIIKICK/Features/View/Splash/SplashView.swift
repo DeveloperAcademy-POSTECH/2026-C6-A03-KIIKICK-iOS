@@ -9,7 +9,15 @@ import SwiftUI
 
 struct SplashView: View {
     var body: some View {
-        Text("Splash View")
-            .font(.title)
+        VStack {
+            Image("Logo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 200)
+        }
     }
+}
+
+#Preview {
+    SplashView()
 }

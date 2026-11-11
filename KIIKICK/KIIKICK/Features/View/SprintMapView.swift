@@ -31,25 +31,32 @@ struct SprintMapView: View {
         }
         
         FieldCanvasView { context, size in
-            for (start, end) in visibleSprints {
-                drawArrow(
-                    from: CGPoint(x: start.x * size.width, y: start.y * size.height),
-                    to: CGPoint(x: end.x * size.width, y: end.y * size.height),
-                    in: context, size: size
-                )
-            }
-        }
-        .overlay {
             if visibleSprints.isEmpty {
-                Text("기록된 스프린트가 없어요")
-                    .font(.body4R)
-                    .foregroundStyle(.colorTextPrimary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Color.gray900.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
-                    .accessibilityAddTraits(.isStaticText)
+                drawEmptyMessage(in: context, size: size)
+            } else {
+                for (start, end) in visibleSprints {
+                    drawArrow(
+                        from: CGPoint(x: start.x * size.width, y: start.y * size.height),
+                        to: CGPoint(x: end.x * size.width, y: end.y * size.height),
+                        in: context, size: size
+                    )
+                }
             }
         }
+        .accessibilityLabel(visibleSprints.isEmpty ? "기록된 스프린트가 없어요" : "스프린트 화살표 \(visibleSprints.count)개")
+    }
+
+    private func drawEmptyMessage(in context: GraphicsContext, size: CGSize) {
+        let message = context.resolve(Text("기록된 스프린트가 없어요")
+            .font(.body4R)
+            .foregroundStyle(.colorTextPrimary))
+        let textSize = message.measure(in: size)
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let background = CGRect(x: center.x - textSize.width / 2 - 16,
+                                y: center.y - textSize.height / 2 - 12,
+                                width: textSize.width + 32, height: textSize.height + 24)
+        context.fill(Path(roundedRect: background, cornerRadius: 8), with: .color(Color.gray900.opacity(0.9)))
+        context.draw(message, at: center)
     }
     
     private func normalizedPosition(for point: TrackPoint, mapper: FieldCoordinateMapper) -> CGPoint? {

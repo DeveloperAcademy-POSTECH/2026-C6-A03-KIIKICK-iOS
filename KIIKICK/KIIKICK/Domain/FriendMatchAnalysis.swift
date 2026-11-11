@@ -4,7 +4,7 @@ struct FriendMatchAnalysis: Identifiable, Hashable {
     let entry: AnalysisEntry
     var id: UUID { entry.id }
 
-    init?(result: MatchResultResponse, quarters: [QuarterResultResponse]) {
+    init?(result: MatchResultResponse, quarters: [QuarterResultResponse], venue: VenueResponse? = nil) {
         // 분석 보기에서 포지션과 운동 데이터를 제출한 완료 경기만 노출한다.
         guard result.match.status == .completed, result.quarterCount > 0,
               quarters.count == result.quarterCount,
@@ -12,12 +12,13 @@ struct FriendMatchAnalysis: Identifiable, Hashable {
               quarters.allSatisfy({ $0.quarter.matchId == result.match.id && $0.quarter.status == .completed
                   && $0.position != nil && $0.workout != nil }) else { return nil }
         let sorted = quarters.sorted { $0.quarter.number < $1.quarter.number }
+        let venueField = venue.flatMap(Self.field)
         let analysisQuarters = sorted.map { value in
             let summary = value.summary.flatMap { [.ready, .partial].contains($0.calculationStatus) ? $0 : nil }
             var quarter = AnalysisQuarter(id: value.quarter.id, quarterNumber: value.quarter.number,
                 durationText: Self.duration(summary?.durationSeconds ?? value.workout.map { $0.endDate.timeIntervalSince($0.startDate) }),
                 position: value.position?.positionCode,
-                field: value.workout?.field.map(Self.field),
+                field: value.workout?.field.map(Self.field) ?? venueField,
                 totalDistanceKm: (summary?.totalDistanceM ?? value.workout?.totalDistance ?? 0) / 1000,
                 totalCaloriesKcal: summary?.totalCaloriesKcal ?? value.workout?.totalCalories ?? 0)
             quarter.resultStats = Self.stats(speed: summary?.maxSpeedMps.map { $0 * 3.6 },
@@ -39,7 +40,8 @@ struct FriendMatchAnalysis: Identifiable, Hashable {
         let title = date.formatted(.dateTime.month().day())
         entry = AnalysisEntry(id: result.match.id, date: date,
             dateAndQuarter: "\(title) • 총 \(analysisQuarters.count)Q",
-            fieldName: sorted.compactMap { $0.workout?.field?.name }.first ?? result.match.venueSnapshot?.name ?? "운동장 미지정",
+            fieldName: sorted.compactMap { $0.workout?.field?.name }.first ?? venue?.name
+                ?? result.match.venueSnapshot?.name ?? "운동장 미지정",
             stats: stats,
             detail: AnalysisDetail(id: result.match.id, title: title, quarters: analysisQuarters, keyStats: stats,
                 goalCount: result.goals ?? Self.sum(analysisQuarters.map { $0.resultGoals.map(Double.init) }).map(Int.init),
@@ -55,6 +57,13 @@ struct FriendMatchAnalysis: Identifiable, Hashable {
             cornerC: corner(payload.cornerC), cornerD: corner(payload.cornerD),
             rawCornerA: payload.rawCornerA.map(corner), rawCornerB: payload.rawCornerB.map(corner),
             rawCornerC: payload.rawCornerC.map(corner), rawCornerD: payload.rawCornerD.map(corner))
+    }
+    private static func field(_ venue: VenueResponse) -> Field? {
+        guard let corners = venue.correctedCorners else { return nil }
+        return Field(name: venue.name,
+            cornerA: corners[0], cornerB: corners[1], cornerC: corners[2], cornerD: corners[3],
+            rawCornerA: venue.rawCornerA, rawCornerB: venue.rawCornerB,
+            rawCornerC: venue.rawCornerC, rawCornerD: venue.rawCornerD, address: venue.address)
     }
     private static func sum(_ values: [Double?]) -> Double? {
         guard !values.isEmpty, values.allSatisfy({ $0?.isFinite == true }) else { return nil }

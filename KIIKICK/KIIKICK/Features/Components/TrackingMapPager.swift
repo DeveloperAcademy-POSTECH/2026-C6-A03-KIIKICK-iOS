@@ -27,7 +27,7 @@ struct TrackingMapPager: View {
                     SprintMapView(field: field, points: points, isAttackDirectionReversed: isAttackDirectionReversed)
                         .overlay(TrackingMapEventsView(events: events, isAttackDirectionReversed: isAttackDirectionReversed))
                         .padding(.bottom, 28)
-                        .accessibilityLabel("스프린트 맵, 시속 21킬로미터 초과, 이동거리 10미터 이상 구간")
+                        .accessibilityLabel("스프린트 맵, 시속 \(Int(SprintDetector.defaultSpeedThresholdKmh))킬로미터 초과, 이동거리 10미터 이상 구간")
                         .tag(Page.sprint)
                     #if DEBUG
                     // TabView는 인접 페이지를 미리 구성한다. 지도는 실제 선택 시에만 생성한다.

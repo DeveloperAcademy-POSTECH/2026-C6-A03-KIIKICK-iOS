@@ -2,7 +2,7 @@
 //  SprintMapView.swift
 //  KIIKICK
 //
-//  시속 21km/h 초과, 누적 거리 10m 이상 구간을 곡선 화살표로 표시한다.
+//  시속 21km/h 초과(Debug는 13km/h), 누적 거리 10m 이상 구간을 곡선 화살표로 표시한다.
 //
 
 import SwiftUI

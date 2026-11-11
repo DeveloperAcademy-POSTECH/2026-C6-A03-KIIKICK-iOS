@@ -94,6 +94,11 @@ struct TrackingMapsChecks {
                 speed: speed / 3.6, course: 0, timestamp: Date(timeIntervalSince1970: second))
         }
         let distanceDetector = SprintDetector(speedThresholdKmh: 21)
+        #if DEBUG
+        precondition(abs(SprintDetector().speedThreshold - 13 / 3.6) < 1e-12)
+        #else
+        precondition(abs(SprintDetector().speedThreshold - 21 / 3.6) < 1e-12)
+        #endif
         let start = movingSample(0, longitude: 0)
         precondition(distanceDetector.detect(in: [start, movingSample(1, longitude: 0.00008)]).isEmpty,
             "10m 미만은 표시하지 않는다")

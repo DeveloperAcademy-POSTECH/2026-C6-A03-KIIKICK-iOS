@@ -34,6 +34,17 @@ struct SprintMapView: View {
                 drawArrow(from: start, to: end, in: clippedContext)
             }
         }
+        .overlay {
+            if sprints.isEmpty {
+                Text("기록된 스프린트가 없어요")
+                    .font(.body4R)
+                    .foregroundStyle(.colorTextPrimary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.gray900.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
+                    .accessibilityAddTraits(.isStaticText)
+            }
+        }
     }
     
     private func normalizedPixel(for point: TrackPoint, mapper: FieldCoordinateMapper, size: CGSize) -> CGPoint? {

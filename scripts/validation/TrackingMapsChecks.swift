@@ -47,7 +47,7 @@ struct TrackingMapsChecks {
             CGPoint(x: 1, y: 1), CGPoint(x: -0.1, y: 0), CGPoint(x: CGFloat.nan, y: 0)])
         precondition(values[0] == 1 && values[15] == 0.5)
         precondition(values.filter { $0 > 0 }.count == 2, "운동장 밖 포인트를 경계에 누적하지 않아야 한다")
-        precondition(density.values(for: []).allSatisfy { $0 == 0 })
+        precondition(density.values(for: [CGPoint]()).allSatisfy { $0 == 0 })
         let smoothed = HeatmapDensity(columns: 5, rows: 5, smoothingRadius: 2)
             .values(for: [CGPoint(x: 0.5, y: 0.5)])
         precondition(smoothed[12] == 1 && smoothed[11] > smoothed[10] && smoothed[10] > 0)
@@ -95,17 +95,17 @@ struct TrackingMapsChecks {
         }
         let distanceDetector = SprintDetector(speedThresholdKmh: 21)
         let start = movingSample(0, longitude: 0)
-        precondition(distanceDetector.detect(in: [start, movingSample(1, longitude: 0.00016)]).isEmpty,
-            "20m 미만은 표시하지 않는다")
-        precondition(distanceDetector.detect(in: [start, movingSample(1, longitude: 0.0002)]).count == 1,
-            "20m 이상은 표시한다")
+        precondition(distanceDetector.detect(in: [start, movingSample(1, longitude: 0.00008)]).isEmpty,
+            "10m 미만은 표시하지 않는다")
+        precondition(distanceDetector.detect(in: [start, movingSample(1, longitude: 0.0001)]).count == 1,
+            "10m 이상은 표시한다")
         let turningRun = [start, movingSample(1, longitude: 0.0001),
             movingSample(2, longitude: 0.00005), movingSample(3, longitude: 0.00015)]
         precondition(distanceDetector.detect(in: Array(turningRun.reversed())).count == 1,
             "시작/끝 직선거리 대신 실제 누적 경로 거리를 사용한다")
-        let splitRuns = [start, movingSample(1, longitude: 0.0001),
-            movingSample(2, longitude: 0.00011, speed: 20),
-            movingSample(3, longitude: 0.00012), movingSample(4, longitude: 0.00022)]
+        let splitRuns = [start, movingSample(1, longitude: 0.00006),
+            movingSample(2, longitude: 0.00007, speed: 20),
+            movingSample(3, longitude: 0.00008), movingSample(4, longitude: 0.00014)]
         precondition(distanceDetector.detect(in: splitRuns).isEmpty,
             "속도가 떨어진 두 구간의 거리를 합치지 않는다")
         let exactDistance = CLLocation(latitude: 0, longitude: 0)

@@ -24,18 +24,23 @@ struct SprintMapView: View {
     var body: some View {
         let mapper = FieldCoordinateMapper(field: field)
         let sprints = detector.detect(in: points)
+        let visibleSprints = sprints.compactMap { sprint -> (CGPoint, CGPoint)? in
+            let positions = sprint.points.compactMap { normalizedPosition(for: $0, mapper: mapper) }
+            guard let start = positions.first, let end = positions.last, start != end else { return nil }
+            return (start, end)
+        }
         
         FieldCanvasView { context, size in
-            var clippedContext = context
-            clippedContext.clip(to: Path(CGRect(origin: .zero, size: size)))
-            for sprint in sprints {
-                guard let start = normalizedPixel(for: sprint.start, mapper: mapper, size: size),
-                      let end = normalizedPixel(for: sprint.end, mapper: mapper, size: size) else { continue }
-                drawArrow(from: start, to: end, in: clippedContext)
+            for (start, end) in visibleSprints {
+                drawArrow(
+                    from: CGPoint(x: start.x * size.width, y: start.y * size.height),
+                    to: CGPoint(x: end.x * size.width, y: end.y * size.height),
+                    in: context, size: size
+                )
             }
         }
         .overlay {
-            if sprints.isEmpty {
+            if visibleSprints.isEmpty {
                 Text("기록된 스프린트가 없어요")
                     .font(.body4R)
                     .foregroundStyle(.colorTextPrimary)
@@ -47,7 +52,7 @@ struct SprintMapView: View {
         }
     }
     
-    private func normalizedPixel(for point: TrackPoint, mapper: FieldCoordinateMapper, size: CGSize) -> CGPoint? {
+    private func normalizedPosition(for point: TrackPoint, mapper: FieldCoordinateMapper) -> CGPoint? {
         let coordinate = CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)
         guard CLLocationCoordinate2DIsValid(coordinate) else { return nil }
         let normalized = mapper.normalize(coordinate)
@@ -55,18 +60,20 @@ struct SprintMapView: View {
         guard normalized.x.isFinite, normalized.y.isFinite,
               (0...1).contains(normalized.x), (0...1).contains(normalized.y) else { return nil }
         let display = AttackDirectionTransform(isReversed: isAttackDirectionReversed).apply(to: normalized)
-        return CGPoint(x: display.x * size.width, y: display.y * size.height)
+        return display
     }
     
-    private func drawArrow(from start: CGPoint, to end: CGPoint, in context: GraphicsContext) {
+    private func drawArrow(from start: CGPoint, to end: CGPoint, in context: GraphicsContext, size: CGSize) {
         // DESIGN-GAP: Figma와 같은 A→B 곡선 표현. 정확한 곡률 수치는 미지정으로 설정값 사용.
         guard let curve = SprintArrowGeometry(start: start, end: end) else { return }
+        let control = CGPoint(x: min(max(curve.control.x, 0), size.width),
+                              y: min(max(curve.control.y, 0), size.height))
         var line = Path()
         line.move(to: start)
-        line.addQuadCurve(to: end, control: curve.control)
-        context.stroke(line, with: .color(.lime500), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+        line.addQuadCurve(to: end, control: control)
+        context.stroke(line, with: .color(.lime500), style: StrokeStyle(lineWidth: 3, lineCap: .round))
         
-        let angle = curve.endAngle
+        let angle = atan2(end.y - control.y, end.x - control.x)
         let arrowLength: CGFloat = 8
         let arrowAngle: CGFloat = .pi / 7
         

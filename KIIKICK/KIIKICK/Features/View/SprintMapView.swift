@@ -47,7 +47,7 @@ struct SprintMapView: View {
     }
 
     private func drawEmptyMessage(in context: GraphicsContext, size: CGSize) {
-        let message = context.resolve(Text("기록된 스프린트가 없어요")
+        let message = context.resolve(Text("21km/h로 10m 이상 뛴 스프린트가 없어요")
             .font(.body4R)
             .foregroundStyle(.colorTextPrimary))
         let textSize = message.measure(in: size)

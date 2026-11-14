@@ -15,6 +15,8 @@ struct CardQuarterView: View {
     let quarterNumber: Int
     let durationText: String
     var field: Field? = nil
+    /// 이슈 #96: 이 쿼터만 운동장을 바꿀 때. nil이면 행을 숨긴다(쿼터가 하나뿐일 때 등).
+    var onChangeField: (() -> Void)? = nil
     var points: [TrackPoint] = []
     @Binding var position: String
     @Binding var isFlipped: Bool
@@ -44,6 +46,10 @@ struct CardQuarterView: View {
                 }
                 Spacer()
                 PositionDropdownView(position: $position)
+            }
+
+            if let onChangeField {
+                FieldChangeRow(field: field, action: onChangeField)
             }
 
             TrackingMapPager(field: field, points: points, isAttackDirectionReversed: isFlipped)

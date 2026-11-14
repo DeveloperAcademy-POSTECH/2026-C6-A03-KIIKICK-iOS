@@ -35,7 +35,10 @@ struct ReadyForDetailView: View {
     @State private var isPresentingPositionRequiredAlert = false
     @State private var isPresentingFieldPicker = false
     @State private var isPresentingFieldRequiredAlert = false
-    @State private var fieldsByQuarterID: [UUID: Field]
+    @State private var assignment: FieldAssignment
+    /// 적용 범위를 물어보는 동안 들고 있는 선택된 운동장.
+    @State private var pendingField: Field?
+    @State private var fieldPickerScope: FieldAssignmentScope = .allQuarters
     @State private var saveError: String?
     @State private var isSubmitting = false
 
@@ -49,13 +52,11 @@ struct ReadyForDetailView: View {
         _positions = State(initialValue: entry.detail.quarters.map { $0.position ?? Self.unselectedPositionPlaceholder })
         _flips = State(initialValue: entry.detail.quarters.map(\.isAttackDirectionReversed))
         _isPositionConfirmed = State(initialValue: entry.detail.quarters.map { $0.position != nil })
-        var fields: [UUID: Field] = [:]
-        for quarter in entry.detail.quarters {
-            if let field = quarter.sourceRecord?.field ?? quarter.field {
-                fields[quarter.id] = field
+        _assignment = State(initialValue: FieldAssignment(
+            quarters: entry.detail.quarters.map {
+                FieldAssignment.QuarterInput(id: $0.id, record: $0.sourceRecord, field: $0.field)
             }
-        }
-        _fieldsByQuarterID = State(initialValue: fields)
+        ))
     }
 
     var body: some View {
@@ -67,6 +68,13 @@ struct ReadyForDetailView: View {
 
                 directionGuide
 
+                FieldChangeRow(field: assignment.commonField) {
+                    fieldPickerScope = .allQuarters
+                    isPresentingFieldPicker = true
+                }
+                .padding(16)
+                .background(Color.colorBackgroundSecondary, in: RoundedRectangle(cornerRadius: 12))
+
                 if hasMissingFields {
                     fieldAssignmentNotice
                 }
@@ -76,6 +84,10 @@ struct ReadyForDetailView: View {
                         quarterNumber: quarter.quarterNumber,
                         durationText: quarter.durationText,
                         field: field(for: quarter),
+                        onChangeField: quarters.count > 1 ? {
+                            fieldPickerScope = .quarter(quarter.id)
+                            isPresentingFieldPicker = true
+                        } : nil,
                         points: quarter.points,
                         position: Binding(
                             get: { positions[index] },
@@ -130,7 +142,16 @@ struct ReadyForDetailView: View {
             Text("운동장이 없는 쿼터가 있어요. 분석을 보려면 운동장을 지정해주세요.")
         }
         .navigationDestination(isPresented: $isPresentingFieldPicker) {
-            FieldListView(onFieldSelected: assignMissingFields)
+            FieldListView(onFieldSelected: handlePickedField)
+        }
+        .confirmationDialog("이 운동장을 어디에 적용할까요?", isPresented: Binding(
+            get: { pendingField != nil }, set: { if !$0 { pendingField = nil } }
+        ), titleVisibility: .visible) {
+            Button("모든 쿼터에 적용") {
+                if let pendingField { applyField(pendingField, to: .allQuarters) }
+                pendingField = nil
+            }
+            Button("취소", role: .cancel) { pendingField = nil }
         }
     }
 
@@ -192,13 +213,9 @@ struct ReadyForDetailView: View {
         }
     }
 
-    private var hasMissingFields: Bool {
-        quarters.contains { field(for: $0) == nil }
-    }
+    private var hasMissingFields: Bool { assignment.hasMissingFields }
 
-    private func field(for quarter: AnalysisQuarter) -> Field? {
-        fieldsByQuarterID[quarter.id] ?? quarter.sourceRecord?.field ?? quarter.field
-    }
+    private func field(for quarter: AnalysisQuarter) -> Field? { assignment.field(for: quarter.id) }
 
     private var fieldAssignmentNotice: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -217,22 +234,20 @@ struct ReadyForDetailView: View {
         .background(Color.colorBackgroundSecondary, in: RoundedRectangle(cornerRadius: 12))
     }
 
-    private func assignMissingFields(_ field: Field) {
-        let missingQuarters = quarters.filter { self.field(for: $0) == nil }
-        let previousFields = missingQuarters.map { $0.sourceRecord?.field }
-        for quarter in missingQuarters {
-            quarter.sourceRecord?.field = field
-            fieldsByQuarterID[quarter.id] = field
+    /// 경기 단위로 들어왔고 이미 모든 쿼터에 운동장이 있을 때만 적용 범위를 묻는다 —
+    /// 최초 지정(미지정 쿼터가 있는 상태)과 쿼터가 하나뿐인 경기는 바로 적용한다.
+    private func handlePickedField(_ field: Field) {
+        if case .allQuarters = fieldPickerScope, quarters.count > 1, !assignment.hasMissingFields {
+            pendingField = field
+            return
         }
+        applyField(field, to: fieldPickerScope)
+    }
+
+    private func applyField(_ field: Field, to scope: FieldAssignmentScope) {
         do {
-            try modelContext.save()
+            try assignment.apply(field, to: scope, save: { try modelContext.save() })
         } catch {
-            for (index, quarter) in missingQuarters.enumerated() {
-                quarter.sourceRecord?.field = previousFields[index]
-                if previousFields[index] == nil {
-                    fieldsByQuarterID.removeValue(forKey: quarter.id)
-                }
-            }
             saveError = error.localizedDescription
         }
     }

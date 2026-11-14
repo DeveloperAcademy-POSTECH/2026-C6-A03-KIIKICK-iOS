@@ -40,10 +40,6 @@ struct AnalysisDetailView: View {
     @State private var fieldError: String?
     @State private var isSyncingField = false
     @State private var fieldSyncError: String?
-    #if DEBUG
-    /// 이슈 #96 진단용 — 서버 반영 결과를 화면에서 바로 확인한다.
-    @State private var fieldSyncOutcome: String?
-    #endif
 
     init(
         entry: AnalysisEntry,
@@ -162,8 +158,6 @@ struct AnalysisDetailView: View {
                 ) {
                     self.fieldSyncError = nil
                 }
-            } else if let outcome = debugSyncOutcome {
-                AnalysisMessagePopup(title: "서버 반영 결과", message: outcome) { clearDebugSyncOutcome() }
             } else if let pendingField {
                 FieldScopePopup(
                     fieldName: pendingField.name,
@@ -207,20 +201,6 @@ struct AnalysisDetailView: View {
         }
     }
 
-    private var debugSyncOutcome: String? {
-        #if DEBUG
-        fieldSyncOutcome
-        #else
-        nil
-        #endif
-    }
-
-    private func clearDebugSyncOutcome() {
-        #if DEBUG
-        fieldSyncOutcome = nil
-        #endif
-    }
-
     /// 쿼터가 하나뿐이면 적용 범위를 물을 필요가 없다.
     private func handlePickedField(_ field: Field) {
         guard entry.detail.quarters.count > 1 else {
@@ -257,10 +237,8 @@ struct AnalysisDetailView: View {
                 let outcome = try await FieldServerSync.sync(
                     records: records, positions: positions, field: field, context: modelContext)
                 #if DEBUG
-                // 이슈 #96 진단: 서버 반영이 어떤 경로로 끝났는지 눈으로 확인한다.
+                // 이슈 #96 진단: 서버 반영이 어떤 경로로 끝났는지 콘솔로 남긴다.
                 print("[#96] FieldServerSync.sync 결과: \(outcome)")
-                fieldSyncError = nil
-                fieldSyncOutcome = "\(outcome)"
                 #endif
             } catch {
                 fieldSyncError = "\(error)"

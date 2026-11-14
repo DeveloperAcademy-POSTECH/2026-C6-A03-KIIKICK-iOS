@@ -38,6 +38,8 @@ struct AnalysisDetailView: View {
     @State private var pendingField: Field?
     @State private var isPresentingFieldPicker = false
     @State private var fieldError: String?
+    @State private var isSyncingField = false
+    @State private var fieldSyncError: String?
 
     init(
         entry: AnalysisEntry,
@@ -93,6 +95,7 @@ struct AnalysisDetailView: View {
             fieldForCurrentQuarter: currentQuarter.flatMap { assignment.field(for: $0.id) },
             onChangeField: (friendNickname == nil && assignment.isEditable)
                 ? { isPresentingFieldPicker = true } : nil,
+            isSyncingField: isSyncingField,
             onShowFriends: {
                 guard ensureCurrentQuarterFriendModel() != nil else { return }
                 pushedFriendsPlayedTogether = true
@@ -146,6 +149,13 @@ struct AnalysisDetailView: View {
         } message: {
             Text(fieldError ?? "")
         }
+        .alert("서버에 반영하지 못했어요", isPresented: Binding(
+            get: { fieldSyncError != nil }, set: { if !$0 { fieldSyncError = nil } }
+        )) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("운동장은 이 기기에 저장됐어요. 네트워크가 돌아오면 다시 시도해주세요.\n\(fieldSyncError ?? "")")
+        }
         .onAppear {
             guard friendNickname == nil, entry.records.contains(where: { !$0.hasViewedAnalysis }) else { return }
             for record in entry.records { record.hasViewedAnalysis = true }
@@ -188,11 +198,29 @@ struct AnalysisDetailView: View {
         applyField(field, to: scope)
     }
 
+    /// 로컬 저장이 먼저고, 서버 반영은 실패해도 로컬 수정을 되돌리지 않는다 —
+    /// 히트맵은 로컬 값으로 그리므로 화면은 이미 맞다.
     private func applyField(_ field: Field, to scope: FieldAssignmentScope) {
         do {
             try assignment.apply(field, to: scope, save: { try modelContext.save() })
         } catch {
             fieldError = error.localizedDescription
+            return
+        }
+        let targets = assignment.targetQuarterIDs(for: scope)
+        let quarters = targets.compactMap { id in entry.detail.quarters.first { $0.id == id } }
+        let records = quarters.compactMap(\.sourceRecord)
+        let positions = quarters.compactMap { $0.position?.uppercased() }
+        guard records.count == quarters.count, positions.count == quarters.count, !records.isEmpty else { return }
+        isSyncingField = true
+        Task {
+            defer { isSyncingField = false }
+            do {
+                _ = try await FieldServerSync.sync(
+                    records: records, positions: positions, field: field, context: modelContext)
+            } catch {
+                fieldSyncError = error.localizedDescription
+            }
         }
     }
 
@@ -229,6 +257,7 @@ private struct AnalysisTabContent: View {
     let fieldForCurrentQuarter: Field?
     /// 로컬 기록이 없는(서버 복원) 엔트리나 친구 경기는 nil — 변경 행을 숨긴다.
     var onChangeField: (() -> Void)?
+    let isSyncingField: Bool
     var onShowFriends: () -> Void
     var onShowTimeline: () -> Void
 
@@ -273,7 +302,11 @@ private struct AnalysisTabContent: View {
                         positionRow(position)
                     }
                     if let onChangeField {
-                        FieldChangeRow(field: fieldForCurrentQuarter, action: onChangeField)
+                        HStack(spacing: 8) {
+                            FieldChangeRow(field: fieldForCurrentQuarter, action: onChangeField)
+                            if isSyncingField { ProgressView().tint(.mint500) }
+                        }
+                        .disabled(isSyncingField)
                     }
                     heatmapCarousel(quarter, friendHeatmapModel: friendHeatmapModel)
                 }

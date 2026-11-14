@@ -16,13 +16,10 @@
 //  실제로 고르기 전까진 "분석 보기"를 막는다(isPositionConfirmed).
 //
 
-import OSLog
 import SwiftUI
 import SwiftData
 
 struct ReadyForDetailView: View {
-    private static let logger = Logger(subsystem: "KIIKICK", category: "WorkoutSubmission")
-
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(AppRouter.self) private var router
@@ -176,7 +173,7 @@ struct ReadyForDetailView: View {
                 var updated = AnalysisQuarter(
                     id: quarter.id, quarterNumber: quarter.quarterNumber, durationText: quarter.durationText,
                     startDate: quarter.startDate, duration: quarter.duration,
-                    position: positions[index], field: quarter.field, points: quarter.points, events: quarter.events,
+                    position: positions[index], field: field(for: quarter), points: quarter.points, events: quarter.events,
                     totalDistanceKm: quarter.totalDistanceKm, totalCaloriesKcal: quarter.totalCaloriesKcal
                 )
                 updated.isAttackDirectionReversed = flips[index]
@@ -196,7 +193,12 @@ struct ReadyForDetailView: View {
             Task {
                 defer { isSubmitting = false }
                 do {
-                    try await submitWorkouts()
+                    try await WorkoutSubmissionStore.submit(
+                        records: entry.records,
+                        positions: positions,
+                        mode: .firstSubmission,
+                        context: modelContext
+                    )
                     for record in entry.records { record.hasViewedAnalysis = true }
                     try modelContext.save()
                     router.pushAnalysis(.analyzing(updatedEntry), in: navigationTab)
@@ -226,6 +228,7 @@ struct ReadyForDetailView: View {
                 .font(.body4R)
                 .foregroundStyle(.colorTextSecondary)
             CtaView(text: "운동장 지정하기", type: .secondary, size: .small) {
+                fieldPickerScope = .allQuarters
                 isPresentingFieldPicker = true
             }
         }
@@ -250,143 +253,6 @@ struct ReadyForDetailView: View {
         } catch {
             saveError = error.localizedDescription
         }
-    }
-
-    /// 완료 경기와 쿼터를 원자적으로 제출한 뒤에만 분석 상세로 진행한다.
-    private func submitWorkouts() async throws {
-        guard let firstRecord = entry.records.first else { throw NetworkError.emptyData }
-        let matchId = firstRecord.matchId
-        let repairedCount = try repairDuplicateQuarterIDs(in: entry.records)
-        if repairedCount > 0 {
-            Self.logger.debug("workout-submissions: 중복 quarterId \(repairedCount, privacy: .public)개를 새 UUID로 복구했습니다.")
-        }
-        try await ensureFieldsAreUploaded(for: entry.records)
-
-        let quarters = zip(entry.records, positions).map { record, position in
-            // 서버가 points/heartRateSamples/events의 timestamp가 startDate~endDate
-            // 범위 안에 있는지 검증한다(422 "points[0].timestamp"로 확인됨) — 워치에서
-            // 첫 GPS 포인트가 공식 시작 시각(record.date)보다 살짝 먼저 버퍼링되는
-            // 타이밍 특성 때문에 record.date/duration만 쓰면 범위를 벗어난다. 실제
-            // 샘플들의 최소/최대로 넓혀서 전부 범위 안에 들어오게 한다(데이터는 안 버림).
-            let allTimestamps = record.points.map(\.timestamp)
-                + record.heartRateSamples.map(\.timestamp)
-                + record.events.map(\.location.timestamp)
-            let startDate = ([record.date] + allTimestamps).min()!
-            let endDate = ([record.date.addingTimeInterval(record.duration)] + allTimestamps).max()!
-            return SubmissionQuarter(
-                quarterId: record.quarterId.uuidString.lowercased(),
-                position: position.uppercased(),
-                workout: WorkoutPayload(
-                    startDate: startDate,
-                    endDate: endDate,
-                    points: record.points,
-                    heartRateSamples: record.heartRateSamples,
-                    totalCalories: record.totalCalories,
-                    totalDistance: record.totalDistance,
-                    events: record.events,
-                    field: Self.workoutFieldPayload(for: record.field)
-                )
-            )
-        }
-        // If-Match: 제출 직전에 최신 경기 version을 조회해서 그대로 넘긴다. 조회가
-        // 실패하면(서버에 아직 등록 안 된 경기 — 지금 이 디버깅 플로우에서는 보통 이쪽)
-        // 버전을 모른다는 뜻이라 헤더 자체를 생략한다(submit의 ifMatch: nil).
-        if firstRecord.submissionIdempotencyKey == nil {
-            do {
-                let detail = try await NetworkService.provider.request(
-                    with: MatchEndpoints.detail(matchId: matchId))
-                firstRecord.submissionIfMatch = String(detail.data.version)
-            } catch NetworkError.invalidHttpStatusCode(404, _) {
-                firstRecord.submissionIfMatch = nil
-            } catch {
-                throw error
-            }
-            firstRecord.submissionIdempotencyKey = UUID()
-            try modelContext.save()
-        }
-        let ifMatch = firstRecord.submissionIfMatch
-        let requestSummary = Self.requestSummary(matchId: matchId, ifMatch: ifMatch, quarters: quarters)
-        Self.logger.debug("workout-submissions 요청: \(requestSummary, privacy: .public)")
-        let result: MatchResultEnvelope<SubmissionReceipt> = try await NetworkService.provider.request(
-            with: QuarterWorkoutEndpoints.submit(matchId: matchId, quarters: quarters,
-                ifMatch: ifMatch, idempotencyKey: firstRecord.submissionIdempotencyKey)
-        )
-        Self.logger.debug("workout-submissions 성공: \(String(describing: result.data), privacy: .public)")
-    }
-
-    /// 과거 앱 버전에서 같은 UUID로 저장된 여러 쿼터는 서버가 하나의 제출로 처리할 수
-    /// 없다. 아직 서버에 저장되지 않은 로컬 기록이므로 두 번째 항목부터 새 ID로 바꿔
-    /// 이후 재시도에도 같은 ID를 사용한다.
-    private func repairDuplicateQuarterIDs(in records: [WorkoutRecord]) throws -> Int {
-        var seen = Set<UUID>()
-        var repairedCount = 0
-
-        for record in records {
-            guard !seen.insert(record.quarterId).inserted else { continue }
-            var replacement = UUID()
-            while !seen.insert(replacement).inserted {
-                replacement = UUID()
-            }
-            record.quarterId = replacement
-            repairedCount += 1
-        }
-
-        if repairedCount > 0 {
-            try modelContext.save()
-        }
-        return repairedCount
-    }
-
-    /// 새 UI가 생기기 전에 로컬에만 저장된 운동장도 분석 제출 전에 venues API에
-    /// 등록한다. 새 경기장 생성은 FieldNamingView에서 즉시 등록하지만, 이 보정 경로는
-    /// 기존 목록에서 선택한 운동장까지 보장한다.
-    private func ensureFieldsAreUploaded(for records: [WorkoutRecord]) async throws {
-        var uploaded: [Field] = []
-        for field in records.compactMap(\.field) {
-            guard !uploaded.contains(where: { $0 === field }) else { continue }
-            try await VenueStore.ensureUploaded(field, context: modelContext)
-            uploaded.append(field)
-        }
-    }
-
-    /// 팝업에 전체 JSON(특히 points/heartRateSamples)을 그대로 넣으면 너무 길어서, 핵심
-    /// 필드만 뽑은 요약이다. 전체 원문은 Self.prettyPrintedJSON으로 콘솔에 남긴다.
-    private static func requestSummary(matchId: UUID, ifMatch: String?, quarters: [SubmissionQuarter]) -> String {
-        var lines = ["[보낸 요청]", "matchId: \(matchId)", "If-Match: \(ifMatch ?? "(생략)")"]
-        for (index, quarter) in quarters.enumerated() {
-            lines.append(
-                "쿼터[\(index)] quarterId=\(quarter.quarterId) position=\(quarter.position) " +
-                "points=\(quarter.workout.points.count) hr=\(quarter.workout.heartRateSamples.count) " +
-                "field=\(quarter.workout.field?.name ?? "nil")"
-            )
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    private static func prettyPrintedJSON<T: Encodable>(_ value: T) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(value), let text = String(data: data, encoding: .utf8) else {
-            return "(인코딩 실패)"
-        }
-        return text
-    }
-
-    /// 이슈 #66: WorkoutFieldRequest(cornerA-D 필수, name 필수)를 채운다 — 운동장이
-    /// 미지정이면(record.field == nil) nil을 그대로 둔다. 서버가 그 경우까지 받아줄지는
-    /// 확인 안 됐다.
-    private static func workoutFieldPayload(for field: Field?) -> WorkoutFieldPayload? {
-        guard let field else { return nil }
-        func corner(_ c: FieldCorner) -> WorkoutFieldPayload.Corner {
-            WorkoutFieldPayload.Corner(latitude: c.latitude, longitude: c.longitude)
-        }
-        return WorkoutFieldPayload(
-            name: field.name,
-            cornerA: corner(field.cornerA), cornerB: corner(field.cornerB),
-            cornerC: corner(field.cornerC), cornerD: corner(field.cornerD),
-            rawCornerA: field.rawCornerA.map(corner), rawCornerB: field.rawCornerB.map(corner),
-            rawCornerC: field.rawCornerC.map(corner), rawCornerD: field.rawCornerD.map(corner)
-        )
     }
 
     private func positionChangeText(index: Int, original: String?) -> String? {

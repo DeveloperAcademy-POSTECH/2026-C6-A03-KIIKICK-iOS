@@ -175,6 +175,9 @@ struct AnalysisDetailView: View {
             Text("운동장은 이 기기에 저장됐어요. 네트워크가 돌아오면 다시 시도해주세요.\n\(fieldSyncError ?? "")")
         }
         .onAppear {
+            #if DEBUG
+            AnalysisDiagnostics.dump(entry: entry, source: "상세진입")
+            #endif
             guard friendNickname == nil, entry.records.contains(where: { !$0.hasViewedAnalysis }) else { return }
             for record in entry.records { record.hasViewedAnalysis = true }
             try? modelContext.save()

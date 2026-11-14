@@ -120,6 +120,16 @@ struct AnalysisView: View {
         .onAppear {
             syncToLatestMonthIfNeeded()
             Task { await loadRemoteEntries() }
+            #if DEBUG
+            // 이슈 #96 진단: 어떤 경기가 로컬 기록을 갖고 있는지(= 운동장 변경 가능)
+            // 한 번에 찍는다.
+            let local = WorkoutMatchGrouping.groups(from: records).compactMap(AnalysisEntry.build(from:))
+            let localIDs = Set(local.compactMap { $0.records.first?.matchId })
+            let cached = cachedMatches.filter { $0.ownerID == loadedUserID && !localIDs.contains($0.matchID) }
+                .compactMap(\.entry)
+            AnalysisDiagnostics.dump(entries: local, source: "로컬")
+            AnalysisDiagnostics.dump(entries: cached, source: "서버복원")
+            #endif
         }
         .onChange(of: records) { _, _ in
             // 탭이 계속 떠 있는 동안(TabView가 형제 탭을 메모리에서 안 지운다) 새 경기가

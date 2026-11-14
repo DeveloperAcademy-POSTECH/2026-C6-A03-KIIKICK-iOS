@@ -39,6 +39,8 @@ struct AnalysisDetailView: View {
     @State private var isPresentingFieldPicker = false
     @State private var fieldError: String?
     @State private var isSyncingField = false
+    @State private var isResubmitting = false
+    @State private var resubmitMessage: String?
     @State private var fieldSyncError: String?
 
     init(
@@ -109,6 +111,8 @@ struct AnalysisDetailView: View {
             onChangeField: (friendNickname == nil && assignment.isEditable)
                 ? { isPresentingFieldPicker = true } : nil,
             isSyncingField: isSyncingField,
+            onResubmit: resubmitAction,
+            isResubmitting: isResubmitting,
             onShowFriends: {
                 guard ensureCurrentQuarterFriendModel() != nil else { return }
                 pushedFriendsPlayedTogether = true
@@ -162,6 +166,13 @@ struct AnalysisDetailView: View {
         } message: {
             Text(fieldError ?? "")
         }
+        .alert("분석 다시 보내기", isPresented: Binding(
+            get: { resubmitMessage != nil }, set: { if !$0 { resubmitMessage = nil } }
+        )) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(resubmitMessage ?? "")
+        }
         .alert("서버에 반영하지 못했어요", isPresented: Binding(
             get: { fieldSyncError != nil }, set: { if !$0 { fieldSyncError = nil } }
         )) {
@@ -193,6 +204,42 @@ struct AnalysisDetailView: View {
         .task(id: currentQuarter?.id) {
             guard let model = ensureCurrentFriendHeatmapModel() else { return }
             await model.loadIfNeeded()
+        }
+    }
+
+    /// 큰 뷰 표현식 안에서 삼항 연산자로 클로저를 만들면 타입 추론이 터져서 따로 뺐다.
+    private var resubmitAction: (() -> Void)? {
+        canResubmit ? { resubmitAnalysis() } : nil
+    }
+
+    /// 이슈 #96: 이미 서버로 보낸 적 있는 내 경기만 다시 보낼 수 있다.
+    private var canResubmit: Bool {
+        friendNickname == nil && entry.records.contains { $0.submissionIdempotencyKey != nil }
+    }
+
+    /// "분석 보기"와 같은 workout-submissions 경로를 재전송 모드로 부른다 — 새
+    /// Idempotency-Key와 최신 If-Match를 써서, 바뀐 운동장·포지션이 서버에 반영되게 한다.
+    private func resubmitAnalysis() {
+        guard !isResubmitting else { return }
+        let quarters = entry.detail.quarters
+        let records = quarters.compactMap(\.sourceRecord)
+        let positions = quarters.compactMap { $0.position?.uppercased() }
+        guard records.count == quarters.count, positions.count == quarters.count, !records.isEmpty else {
+            resubmitMessage = "포지션이 비어 있는 쿼터가 있어 다시 보낼 수 없어요."
+            return
+        }
+        isResubmitting = true
+        Task {
+            defer { isResubmitting = false }
+            do {
+                try await WorkoutSubmissionStore.submit(
+                    records: records, positions: positions,
+                    mode: .resubmission, context: modelContext
+                )
+                resubmitMessage = "분석을 다시 보냈어요."
+            } catch {
+                resubmitMessage = error.localizedDescription
+            }
         }
     }
 
@@ -268,6 +315,9 @@ private struct AnalysisTabContent: View {
     /// 로컬 기록이 없는(서버 복원) 엔트리나 친구 경기는 nil — 변경 행을 숨긴다.
     var onChangeField: (() -> Void)?
     let isSyncingField: Bool
+    /// 이슈 #96: 이미 제출된 내 경기에서만 재전송을 노출한다.
+    var onResubmit: (() -> Void)?
+    let isResubmitting: Bool
     var onShowFriends: () -> Void
     var onShowTimeline: () -> Void
 
@@ -342,6 +392,16 @@ private struct AnalysisTabContent: View {
 
                 ForEach(currentQuarter?.resultSections ?? detail.sections) { section in
                     sectionView(section)
+                }
+
+                if let onResubmit {
+                    CtaView(
+                        text: isResubmitting ? "다시 보내는 중..." : "분석 다시 보기",
+                        type: .secondary,
+                        size: .large,
+                        isActive: !isResubmitting,
+                        action: onResubmit
+                    )
                 }
 
                 if isOwner { CtaView(text: "삭제하기", type: .destructive, size: .large) { } }

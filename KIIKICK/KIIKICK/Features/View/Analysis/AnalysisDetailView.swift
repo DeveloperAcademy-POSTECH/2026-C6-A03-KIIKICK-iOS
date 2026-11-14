@@ -40,7 +40,7 @@ struct AnalysisDetailView: View {
     @State private var fieldError: String?
     @State private var isSyncingField = false
     @State private var isResubmitting = false
-    @State private var resubmitMessage: String?
+    @State private var resubmitReport: SubmissionDebugReport?
     @State private var fieldSyncError: String?
 
     init(
@@ -166,12 +166,10 @@ struct AnalysisDetailView: View {
         } message: {
             Text(fieldError ?? "")
         }
-        .alert("분석 다시 보내기", isPresented: Binding(
-            get: { resubmitMessage != nil }, set: { if !$0 { resubmitMessage = nil } }
-        )) {
-            Button("확인", role: .cancel) {}
-        } message: {
-            Text(resubmitMessage ?? "")
+        .overlay {
+            if let resubmitReport {
+                SubmissionDebugPopup(report: resubmitReport) { self.resubmitReport = nil }
+            }
         }
         .alert("서버에 반영하지 못했어요", isPresented: Binding(
             get: { fieldSyncError != nil }, set: { if !$0 { fieldSyncError = nil } }
@@ -225,21 +223,28 @@ struct AnalysisDetailView: View {
         let records = quarters.compactMap(\.sourceRecord)
         let positions = quarters.compactMap { $0.position?.uppercased() }
         guard records.count == quarters.count, positions.count == quarters.count, !records.isEmpty else {
-            resubmitMessage = "포지션이 비어 있는 쿼터가 있어 다시 보낼 수 없어요."
+            resubmitReport = SubmissionDebugReport(
+                title: "분석 다시 보내기",
+                lines: ["보내지 않았습니다 — 포지션이 비어 있는 쿼터가 있어요(서버는 position이 필수입니다)."]
+            )
             return
         }
         isResubmitting = true
+        // 요청 요약과 응답을 그대로 모아 팝업에 띄운다 — 서버가 재전송을 갱신으로
+        // 처리하는지 확인하려면 상태 코드와 quarterCount를 봐야 한다(이슈 #96).
+        var lines: [String] = []
         Task {
             defer { isResubmitting = false }
             do {
                 try await WorkoutSubmissionStore.submit(
                     records: records, positions: positions,
-                    mode: .resubmission, context: modelContext
+                    mode: .resubmission, context: modelContext,
+                    debug: { lines.append($0) }
                 )
-                resubmitMessage = "분석을 다시 보냈어요."
             } catch {
-                resubmitMessage = error.localizedDescription
+                lines.append("[오류] \(error)")
             }
+            resubmitReport = SubmissionDebugReport(title: "분석 다시 보내기", lines: lines)
         }
     }
 

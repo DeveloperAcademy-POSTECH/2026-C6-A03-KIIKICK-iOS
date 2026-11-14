@@ -23,12 +23,17 @@ enum WorkoutSubmissionStore {
     }
 
     /// 완료 경기와 쿼터를 원자적으로 제출한다.
+    ///
+    /// `debug`: 보낸 요청 요약과 서버 응답을 그대로 흘려보낸다 — 이슈 #96의 재전송
+    /// 동작(갱신인지, 409인지, 쿼터가 중복 생성되는지)을 기기에서 눈으로 확인하려면
+    /// Console 로그만으로는 부족해서, 호출부가 팝업에 그대로 띄울 수 있게 뺐다.
     static func submit(
         records: [WorkoutRecord],
         positions: [String],
         mode: Mode,
         context: ModelContext,
-        provider: (any Provider)? = nil
+        provider: (any Provider)? = nil,
+        debug: ((String) -> Void)? = nil
     ) async throws {
         guard let firstRecord = records.first else { throw NetworkError.emptyData }
         let provider = provider ?? NetworkService.provider
@@ -85,11 +90,20 @@ enum WorkoutSubmissionStore {
         let ifMatch = firstRecord.submissionIfMatch
         let requestSummary = Self.requestSummary(matchId: matchId, ifMatch: ifMatch, quarters: quarters)
         logger.debug("workout-submissions 요청: \(requestSummary, privacy: .public)")
-        let result: MatchResultEnvelope<SubmissionReceipt> = try await provider.request(
-            with: QuarterWorkoutEndpoints.submit(matchId: matchId, quarters: quarters,
-                ifMatch: ifMatch, idempotencyKey: firstRecord.submissionIdempotencyKey)
-        )
-        logger.debug("workout-submissions 성공: \(String(describing: result.data), privacy: .public)")
+        debug?("POST /matches/\(matchId.uuidString.lowercased())/workout-submissions")
+        debug?("Idempotency-Key: \(firstRecord.submissionIdempotencyKey?.uuidString ?? "(없음)")")
+        debug?(requestSummary)
+        do {
+            let result: MatchResultEnvelope<SubmissionReceipt> = try await provider.request(
+                with: QuarterWorkoutEndpoints.submit(matchId: matchId, quarters: quarters,
+                    ifMatch: ifMatch, idempotencyKey: firstRecord.submissionIdempotencyKey)
+            )
+            logger.debug("workout-submissions 성공: \(String(describing: result.data), privacy: .public)")
+            debug?("[응답] 성공 — matchId=\(result.data.matchId) quarterCount=\(result.data.quarterCount) matchVersion=\(result.meta.matchVersion.map(String.init) ?? "nil")")
+        } catch {
+            debug?("[응답] 실패 — \(error.localizedDescription)")
+            throw error
+        }
     }
 
     /// 서버에 아직 등록되지 않은 경기(404)는 버전을 모르니 nil(= If-Match 헤더 생략)을 쓴다.

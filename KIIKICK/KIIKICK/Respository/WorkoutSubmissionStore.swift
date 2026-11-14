@@ -23,17 +23,12 @@ enum WorkoutSubmissionStore {
     }
 
     /// 완료 경기와 쿼터를 원자적으로 제출한다.
-    ///
-    /// `debug`: 보낸 요청 요약과 서버 응답을 그대로 흘려보낸다 — 이슈 #96의 재전송
-    /// 동작(갱신인지, 409인지, 쿼터가 중복 생성되는지)을 기기에서 눈으로 확인하려면
-    /// Console 로그만으로는 부족해서, 호출부가 팝업에 그대로 띄울 수 있게 뺐다.
     static func submit(
         records: [WorkoutRecord],
         positions: [String],
         mode: Mode,
         context: ModelContext,
-        provider: (any Provider)? = nil,
-        debug: ((String) -> Void)? = nil
+        provider: (any Provider)? = nil
     ) async throws {
         guard let firstRecord = records.first else { throw NetworkError.emptyData }
         let provider = provider ?? NetworkService.provider
@@ -76,42 +71,29 @@ enum WorkoutSubmissionStore {
         switch mode {
         case .firstSubmission:
             if firstRecord.submissionIdempotencyKey == nil {
-                firstRecord.submissionIfMatch = try await latestVersion(matchId: matchId, provider: provider, debug: debug)
+                firstRecord.submissionIfMatch = try await latestVersion(matchId: matchId, provider: provider)
                 firstRecord.submissionIdempotencyKey = UUID()
                 try context.save()
             }
         case .resubmission:
             // 같은 Idempotency-Key를 다시 쓰면 서버가 기존 제출을 그대로 돌려줄 수 있어
             // 바뀐 운동장이 반영되지 않는다. 분석 저장으로 올라간 최신 version도 다시 읽는다.
-            firstRecord.submissionIfMatch = try await latestVersion(matchId: matchId, provider: provider, debug: debug)
+            firstRecord.submissionIfMatch = try await latestVersion(matchId: matchId, provider: provider)
             firstRecord.submissionIdempotencyKey = UUID()
             try context.save()
         }
         let ifMatch = firstRecord.submissionIfMatch
         let requestSummary = Self.requestSummary(matchId: matchId, ifMatch: ifMatch, quarters: quarters)
         logger.debug("workout-submissions 요청: \(requestSummary, privacy: .public)")
-        debug?("POST /matches/\(matchId.uuidString.lowercased())/workout-submissions")
-        debug?("Idempotency-Key: \(firstRecord.submissionIdempotencyKey?.uuidString ?? "(없음)")")
-        debug?(requestSummary)
-        do {
-            let result: MatchResultEnvelope<SubmissionReceipt> = try await provider.request(
-                with: QuarterWorkoutEndpoints.submit(matchId: matchId, quarters: quarters,
-                    ifMatch: ifMatch, idempotencyKey: firstRecord.submissionIdempotencyKey)
-            )
-            logger.debug("workout-submissions 성공: \(String(describing: result.data), privacy: .public)")
-            debug?("[응답] 성공 — matchId=\(result.data.matchId) quarterCount=\(result.data.quarterCount) matchVersion=\(result.meta.matchVersion.map(String.init) ?? "nil")")
-        } catch {
-            debug?("[응답] 실패 — \(error.localizedDescription)")
-            throw error
-        }
+        let result: MatchResultEnvelope<SubmissionReceipt> = try await provider.request(
+            with: QuarterWorkoutEndpoints.submit(matchId: matchId, quarters: quarters,
+                ifMatch: ifMatch, idempotencyKey: firstRecord.submissionIdempotencyKey)
+        )
+        logger.debug("workout-submissions 성공: \(String(describing: result.data), privacy: .public)")
     }
 
     /// 서버에 아직 등록되지 않은 경기(404)는 버전을 모르니 nil(= If-Match 헤더 생략)을 쓴다.
-    private static func latestVersion(
-        matchId: UUID,
-        provider: any Provider,
-        debug: ((String) -> Void)? = nil
-    ) async throws -> String? {
+    private static func latestVersion(matchId: UUID, provider: any Provider) async throws -> String? {
         do {
             let detail = try await provider.request(with: MatchEndpoints.detail(matchId: matchId))
             return ifMatchValue(detail.data.version)
@@ -119,7 +101,7 @@ enum WorkoutSubmissionStore {
             // 서버 매치 생성 플로우가 로컬 녹화와 연결돼 있지 않아서(WorkoutRecord.matchId
             // 주석) 로컬에서 만든 matchId는 서버에 없을 수 있다. 그 경기는 재전송 자체가
             // 불가능하므로 팝업에서 바로 드러나게 적는다.
-            debug?("경고: GET /matches/\(matchId.uuidString.lowercased())가 404 — 이 경기는 서버에 없습니다. 재전송은 실패합니다.")
+            logger.debug("GET /matches/\(matchId.uuidString.lowercased(), privacy: .public) 404 — 서버에 없는 경기라 If-Match를 생략합니다.")
             return nil
         }
     }

@@ -37,7 +37,7 @@ enum WorkoutSubmissionStore {
         if repairedCount > 0 {
             logger.debug("workout-submissions: 중복 quarterId \(repairedCount, privacy: .public)개를 새 UUID로 복구했습니다.")
         }
-        try await ensureFieldsAreUploaded(for: records, context: context)
+        try await ensureFieldsAreUploaded(for: records, context: context, provider: provider)
 
         let quarters = zip(records, positions).map { record, position in
             // 서버가 points/heartRateSamples/events의 timestamp가 startDate~endDate
@@ -130,12 +130,13 @@ enum WorkoutSubmissionStore {
     /// 기존 목록에서 선택한 운동장까지 보장한다.
     static func ensureFieldsAreUploaded(
         for records: [WorkoutRecord],
-        context: ModelContext
+        context: ModelContext,
+        provider: (any Provider)? = nil
     ) async throws {
         var uploaded: [Field] = []
         for field in records.compactMap(\.field) {
             guard !uploaded.contains(where: { $0 === field }) else { continue }
-            try await VenueStore.ensureUploaded(field, context: context)
+            try await VenueStore.ensureUploaded(field, context: context, provider: provider)
             uploaded.append(field)
         }
     }

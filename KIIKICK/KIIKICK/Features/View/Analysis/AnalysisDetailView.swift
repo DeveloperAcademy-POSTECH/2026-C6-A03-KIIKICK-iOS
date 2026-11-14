@@ -32,6 +32,12 @@ struct AnalysisDetailView: View {
     @State private var pushedTimeline = false
     @State private var pushedShare = false
     @State private var commentSheetDetent: PresentationDetent
+    // 이슈 #96: 분석을 한 번 본 경기는 분석 준비 화면을 다시 거치지 않으므로, 운동장
+    // 수정은 이 화면에서도 가능해야 한다.
+    @State private var assignment: FieldAssignment
+    @State private var pendingField: Field?
+    @State private var isPresentingFieldPicker = false
+    @State private var fieldError: String?
 
     init(
         entry: AnalysisEntry,
@@ -46,6 +52,11 @@ struct AnalysisDetailView: View {
         friendMatchID = matchID
         _commentsModel = State(initialValue: MatchCommentsModel(matchID: matchID ?? entry.records.first?.matchId ?? entry.id))
         _commentSheetDetent = State(initialValue: showComments ? .large : .height(70))
+        _assignment = State(initialValue: FieldAssignment(
+            quarters: entry.detail.quarters.map {
+                FieldAssignment.QuarterInput(id: $0.id, record: $0.sourceRecord, field: $0.field)
+            }
+        ))
     }
 
     private var currentQuarter: AnalysisQuarter? {
@@ -79,6 +90,9 @@ struct AnalysisDetailView: View {
             friendsCount: currentQuarterFriendModel?.friends.count ?? 0,
             canManageFriends: ownerMatchID != nil && currentQuarterID != nil,
             friendHeatmapModel: currentFriendHeatmapModel,
+            fieldForCurrentQuarter: currentQuarter.flatMap { assignment.field(for: $0.id) },
+            onChangeField: (friendNickname == nil && assignment.isEditable)
+                ? { isPresentingFieldPicker = true } : nil,
             onShowFriends: {
                 guard ensureCurrentQuarterFriendModel() != nil else { return }
                 pushedFriendsPlayedTogether = true
@@ -113,6 +127,25 @@ struct AnalysisDetailView: View {
         .navigationDestination(isPresented: $pushedShare) {
             ShareImageView(keyStats: entry.detail.keyStats)
         }
+        .navigationDestination(isPresented: $isPresentingFieldPicker) {
+            FieldListView(onFieldSelected: handlePickedField)
+        }
+        .confirmationDialog("이 운동장을 어디에 적용할까요?", isPresented: Binding(
+            get: { pendingField != nil }, set: { if !$0 { pendingField = nil } }
+        ), titleVisibility: .visible) {
+            Button("모든 쿼터에 적용") { applyPendingField(to: .allQuarters) }
+            if let quarterID = currentQuarter?.id {
+                Button("이 쿼터만") { applyPendingField(to: .quarter(quarterID)) }
+            }
+            Button("취소", role: .cancel) { pendingField = nil }
+        }
+        .alert("운동장을 바꾸지 못했어요", isPresented: Binding(
+            get: { fieldError != nil }, set: { if !$0 { fieldError = nil } }
+        )) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(fieldError ?? "")
+        }
         .onAppear {
             guard friendNickname == nil, entry.records.contains(where: { !$0.hasViewedAnalysis }) else { return }
             for record in entry.records { record.hasViewedAnalysis = true }
@@ -137,6 +170,29 @@ struct AnalysisDetailView: View {
         .task(id: currentQuarter?.id) {
             guard let model = ensureCurrentFriendHeatmapModel() else { return }
             await model.loadIfNeeded()
+        }
+    }
+
+    /// 쿼터가 하나뿐이면 적용 범위를 물을 필요가 없다.
+    private func handlePickedField(_ field: Field) {
+        guard entry.detail.quarters.count > 1 else {
+            applyField(field, to: .allQuarters)
+            return
+        }
+        pendingField = field
+    }
+
+    private func applyPendingField(to scope: FieldAssignmentScope) {
+        guard let field = pendingField else { return }
+        pendingField = nil
+        applyField(field, to: scope)
+    }
+
+    private func applyField(_ field: Field, to scope: FieldAssignmentScope) {
+        do {
+            try assignment.apply(field, to: scope, save: { try modelContext.save() })
+        } catch {
+            fieldError = error.localizedDescription
         }
     }
 
@@ -168,6 +224,11 @@ private struct AnalysisTabContent: View {
     let friendsCount: Int
     let canManageFriends: Bool
     let friendHeatmapModel: FriendHeatmapModel?
+    /// 이슈 #96: 운동장 오버레이. AnalysisQuarter가 값 타입이라 record.field만 고쳐도
+    /// quarter.field는 그대로이므로, 히트맵은 이 값을 써야 바로 다시 그려진다.
+    let fieldForCurrentQuarter: Field?
+    /// 로컬 기록이 없는(서버 복원) 엔트리나 친구 경기는 nil — 변경 행을 숨긴다.
+    var onChangeField: (() -> Void)?
     var onShowFriends: () -> Void
     var onShowTimeline: () -> Void
 
@@ -210,6 +271,9 @@ private struct AnalysisTabContent: View {
 
                     if let position = quarter.position {
                         positionRow(position)
+                    }
+                    if let onChangeField {
+                        FieldChangeRow(field: fieldForCurrentQuarter, action: onChangeField)
                     }
                     heatmapCarousel(quarter, friendHeatmapModel: friendHeatmapModel)
                 }
@@ -267,7 +331,7 @@ private struct AnalysisTabContent: View {
     private func heatmapCarousel(_ quarter: AnalysisQuarter, friendHeatmapModel: FriendHeatmapModel?) -> some View {
         Group {
             if isOwner {
-                TrackingMapPager(field: quarter.field, points: quarter.points,
+                TrackingMapPager(field: fieldForCurrentQuarter ?? quarter.field, points: quarter.points,
                                  isAttackDirectionReversed: quarter.isAttackDirectionReversed)
                 .frame(height: 248)
                 .overlay(alignment: .bottomTrailing) {

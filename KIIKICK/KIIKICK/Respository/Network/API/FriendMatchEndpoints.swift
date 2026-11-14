@@ -22,6 +22,11 @@ enum FriendMatchEndpoints {
             queryParameters: PageQuery(cursor: cursor, limit: 100), headers: bearerHeaders())
     }
 
+    static func venue(userID: UUID, matchID: UUID) -> Endpoint<MatchResultEnvelope<VenueResponse>> {
+        Endpoint(path: "/api/v1/friends/\(userID.uuidString.lowercased())/matches/\(matchID.uuidString.lowercased())/venue",
+            method: .get, headers: bearerHeaders())
+    }
+
     /// 친구의 원본 GPS 대신 익명화·집계된 격자 밀도를 반환한다.
     static func heatmap(userID: UUID, matchID: UUID, quarterID: UUID) -> Endpoint<FriendHeatmapEnvelope> {
         Endpoint(

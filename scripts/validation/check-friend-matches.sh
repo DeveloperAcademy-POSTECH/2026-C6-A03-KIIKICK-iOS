@@ -14,7 +14,7 @@ xcrun swiftc -parse-as-library \
   "$network"/Common/{HTTPMethod,NetworkError,AuthHeader,IdempotencyKey,MultipartFormData}.swift \
   "$network"/Provider/{Provider,ProviderImpl,URLSessionable}.swift \
   "$network"/API/{FriendEndpoints,FriendMatchEndpoints,MatchCommentEndpoints}.swift \
-  "$network"/DTO/{ResponseEnvelope,FriendDTO,MatchDTO,QuarterDTO,MatchResultDTO,ResultWorkoutEvent,MatchCommentResponse,FriendHeatmapDTO}.swift \
+  "$network"/DTO/{ResponseEnvelope,FriendDTO,MatchDTO,QuarterDTO,MatchResultDTO,ResultWorkoutEvent,MatchCommentResponse,FriendHeatmapDTO,VenueDTO}.swift \
   "$app"/Respository/FriendMatchLoader.swift \
   "$app"/Features/View/Friends/FriendMatchListModel.swift \
   "$app"/Features/View/Friends/FriendHeatmapModel.swift \

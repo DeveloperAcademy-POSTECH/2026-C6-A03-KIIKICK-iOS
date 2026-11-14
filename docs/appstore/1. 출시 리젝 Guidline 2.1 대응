@@ -1,0 +1,128 @@
+# Overview
+
+리젝 [Git Issue](https://github.com/DeveloperAcademy-POSTECH/2026-C6-A03-KIIKICK-iOS/issues/84)에 정리
+
+답안
+
+2. App Purpose and Target Audience
+	KIIKICK is a soccer performance tracking and analysis app designed for amateur soccer players and recreational soccer and futsal enthusiasts.
+  Many recreational players want to improve their skills but have limited access to tools that help them objectively understand their individual movements and activities during matches.
+  KIIKICK aims to address this problem by tracking individual match data using Apple Watch and providing visualized performance analysis on iPhone.
+  Users can access the following features:
+    * Track match activity using Apple Watch, including movement paths, distance traveled, speed, heart rate, and calories burned.
+    * Manually record goals and assists during matches.
+    * Review individual movement patterns through heatmaps and sprint maps.
+    * Analyze match performance using key statistics and activity data.
+    * Compare performance across matches and individual quarters.
+    * Share match information with friends and exchange feedback through comments.
+  KIIKICK helps recreational players better understand their playing patterns, reflect on their performance, and identify areas for improvement.
+  The target audience includes amateur soccer players, recreational soccer and futsal players, and sports enthusiasts who want to track and analyze their individual match performance.
+
+3. Instructions for Setting Up and Accessing the Main Features KIIKICK consists of an iPhone app and a companion Apple Watch app.
+  An Apple Watch is required to record match activity, while the iPhone app allows users to prepare matches, view performance analysis, and interact with friends.
+
+  Account Setup
+    1. Launch the KIIKICK app on iPhone.
+    2. Create an account using an email address and password.
+    3. Complete email verification by entering the verification code sent to the registered email address.
+    4. Set a nickname and complete the registration process.
+    5. Log in to access the app's main features.
+
+  Preparing and Recording a Match
+    1. Launch the KIIKICK app on iPhone.
+    2. Tap the "+" button on the Home screen to prepare a new match.
+    3. Complete the required match preparation settings.
+    4. Open the KIIKICK app on Apple Watch.
+    5. Start the prepared match on Apple Watch.
+    6. During the match, Apple Watch tracks activity data, including movement paths, distance traveled, speed, heart rate, and calories burned.
+    7. Users can manually add or remove goals and assists using the Apple Watch interface.
+    8. End the match on Apple Watch to complete the recording.
+
+  Viewing Match Analysis
+    1. Open the Analysis tab in the iPhone app.
+    2. Select a completed match.
+    3. If prompted, confirm the position and heatmap orientation for each quarter.
+    4. View match analysis results, including heatmaps, sprint maps, key statistics, and activity data.
+    5. Switch between quarters to review performance for each quarter.
+    6. Use the timeline feature to review movements and match events over time.
+
+  Social Features
+    1. Open the Friends tab to search for and add other KIIKICK users.
+    2. Open a completed match to add or manage friends who played together.
+    3. View shared match information and leave comments to exchange feedback.
+
+4. External Services, Tools, and Platforms
+  KIIKICK uses its own backend hosted on Amazon Web Services (AWS Seoul Region) to manage accounts and synchronize match and workout records. Amazon Simple Email Service (SES) sends email verification codes. The app uses Apple HealthKit, Core Location, Apple Watch sensors, and WatchConnectivity to record and transfer workout data between devices. For details about personal information processing, see our Privacy Policy: https://dazzling-myth-cd2.notion.site/KIIKICK-External-Service-and-Platforms-4157c67ff1e68081a0f8fe4ab1b11028?source=copy_link
+
+
+5. Regional Availability
+
+  KIIKICK is currently available only in South Korea.
+
+
+2. 앱의 목적 및 타깃 사용자
+  
+  KIIKICK은 아마추어 축구 선수와 취미 축구 및 풋살 동호인을 위한 경기 퍼포먼스 트래킹 및 분석 앱입니다.
+  많은 취미 축구 선수들은 자신의 실력을 향상하고 싶어 하지만, 경기 중 개인의 움직임과 활동을 객관적으로 이해할 수 있는 도구에 접근하기 어렵습니다.
+  KIIKICK은 Apple Watch를 활용하여 개인의 경기 데이터를 측정하고, iPhone에서 이를 시각화한 분석 결과를 제공함으로써 이러한 문제를 해결하고자 합니다.
+  사용자는 다음 기능을 이용할 수 있습니다.
+    * Apple Watch를 활용한 이동 경로, 이동거리, 속도, 심박수, 소모 칼로리 등의 경기 활동 데이터 측정
+    * 경기 중 골과 어시스트 직접 입력
+    * 히트맵과 스프린트맵을 통한 개인 움직임 패턴 확인
+    * 핵심 지표와 활동 데이터를 통한 경기 퍼포먼스 분석
+    * 경기 및 쿼터별 퍼포먼스 비교
+    * 친구와 경기 정보 공유 및 댓글을 통한 피드백 교환
+  KIIKICK은 취미 축구 선수들이 자신의 플레이 패턴을 이해하고, 경기 퍼포먼스를 돌아보며, 개선할 부분을 발견할 수 있도록 돕습니다.
+  주요 타깃 사용자는 자신의 경기 활동을 측정하고 분석하고자 하는 아마추어 축구 선수, 풋살 동호인 및 취미 스포츠 활동 참여자입니다.
+
+3. 앱의 주요 기능 설정 및 접근 방법
+  
+  KIIKICK은 iPhone 앱과 Apple Watch 앱으로 구성됩니다.
+경기 활동을 측정하려면 Apple Watch가 필요하며, iPhone 앱에서는 경기 준비, 퍼포먼스 분석 및 친구와의 상호작용 기능을 이용할 수 있습니다.
+
+  회원가입 및 계정 설정
+    1. iPhone에서 KIIKICK 앱을 실행합니다.
+    2. 이메일 주소와 비밀번호를 입력하여 계정을 생성합니다.
+    3. 등록한 이메일 주소로 발송된 인증번호를 입력해 이메일 인증을 완료합니다.
+    4. 닉네임을 설정하고 회원가입을 완료합니다.
+    5. 로그인하여 앱의 주요 기능을 이용합니다.
+
+  경기 준비 및 측정
+    1. iPhone에서 KIIKICK 앱을 실행합니다.
+    2. 홈 화면의 "+" 버튼을 눌러 새로운 경기를 준비합니다.
+    3. 필요한 경기 준비 설정을 완료합니다.
+    4. Apple Watch에서 KIIKICK 앱을 실행합니다.
+    5. Apple Watch에서 준비된 경기를 시작합니다.
+    6. 경기 중 Apple Watch가 이동 경로, 이동거리, 속도, 심박수, 소모 칼로리 등의 활동 데이터를 측정합니다.
+    7. 사용자는 Apple Watch 화면에서 골과 어시스트를 직접 추가하거나 삭제할 수 있습니다.
+    8. Apple Watch에서 경기를 종료하여 측정을 완료합니다.
+
+  경기 분석 결과 확인
+    1. iPhone 앱에서 분석 탭으로 이동합니다.
+    2. 완료된 경기를 선택합니다.
+    3. 필요한 경우 각 쿼터의 포지션과 히트맵 방향을 확인합니다.
+    4. 히트맵, 스프린트맵, 핵심 지표 및 활동 데이터를 포함한 경기 분석 결과를 확인합니다.
+    5. 쿼터를 전환하여 각 쿼터의 퍼포먼스를 확인합니다.
+    6. 타임라인 기능을 통해 시간에 따른 움직임과 경기 이벤트를 확인합니다.
+
+  소셜 기능
+    1. 친구 탭에서 다른 KIIKICK 사용자를 검색하고 추가합니다.
+    2. 완료된 경기에서 함께 뛴 친구를 설정하고 관리합니다.
+    3. 공유된 경기 정보를 확인하고 댓글을 통해 피드백을 남깁니다.
+    4. 외부 서비스, 도구 및 플랫폼
+
+  KIIKICK은 주요 기능을 제공하기 위해 다음 Apple 플랫폼과 기술을 활용합니다.
+    * iOS: 계정 관리, 경기 준비, 퍼포먼스 분석 및 소셜 기능을 위한 메인 인터페이스를 제공합니다.
+    * watchOS: Apple Watch에서 축구 및 풋살 경기의 시작, 측정, 종료 기능을 제공합니다.
+    * Apple HealthKit: 해당하는 경우 운동 및 건강 관련 데이터 접근을 지원합니다.
+    * Apple Core Location: 경기 중 선수의 움직임을 분석하기 위한 위치 정보 측정을 지원합니다.
+    * Apple Watch 센서: 심박수와 움직임 관련 데이터를 비롯한 활동 측정값을 제공합니다.
+    * Apple Watch–iPhone 통신: 두 기기 간 경기 데이터 동기화를 지원합니다.
+  KIIKICK은 설명된 핵심 기능을 이용하기 위해 유료 콘텐츠 구매나 인앱 결제를 요구하지 않습니다.
+
+5. 지역별 서비스 제공 여부
+  
+  KIIKICK은 현재 대한민국에서만 서비스를 제공하고 있습니다.
+  경기 측정, 퍼포먼스 분석, 히트맵 및 소셜 기능을 포함한 모든 핵심 기능은 대한민국 사용자에게 제공됩니다.
+  향후 업데이트를 통해 지원 국가 및 지역을 점진적으로 확대할 계획입니다.
+  위치 기반 트래킹의 정확도는 GPS 신호 상태, 기기 환경 및 주변 환경에 따라 달라질 수 있습니다.

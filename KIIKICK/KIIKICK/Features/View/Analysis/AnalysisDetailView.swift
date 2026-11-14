@@ -301,7 +301,8 @@ private struct AnalysisTabContent: View {
                 ProgressView("히트맵을 불러오는 중...")
                     .tint(.mint500)
                     .frame(maxWidth: .infinity, minHeight: 248)
-            } else if let heatmap = model.heatmap, heatmap.status == .ready, !heatmap.cells.isEmpty {
+            } else if let heatmap = model.heatmap, heatmap.status == .ready, !heatmap.cells.isEmpty,
+                      quarter.field != nil {
                 FriendHeatmapView(
                     field: quarter.field,
                     heatmap: heatmap,
@@ -310,7 +311,9 @@ private struct AnalysisTabContent: View {
                 .frame(height: 248)
                 .accessibilityLabel("친구 히트맵, 표본 \(heatmap.sampleCount)개")
             } else {
-                friendHeatmapMessage(heatmap: model.heatmap, errorMessage: model.errorMessage, onRetry: {
+                friendHeatmapMessage(heatmap: model.heatmap,
+                    errorMessage: model.heatmap?.status == .ready && quarter.field == nil
+                        ? "경기장 좌표를 불러올 수 없어요" : model.errorMessage, onRetry: {
                     Task { await model.reload() }
                 })
             }

@@ -45,6 +45,30 @@ final class QueuedSession: URLSessionable {
         precondition(session.requests.allSatisfy { $0.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-token" })
         precondition(URLComponents(url: session.requests[0].url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(URLQueryItem(name: "status", value: "COMPLETED")) == true)
 
+        // 쿼터의 workout.field가 빠져도 친구 경기장 API의 좌표로 맵을 구성한다.
+        let venueSession = QueuedSession()
+        let venueProvider = ProviderImpl(session: venueSession)
+        let venueResponse: [String: Any] = [
+            "data": ["id": match.uuidString, "name": "친구 경기장", "address": "테스트 주소",
+                "cornerA": ["latitude": 37.0, "longitude": 127.0],
+                "cornerB": ["latitude": 37.0, "longitude": 127.001],
+                "cornerC": ["latitude": 37.001, "longitude": 127.001],
+                "cornerD": ["latitude": 37.001, "longitude": 127.0],
+                "createdAt": "2026-11-10T12:00:00+09:00", "updatedAt": "2026-11-10T12:00:00+09:00"],
+            "meta": (fixtures["result"] as! [String: Any])["meta"]!
+        ]
+        venueSession.replies = [(200, try data("result")),
+            (200, try modified("quarters") { object in
+                var rows = object["data"] as! [[String: Any]]
+                var workout = rows[0]["workout"] as! [String: Any]
+                workout["field"] = NSNull()
+                rows[0]["workout"] = workout
+                object["data"] = rows
+            }), (200, try JSONSerialization.data(withJSONObject: venueResponse))]
+        let venueAnalysis = try await FriendMatchLoader.load(userID: owner, matchID: match, provider: venueProvider)
+        precondition(venueAnalysis?.entry.detail.quarters[0].field?.name == "친구 경기장")
+        precondition(venueSession.requests.last?.url?.path.hasSuffix("/venue") == true)
+
         // 미제출 경기만 있는 페이지 뒤에 공개된 경기가 있어도 계속 조회한다.
         session.replies = [
             (200, try modified("list") { object in

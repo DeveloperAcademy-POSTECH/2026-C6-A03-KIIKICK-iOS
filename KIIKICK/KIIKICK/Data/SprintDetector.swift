@@ -16,11 +16,16 @@ struct Sprint {
 }
 
 struct SprintDetector {
+    #if DEBUG
+    static let defaultSpeedThresholdKmh = 13.0
+    #else
+    static let defaultSpeedThresholdKmh = 21.0
+    #endif
     
     let speedThreshold: Double // 임계 기준 속도
     let minimumDistanceMeters: Double
     
-    init(speedThresholdKmh: Double = 21, minimumDistanceMeters: Double = 20) {
+    init(speedThresholdKmh: Double = SprintDetector.defaultSpeedThresholdKmh, minimumDistanceMeters: Double = 10) {
         self.speedThreshold = speedThresholdKmh * 1000 / 3600
         self.minimumDistanceMeters = max(0, minimumDistanceMeters)
     }

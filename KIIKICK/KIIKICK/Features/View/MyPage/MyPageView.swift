@@ -79,6 +79,13 @@ struct MyPageView: View {
                         NaviRowView(text: "문의하기", textStyle: .title3M, trailingIconName: "ic_link")
                     }
                     .buttonStyle(.plain)
+
+                    if let privacyPolicyURL = URL(string: "https://dazzling-myth-cd2.notion.site/4147c67ff1e6803ba4ffcbd704fa49cd?source=copy_link") {
+                        Link(destination: privacyPolicyURL) {
+                            NaviRowView(text: "개인정보 처리방침", textStyle: .title3M, trailingIconName: "ic_link")
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             .padding(.horizontal, 16)

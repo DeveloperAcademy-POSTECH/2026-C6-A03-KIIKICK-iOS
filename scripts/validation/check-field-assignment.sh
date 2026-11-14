@@ -8,6 +8,6 @@ global="KIIKICK/KIIKICK Global"
 xcrun swiftc -parse-as-library \
   "$global"/Data/{TrackPoint,HeartRateSample,MatchEvent,WorkoutPayload,Position}.swift \
   "$app"/Data/{Field,WorkoutRecord}.swift \
-  "$app"/Domain/FieldAssignment.swift \
+  "$app"/Domain/{AnalysisEntry,FieldAssignment}.swift \
   Tests/FieldAssignmentChecks.swift -o "$check_dir/checks"
 "$check_dir/checks"

@@ -70,6 +70,28 @@ struct FieldAssignment {
         }
     }
 
+    /// 오버레이를 반영한 쿼터 목록. AnalysisQuarter.field가 `let`이라 record.field만
+    /// 고치면 이 값 타입은 옛 운동장을 들고 있고, 그대로 하위 뷰(TimelineView 등)로
+    /// 내려가 거기서는 바뀌지 않은 것처럼 보인다 — 내려보내기 전에 여기서 교정한다.
+    func applying(to quarters: [AnalysisQuarter]) -> [AnalysisQuarter] {
+        quarters.map { quarter in
+            guard let field = fieldsByQuarterID[quarter.id], field !== quarter.field else { return quarter }
+            var updated = AnalysisQuarter(
+                id: quarter.id, quarterNumber: quarter.quarterNumber, durationText: quarter.durationText,
+                startDate: quarter.startDate, duration: quarter.duration, position: quarter.position,
+                field: field, points: quarter.points, events: quarter.events,
+                totalDistanceKm: quarter.totalDistanceKm, totalCaloriesKcal: quarter.totalCaloriesKcal
+            )
+            updated.isAttackDirectionReversed = quarter.isAttackDirectionReversed
+            updated.sourceRecord = quarter.sourceRecord
+            updated.resultStats = quarter.resultStats
+            updated.resultSections = quarter.resultSections
+            updated.resultGoals = quarter.resultGoals
+            updated.resultAssists = quarter.resultAssists
+            return updated
+        }
+    }
+
     mutating func apply(
         _ field: Field,
         to scope: FieldAssignmentScope,

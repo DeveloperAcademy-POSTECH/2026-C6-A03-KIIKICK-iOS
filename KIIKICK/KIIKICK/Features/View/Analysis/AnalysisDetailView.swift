@@ -61,9 +61,23 @@ struct AnalysisDetailView: View {
         ))
     }
 
+    /// 이슈 #96: 운동장 변경이 하위 뷰(TimelineView 등)까지 전해지도록, 오버레이를
+    /// 반영한 쿼터를 한 번 만들어 화면 전체가 같은 값을 쓰게 한다.
+    private var displayQuarters: [AnalysisQuarter] { assignment.applying(to: entry.detail.quarters) }
+
+    private var displayDetail: AnalysisDetail {
+        let detail = entry.detail
+        return AnalysisDetail(
+            id: detail.id, title: detail.title, quarters: displayQuarters,
+            keyStats: detail.keyStats, goalCount: detail.goalCount, assistCount: detail.assistCount,
+            sections: detail.sections, disclaimer: detail.disclaimer
+        )
+    }
+
     private var currentQuarter: AnalysisQuarter? {
-        guard entry.detail.quarters.indices.contains(selectedQuarterIndex) else { return nil }
-        return entry.detail.quarters[selectedQuarterIndex]
+        let quarters = displayQuarters
+        guard quarters.indices.contains(selectedQuarterIndex) else { return nil }
+        return quarters[selectedQuarterIndex]
     }
 
     private var ownerMatchID: UUID? {
@@ -86,13 +100,12 @@ struct AnalysisDetailView: View {
 
     var body: some View {
         AnalysisTabContent(
-            detail: entry.detail,
+            detail: displayDetail,
             isOwner: friendNickname == nil,
             selectedQuarterIndex: $selectedQuarterIndex,
             friendsCount: currentQuarterFriendModel?.friends.count ?? 0,
             canManageFriends: ownerMatchID != nil && currentQuarterID != nil,
             friendHeatmapModel: currentFriendHeatmapModel,
-            fieldForCurrentQuarter: currentQuarter.flatMap { assignment.field(for: $0.id) },
             onChangeField: (friendNickname == nil && assignment.isEditable)
                 ? { isPresentingFieldPicker = true } : nil,
             isSyncingField: isSyncingField,
@@ -252,9 +265,6 @@ private struct AnalysisTabContent: View {
     let friendsCount: Int
     let canManageFriends: Bool
     let friendHeatmapModel: FriendHeatmapModel?
-    /// 이슈 #96: 운동장 오버레이. AnalysisQuarter가 값 타입이라 record.field만 고쳐도
-    /// quarter.field는 그대로이므로, 히트맵은 이 값을 써야 바로 다시 그려진다.
-    let fieldForCurrentQuarter: Field?
     /// 로컬 기록이 없는(서버 복원) 엔트리나 친구 경기는 nil — 변경 행을 숨긴다.
     var onChangeField: (() -> Void)?
     let isSyncingField: Bool
@@ -303,7 +313,7 @@ private struct AnalysisTabContent: View {
                     }
                     if let onChangeField {
                         HStack(spacing: 8) {
-                            FieldChangeRow(field: fieldForCurrentQuarter, action: onChangeField)
+                            FieldChangeRow(field: quarter.field, action: onChangeField)
                             if isSyncingField { ProgressView().tint(.mint500) }
                         }
                         .disabled(isSyncingField)
@@ -364,7 +374,7 @@ private struct AnalysisTabContent: View {
     private func heatmapCarousel(_ quarter: AnalysisQuarter, friendHeatmapModel: FriendHeatmapModel?) -> some View {
         Group {
             if isOwner {
-                TrackingMapPager(field: fieldForCurrentQuarter ?? quarter.field, points: quarter.points,
+                TrackingMapPager(field: quarter.field, points: quarter.points,
                                  isAttackDirectionReversed: quarter.isAttackDirectionReversed)
                 .frame(height: 248)
                 .overlay(alignment: .bottomTrailing) {

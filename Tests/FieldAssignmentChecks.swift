@@ -78,6 +78,30 @@ struct FieldAssignmentChecks {
         precondition(!restored.isEditable)
         precondition(restored.field(for: firstID) === fieldA)
 
+        // 오버레이를 반영한 쿼터가 하위 뷰로 내려간다 — AnalysisQuarter.field가 let이라
+        // record.field만 바꾸면 TimelineView 등은 옛 운동장을 계속 쓴다.
+        var downstream = FieldAssignment(quarters: inputs)
+        var original = AnalysisQuarter(
+            id: firstID, quarterNumber: 1, durationText: "10:00",
+            position: "CM", field: fieldA, points: [], events: []
+        )
+        original.isAttackDirectionReversed = true
+        original.sourceRecord = first
+        original.resultGoals = 2
+        let second2 = AnalysisQuarter(
+            id: secondID, quarterNumber: 2, durationText: "10:00",
+            position: "LB", field: fieldA, points: [], events: []
+        )
+        try downstream.apply(fieldB, to: .quarter(firstID), save: { try context.save() })
+        let applied = downstream.applying(to: [original, second2])
+        precondition(applied[0].field === fieldB)
+        precondition(applied[1].field === fieldA)
+        // 나머지 값은 그대로 복사된다.
+        precondition(applied[0].isAttackDirectionReversed)
+        precondition(applied[0].sourceRecord === first)
+        precondition(applied[0].resultGoals == 2)
+        precondition(applied[0].id == firstID && applied[0].quarterNumber == 1)
+
         print("FieldAssignmentChecks 통과")
     }
 

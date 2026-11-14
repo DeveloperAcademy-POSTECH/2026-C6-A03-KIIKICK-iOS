@@ -146,14 +146,19 @@ struct AnalysisDetailView: View {
         .navigationDestination(isPresented: $isPresentingFieldPicker) {
             FieldListView(onFieldSelected: handlePickedField)
         }
-        .confirmationDialog("이 운동장을 어디에 적용할까요?", isPresented: Binding(
-            get: { pendingField != nil }, set: { if !$0 { pendingField = nil } }
-        ), titleVisibility: .visible) {
-            Button("모든 쿼터에 적용") { applyPendingField(to: .allQuarters) }
-            if let quarterID = currentQuarter?.id {
-                Button("이 쿼터만") { applyPendingField(to: .quarter(quarterID)) }
+        .overlay {
+            if let pendingField {
+                FieldScopePopup(
+                    fieldName: pendingField.name,
+                    quarterNumber: currentQuarter?.quarterNumber,
+                    onAllQuarters: { applyPendingField(to: .allQuarters) },
+                    onCurrentQuarter: {
+                        guard let quarterID = currentQuarter?.id else { return }
+                        applyPendingField(to: .quarter(quarterID))
+                    },
+                    onCancel: { self.pendingField = nil }
+                )
             }
-            Button("취소", role: .cancel) { pendingField = nil }
         }
         .alert("운동장을 바꾸지 못했어요", isPresented: Binding(
             get: { fieldError != nil }, set: { if !$0 { fieldError = nil } }

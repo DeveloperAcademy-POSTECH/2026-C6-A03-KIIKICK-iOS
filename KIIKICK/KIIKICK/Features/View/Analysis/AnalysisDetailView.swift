@@ -40,6 +40,10 @@ struct AnalysisDetailView: View {
     @State private var fieldError: String?
     @State private var isSyncingField = false
     @State private var fieldSyncError: String?
+    #if DEBUG
+    /// 이슈 #96 진단용 — 서버 반영 결과를 화면에서 바로 확인한다.
+    @State private var fieldSyncOutcome: String?
+    #endif
 
     init(
         entry: AnalysisEntry,
@@ -147,7 +151,20 @@ struct AnalysisDetailView: View {
             FieldListView(onFieldSelected: handlePickedField)
         }
         .overlay {
-            if let pendingField {
+            if let fieldError {
+                AnalysisMessagePopup(title: "운동장을 바꾸지 못했어요", message: fieldError) {
+                    self.fieldError = nil
+                }
+            } else if let fieldSyncError {
+                AnalysisMessagePopup(
+                    title: "서버에 반영하지 못했어요",
+                    message: "운동장은 이 기기에 저장됐어요. 네트워크가 돌아오면 다시 시도해주세요.\n\n\(fieldSyncError)"
+                ) {
+                    self.fieldSyncError = nil
+                }
+            } else if let outcome = debugSyncOutcome {
+                AnalysisMessagePopup(title: "서버 반영 결과", message: outcome) { clearDebugSyncOutcome() }
+            } else if let pendingField {
                 FieldScopePopup(
                     fieldName: pendingField.name,
                     quarterNumber: currentQuarter?.quarterNumber,
@@ -159,20 +176,6 @@ struct AnalysisDetailView: View {
                     onCancel: { self.pendingField = nil }
                 )
             }
-        }
-        .alert("운동장을 바꾸지 못했어요", isPresented: Binding(
-            get: { fieldError != nil }, set: { if !$0 { fieldError = nil } }
-        )) {
-            Button("확인", role: .cancel) {}
-        } message: {
-            Text(fieldError ?? "")
-        }
-        .alert("서버에 반영하지 못했어요", isPresented: Binding(
-            get: { fieldSyncError != nil }, set: { if !$0 { fieldSyncError = nil } }
-        )) {
-            Button("확인", role: .cancel) {}
-        } message: {
-            Text("운동장은 이 기기에 저장됐어요. 네트워크가 돌아오면 다시 시도해주세요.\n\(fieldSyncError ?? "")")
         }
         .onAppear {
             #if DEBUG
@@ -202,6 +205,20 @@ struct AnalysisDetailView: View {
             guard let model = ensureCurrentFriendHeatmapModel() else { return }
             await model.loadIfNeeded()
         }
+    }
+
+    private var debugSyncOutcome: String? {
+        #if DEBUG
+        fieldSyncOutcome
+        #else
+        nil
+        #endif
+    }
+
+    private func clearDebugSyncOutcome() {
+        #if DEBUG
+        fieldSyncOutcome = nil
+        #endif
     }
 
     /// 쿼터가 하나뿐이면 적용 범위를 물을 필요가 없다.
@@ -237,10 +254,16 @@ struct AnalysisDetailView: View {
         Task {
             defer { isSyncingField = false }
             do {
-                _ = try await FieldServerSync.sync(
+                let outcome = try await FieldServerSync.sync(
                     records: records, positions: positions, field: field, context: modelContext)
+                #if DEBUG
+                // 이슈 #96 진단: 서버 반영이 어떤 경로로 끝났는지 눈으로 확인한다.
+                print("[#96] FieldServerSync.sync 결과: \(outcome)")
+                fieldSyncError = nil
+                fieldSyncOutcome = "\(outcome)"
+                #endif
             } catch {
-                fieldSyncError = error.localizedDescription
+                fieldSyncError = "\(error)"
             }
         }
     }

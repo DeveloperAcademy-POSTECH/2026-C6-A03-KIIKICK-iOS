@@ -3,8 +3,11 @@
 //  KIIKICK
 //
 //  이슈 #66에서 ReadyForDetailView 안에 인라인으로 있던 workout-submissions 제출
-//  경로를 이슈 #96에서 분리했다 — 운동장을 바꾼 뒤 재전송하려면 분석 상세
-//  (AnalysisDetailView)에서도 같은 경로를 써야 한다.
+//  경로를 이슈 #96에서 분리했다.
+//
+//  재전송은 지원하지 않는다 — 서버가 구현하지 않았다(2026-11-15 확인). 제출은 경기당
+//  한 번이고, 이미 제출된 경기의 운동장 변경은 FieldServerSync가 PATCH /matches로
+//  처리한다.
 //
 
 import Foundation
@@ -15,18 +18,10 @@ import SwiftData
 enum WorkoutSubmissionStore {
     private static let logger = Logger(subsystem: "KIIKICK", category: "WorkoutSubmission")
 
-    enum Mode {
-        /// 분석 보기에서의 최초 제출 — 이미 제출 키가 있으면 그 값을 그대로 재사용한다.
-        case firstSubmission
-        /// 이슈 #96: 운동장이 바뀐 재전송 — 새 Idempotency-Key와 최신 version을 쓴다.
-        case resubmission
-    }
-
     /// 완료 경기와 쿼터를 원자적으로 제출한다.
     static func submit(
         records: [WorkoutRecord],
         positions: [String],
-        mode: Mode,
         context: ModelContext,
         provider: (any Provider)? = nil
     ) async throws {
@@ -68,16 +63,8 @@ enum WorkoutSubmissionStore {
         // If-Match: 제출 직전에 최신 경기 version을 조회해서 그대로 넘긴다. 조회가
         // 실패하면(서버에 아직 등록 안 된 경기) 버전을 모른다는 뜻이라 헤더 자체를
         // 생략한다(submit의 ifMatch: nil).
-        switch mode {
-        case .firstSubmission:
-            if firstRecord.submissionIdempotencyKey == nil {
-                firstRecord.submissionIfMatch = try await latestVersion(matchId: matchId, provider: provider)
-                firstRecord.submissionIdempotencyKey = UUID()
-                try context.save()
-            }
-        case .resubmission:
-            // 같은 Idempotency-Key를 다시 쓰면 서버가 기존 제출을 그대로 돌려줄 수 있어
-            // 바뀐 운동장이 반영되지 않는다. 분석 저장으로 올라간 최신 version도 다시 읽는다.
+        // 재시도(네트워크 실패 등)에도 같은 키를 써서 서버가 같은 제출로 인식하게 한다.
+        if firstRecord.submissionIdempotencyKey == nil {
             firstRecord.submissionIfMatch = try await latestVersion(matchId: matchId, provider: provider)
             firstRecord.submissionIdempotencyKey = UUID()
             try context.save()

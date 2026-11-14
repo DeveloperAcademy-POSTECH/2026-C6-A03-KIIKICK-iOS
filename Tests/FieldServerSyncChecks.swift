@@ -60,56 +60,37 @@ struct FieldServerSyncChecks {
             records: [submitted], positions: ["CM"], field: fieldB, context: context, provider: provider)
         precondition(missing == .skippedMatchMissing)
 
-        // 3. B 성공: 새 Idempotency-Key와 최신 If-Match로 재전송된다.
-        // 실제 흐름에서는 뷰(FieldAssignment.apply)가 로컬 저장을 먼저 끝낸 뒤 sync를
-        // 부르므로, 여기서도 record.field가 새 운동장인 상태로 시작한다.
+        // 3. 제출된 경기: 최신 version을 읽어 PATCH /matches로 운동장을 반영한다.
+        //    서버가 workout-submissions 재전송을 구현하지 않아(2026-11-15 확인) 제출
+        //    경로는 아예 타지 않는다 — POST가 한 번도 나가면 안 된다.
         submitted.field = fieldB
         try context.save()
-        let previousKey = submitted.submissionIdempotencyKey
-        session.requests.removeAll()
-        session.replies = [
-            (200, matchDetail(id: submitted.matchId, version: 7)),
-            (200, matchDetail(id: submitted.matchId, version: 7)),
-            (200, submissionReceipt(matchId: submitted.matchId)),
-        ]
-        let resubmitted = try await FieldServerSync.sync(
-            records: [submitted], positions: ["CM"], field: fieldB, context: context, provider: provider)
-        precondition(resubmitted == .resubmitted)
-        let submitRequest = session.requests.last!
-        precondition(submitRequest.httpMethod == "POST")
-        precondition(submitRequest.url!.path.hasSuffix("/workout-submissions"))
-        precondition(submitRequest.value(forHTTPHeaderField: "If-Match") == "\"7\"")
-        precondition(submitRequest.value(forHTTPHeaderField: "Idempotency-Key") != previousKey?.uuidString)
-        let body = try JSONSerialization.jsonObject(with: submitRequest.httpBody!) as! [String: Any]
-        let quarters = body["quarters"] as! [[String: Any]]
-        let workout = quarters[0]["workout"] as! [String: Any]
-        precondition((workout["field"] as! [String: Any])["name"] as! String == "B구장")
-
-        // 4. B 실패(409) → A 폴백: PATCH /matches에 venueId가 실린다.
+        let keyBeforeSync = submitted.submissionIdempotencyKey
         session.requests.removeAll()
         session.replies = [
             (200, matchDetail(id: submitted.matchId, version: 8)),
-            (200, matchDetail(id: submitted.matchId, version: 8)),
-            (409, errorBody()),
             (200, matchDetail(id: submitted.matchId, version: 9)),
         ]
         let patched = try await FieldServerSync.sync(
             records: [submitted], positions: ["CM"], field: fieldB, context: context, provider: provider)
         precondition(patched == .matchPatched)
+        precondition(session.requests.count == 2)
+        precondition(!session.requests.contains { $0.url!.path.hasSuffix("/workout-submissions") })
         let patch = session.requests.last!
         precondition(patch.httpMethod == "PATCH")
+        // If-Match는 entity-tag라 따옴표가 필요하다 — 숫자만 보내면 서버가 같은
+        // 버전인데도 412 VERSION_CONFLICT로 거절한다(실기기 확인, 이슈 #96).
         precondition(patch.value(forHTTPHeaderField: "If-Match") == "\"8\"")
         let patchBody = try JSONSerialization.jsonObject(with: patch.httpBody!) as! [String: Any]
         precondition((patchBody["venueId"] as! String).lowercased() == venueID.uuidString.lowercased())
+        // 제출 식별자는 건드리지 않는다.
+        precondition(submitted.submissionIdempotencyKey == keyBeforeSync)
 
-        // 5. 둘 다 실패: 에러가 올라오고 제출 식별자는 원래대로 돌아온다.
-        let keyBeforeFailure = submitted.submissionIdempotencyKey
-        let ifMatchBeforeFailure = submitted.submissionIfMatch
+        // 4. PATCH 실패: 에러가 그대로 올라오고(호출부가 로컬 수정은 유지한다)
+        //    제출 식별자는 건드리지 않는다.
         session.requests.removeAll()
         session.replies = [
             (200, matchDetail(id: submitted.matchId, version: 10)),
-            (200, matchDetail(id: submitted.matchId, version: 10)),
-            (409, errorBody()),
             (412, errorBody()),
         ]
         do {
@@ -117,8 +98,7 @@ struct FieldServerSyncChecks {
                 records: [submitted], positions: ["CM"], field: fieldB, context: context, provider: provider)
             preconditionFailure("실패가 전달되지 않았습니다")
         } catch {
-            precondition(submitted.submissionIdempotencyKey == keyBeforeFailure)
-            precondition(submitted.submissionIfMatch == ifMatchBeforeFailure)
+            precondition(submitted.submissionIdempotencyKey == keyBeforeSync)
         }
 
         print("FieldServerSyncChecks 통과")
@@ -174,17 +154,6 @@ struct FieldServerSyncChecks {
                 "updatedAt": "2026-11-14T09:00:01Z",
             ],
             "meta": ["requestId": "field-sync-check", "serverTime": "2026-11-14T09:00:02Z"],
-        ], options: .sortedKeys)
-    }
-
-    private static func submissionReceipt(matchId: UUID) -> Data {
-        try! JSONSerialization.data(withJSONObject: [
-            "data": ["matchId": matchId.uuidString.lowercased(), "quarterCount": 1],
-            "meta": [
-                "requestId": "00000000-0000-4000-8000-000000000002",
-                "serverTime": "2026-11-14T09:00:02Z",
-                "matchVersion": 8,
-            ],
         ], options: .sortedKeys)
     }
 

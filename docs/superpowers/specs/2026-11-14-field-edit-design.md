@@ -58,7 +58,15 @@ AnalysisDetailView(분석 상세) 양쪽에서 가능해야 하고, 이미 서�
   값 타입이라 `FieldAssignmentModel`의 오버레이를 `TrackingMapPager(field:)`에
   주입해 히트맵이 즉시 다시 그려지게 한다.
 
-## 서버 동기화 (B 시도 → A 폴백)
+## 서버 동기화 (PATCH /matches 단독)
+
+> **2026-11-15 확정**: 서버가 workout-submissions 재전송을 구현하지 않았다. 아래 B
+> 경로는 폐기했고, 제출된 경기의 운동장 반영은 A(`PATCH /matches` venueId)만 쓴다.
+> 쿼터별 `workout.field`는 옛 값으로 남으며, 서버가 전용 엔드포인트를 열어주면 그때
+> 쿼터 단위까지 맞춘다. 또한 `If-Match`는 entity-tag라 따옴표가 필요하다 — 숫자만
+> 보내면 같은 버전인데도 412 VERSION_CONFLICT가 난다(실기기 확인).
+
+### (폐기된) 원안: B 시도 → A 폴백
 
 **아직 제출되지 않은 경기**(`submissionIdempotencyKey == nil`): 서버 호출 없음.
 바뀐 운동장이 첫 제출에 그대로 실려 간다(ReadyForDetail의 기존 동작).

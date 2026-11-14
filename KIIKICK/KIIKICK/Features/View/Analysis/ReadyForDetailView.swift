@@ -196,7 +196,6 @@ struct ReadyForDetailView: View {
                     try await WorkoutSubmissionStore.submit(
                         records: entry.records,
                         positions: positions,
-                        mode: .firstSubmission,
                         context: modelContext
                     )
                     for record in entry.records { record.hasViewedAnalysis = true }

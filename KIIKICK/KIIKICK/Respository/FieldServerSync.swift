@@ -74,7 +74,7 @@ enum FieldServerSync {
             matchId: matchId,
             venueId: venueID,
             venueSnapshot: VenueSnapshot(name: field.name, address: field.address),
-            ifMatch: String(version)
+            ifMatch: WorkoutSubmissionStore.ifMatchValue(version)
         ))
         return .matchPatched
     }

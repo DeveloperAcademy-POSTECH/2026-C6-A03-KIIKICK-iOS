@@ -76,14 +76,14 @@ enum WorkoutSubmissionStore {
         switch mode {
         case .firstSubmission:
             if firstRecord.submissionIdempotencyKey == nil {
-                firstRecord.submissionIfMatch = try await latestVersion(matchId: matchId, provider: provider)
+                firstRecord.submissionIfMatch = try await latestVersion(matchId: matchId, provider: provider, debug: debug)
                 firstRecord.submissionIdempotencyKey = UUID()
                 try context.save()
             }
         case .resubmission:
             // 같은 Idempotency-Key를 다시 쓰면 서버가 기존 제출을 그대로 돌려줄 수 있어
             // 바뀐 운동장이 반영되지 않는다. 분석 저장으로 올라간 최신 version도 다시 읽는다.
-            firstRecord.submissionIfMatch = try await latestVersion(matchId: matchId, provider: provider)
+            firstRecord.submissionIfMatch = try await latestVersion(matchId: matchId, provider: provider, debug: debug)
             firstRecord.submissionIdempotencyKey = UUID()
             try context.save()
         }
@@ -107,14 +107,28 @@ enum WorkoutSubmissionStore {
     }
 
     /// 서버에 아직 등록되지 않은 경기(404)는 버전을 모르니 nil(= If-Match 헤더 생략)을 쓴다.
-    private static func latestVersion(matchId: UUID, provider: any Provider) async throws -> String? {
+    private static func latestVersion(
+        matchId: UUID,
+        provider: any Provider,
+        debug: ((String) -> Void)? = nil
+    ) async throws -> String? {
         do {
             let detail = try await provider.request(with: MatchEndpoints.detail(matchId: matchId))
-            return String(detail.data.version)
+            return ifMatchValue(detail.data.version)
         } catch NetworkError.invalidHttpStatusCode(404, _) {
+            // 서버 매치 생성 플로우가 로컬 녹화와 연결돼 있지 않아서(WorkoutRecord.matchId
+            // 주석) 로컬에서 만든 matchId는 서버에 없을 수 있다. 그 경기는 재전송 자체가
+            // 불가능하므로 팝업에서 바로 드러나게 적는다.
+            debug?("경고: GET /matches/\(matchId.uuidString.lowercased())가 404 — 이 경기는 서버에 없습니다. 재전송은 실패합니다.")
             return nil
         }
     }
+
+    /// If-Match는 HTTP entity-tag라 따옴표가 필수다(RFC 9110). 숫자만 보내면 서버가
+    /// 같은 버전인데도 412 VERSION_CONFLICT(details.currentVersion이 보낸 값과 동일)로
+    /// 거절한다 — 실기기에서 확인했다(이슈 #96). 이미 동작하는 QuarterFriendEndpoints도
+    /// 같은 형식을 쓴다.
+    static func ifMatchValue(_ version: Int) -> String { "\"\(version)\"" }
 
     /// 과거 앱 버전에서 같은 UUID로 저장된 여러 쿼터는 서버가 하나의 제출로 처리할 수
     /// 없다. 아직 서버에 저장되지 않은 로컬 기록이므로 두 번째 항목부터 새 ID로 바꿔

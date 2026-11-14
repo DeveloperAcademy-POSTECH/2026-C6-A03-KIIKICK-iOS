@@ -78,7 +78,7 @@ struct FieldServerSyncChecks {
         let submitRequest = session.requests.last!
         precondition(submitRequest.httpMethod == "POST")
         precondition(submitRequest.url!.path.hasSuffix("/workout-submissions"))
-        precondition(submitRequest.value(forHTTPHeaderField: "If-Match") == "7")
+        precondition(submitRequest.value(forHTTPHeaderField: "If-Match") == "\"7\"")
         precondition(submitRequest.value(forHTTPHeaderField: "Idempotency-Key") != previousKey?.uuidString)
         let body = try JSONSerialization.jsonObject(with: submitRequest.httpBody!) as! [String: Any]
         let quarters = body["quarters"] as! [[String: Any]]
@@ -98,7 +98,7 @@ struct FieldServerSyncChecks {
         precondition(patched == .matchPatched)
         let patch = session.requests.last!
         precondition(patch.httpMethod == "PATCH")
-        precondition(patch.value(forHTTPHeaderField: "If-Match") == "8")
+        precondition(patch.value(forHTTPHeaderField: "If-Match") == "\"8\"")
         let patchBody = try JSONSerialization.jsonObject(with: patch.httpBody!) as! [String: Any]
         precondition((patchBody["venueId"] as! String).lowercased() == venueID.uuidString.lowercased())
 

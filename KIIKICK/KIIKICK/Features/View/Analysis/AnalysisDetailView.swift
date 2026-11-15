@@ -146,31 +146,6 @@ struct AnalysisDetailView: View {
         .navigationDestination(isPresented: $isPresentingFieldPicker) {
             FieldListView(onFieldSelected: handlePickedField)
         }
-        .overlay {
-            if let fieldError {
-                AnalysisMessagePopup(title: "운동장을 바꾸지 못했어요", message: fieldError) {
-                    self.fieldError = nil
-                }
-            } else if let fieldSyncError {
-                AnalysisMessagePopup(
-                    title: "서버에 반영하지 못했어요",
-                    message: "운동장은 이 기기에 저장됐어요. 네트워크가 돌아오면 다시 시도해주세요.\n\n\(fieldSyncError)"
-                ) {
-                    self.fieldSyncError = nil
-                }
-            } else if let pendingField {
-                FieldScopePopup(
-                    fieldName: pendingField.name,
-                    quarterNumber: currentQuarter?.quarterNumber,
-                    onAllQuarters: { applyPendingField(to: .allQuarters) },
-                    onCurrentQuarter: {
-                        guard let quarterID = currentQuarter?.id else { return }
-                        applyPendingField(to: .quarter(quarterID))
-                    },
-                    onCancel: { self.pendingField = nil }
-                )
-            }
-        }
         .onAppear {
             #if DEBUG
             AnalysisDiagnostics.dump(entry: entry, source: "상세진입")

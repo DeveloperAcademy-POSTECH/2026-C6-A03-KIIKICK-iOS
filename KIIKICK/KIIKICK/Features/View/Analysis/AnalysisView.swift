@@ -94,21 +94,29 @@ struct AnalysisView: View {
                     .frame(maxWidth: .infinity)
                 }
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        DatePickerView(year: $year, month: $month, availableYearMonths: availableYearMonths)
-
-                        ForEach(entriesInSelectedMonth) { entry in
-                            CardSummaryView(
-                                dateAndQuarter: entry.dateAndQuarter,
-                                fieldName: entry.fieldName,
-                                stats: entry.stats.map { CardSummaryView.Stat(label: $0.label, value: $0.value, unit: $0.unit) },
-                                action: { router.showAnalysis(entry, in: .analysis) }
-                            )
+                ZStack(alignment: .leading) {
+                    ScrollView {
+                        VStack { }
+                            .frame(height: 50)
+                        VStack(alignment: .leading, spacing: 20) {
+                            ForEach(entriesInSelectedMonth) { entry in
+                                CardSummaryView(
+                                    dateAndQuarter: entry.dateAndQuarter,
+                                    fieldName: entry.fieldName,
+                                    stats: entry.stats.map { CardSummaryView.Stat(label: $0.label, value: $0.value, unit: $0.unit) },
+                                    action: { router.showAnalysis(entry, in: .analysis) }
+                                )
+                            }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
+                    VStack {
+                        DatePickerView(year: $year, month: $month, availableYearMonths: availableYearMonths)
+                        Spacer()
+                    }
+                    .padding(.top, 20)
+                    .padding(.leading, 24)
                 }
             }
         }

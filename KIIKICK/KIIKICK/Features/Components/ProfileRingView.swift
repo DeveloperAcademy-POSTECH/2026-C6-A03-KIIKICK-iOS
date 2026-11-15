@@ -37,7 +37,7 @@ struct ProfileRingView: View {
     private var isOverdrive: Bool { score >= 100 }
 
     private var lineWidth: CGFloat { size * (20.9 / 190) }
-    private var profileDiameter: CGFloat { size * (146.0 / 190.0) }
+    private var profileDiameter: CGFloat { size * (168.0 / 190.0) }
 
     private var progressGradientColors: [Color] {
         isOverdrive ? [.lime500, .mint500] : [.mint500, .mint700]

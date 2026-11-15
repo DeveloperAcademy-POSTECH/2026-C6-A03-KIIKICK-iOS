@@ -113,7 +113,7 @@ struct AnalysisDetailView: View {
             }
         }
         .navigationDestination(isPresented: $pushedShare) {
-            ShareImageView(keyStats: entry.detail.keyStats)
+            ShareImageView(keyStats: entry.detail.keyStats, quarter: currentQuarter)
                 .onAppear {
                     isShowComment = false
                 }

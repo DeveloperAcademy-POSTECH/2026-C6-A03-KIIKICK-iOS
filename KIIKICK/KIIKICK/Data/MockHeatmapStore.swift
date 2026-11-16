@@ -10,11 +10,11 @@ final class MockHeatmapStore {
     init() {
         let currentPosition = UserSession.mockHeatmapPosition
         position = currentPosition
-        match = MockHeatmapGenerator.make(seed: 102, position: currentPosition)
+        match = MockHeatmapGenerator.makeAll(seed: 102)
     }
 
     func regenerate() {
-        match = MockHeatmapGenerator.make(seed: match.seed + 1, position: position)
+        match = MockHeatmapGenerator.makeAll(seed: match.seed + 1)
         statusMessage = "새 목업 데이터를 만들었습니다."
     }
 
@@ -22,8 +22,7 @@ final class MockHeatmapStore {
         let currentPosition = UserSession.mockHeatmapPosition
         guard currentPosition != position else { return }
         position = currentPosition
-        match = MockHeatmapGenerator.make(seed: match.seed, position: position)
-        statusMessage = "\(position.displayName) 포지션을 적용했습니다."
+        statusMessage = "포지션별 3개 목업 데이터를 표시합니다. 현재 계정: \(position.displayName)"
     }
 
     func save() {

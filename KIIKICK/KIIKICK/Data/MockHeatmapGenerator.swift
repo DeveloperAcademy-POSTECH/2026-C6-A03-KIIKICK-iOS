@@ -120,6 +120,19 @@ enum MockHeatmapGenerator {
         return make(seed: seed, position: position, start: nil)
     }
 
+    /// 목업 검증 화면에서 세 포지션을 한 번에 비교하기 위한 경기 생성기.
+    static func makeAll(seed: Int, start: Date? = nil) -> MockHeatmapMatch {
+        let resolvedStart = start ?? defaultStartDate()
+        return MockHeatmapMatch(
+            id: "mock-match-\(seed)",
+            seed: seed,
+            startedAt: resolvedStart,
+            quarterDuration: quarterDuration,
+            secondsPerPoint: secondsPerPoint,
+            players: profiles.map { makePlayer($0, seed: seed, start: resolvedStart) }
+        )
+    }
+
     /// 경기마다 3~5쿼터 중 하나를 결정해 동일한 시드에서는 같은 구성을 재현한다.
     static func quarterCount(seed: Int) -> Int {
         var random = SeededRandom(seed: seed ^ 0x51ED_2026)
@@ -132,15 +145,7 @@ enum MockHeatmapGenerator {
         position: MockHeatmapPosition,
         start: Date?
     ) -> MockHeatmapMatch {
-        let defaultStart = DateComponents(
-            calendar: Calendar(identifier: .gregorian),
-            timeZone: TimeZone(secondsFromGMT: 0),
-            year: 2026,
-            month: 11,
-            day: 16,
-            hour: 10
-        ).date ?? .now
-        let start = start ?? defaultStart
+        let start = start ?? defaultStartDate()
 
         let profile = profiles.first(where: { $0.id == position.rawValue }) ?? profiles[0]
         let players = [makePlayer(profile, seed: seed, start: start)]
@@ -153,6 +158,17 @@ enum MockHeatmapGenerator {
             secondsPerPoint: secondsPerPoint,
             players: players
         )
+    }
+
+    private static func defaultStartDate() -> Date {
+        DateComponents(
+            calendar: Calendar(identifier: .gregorian),
+            timeZone: TimeZone(secondsFromGMT: 0),
+            year: 2026,
+            month: 11,
+            day: 16,
+            hour: 10
+        ).date ?? .now
     }
 
     private static func makePlayer(_ profile: Profile, seed: Int, start: Date) -> MockHeatmapPlayer {

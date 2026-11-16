@@ -11,7 +11,7 @@ struct MockHeatmapRootView: View {
                         Label("목업 히트맵 검증", systemImage: "flame.fill")
                             .font(.headline)
                             .foregroundStyle(.mint500)
-                        Text("현재 계정의 \(store.position.displayName) 데이터만 생성합니다. 카드를 눌러 쿼터별 타임라인을 확인하세요.")
+                        Text("랜덤 생성 검증을 위해 포지션별 3개를 표시합니다. 카드를 눌러 쿼터별 타임라인을 확인하세요.")
                             .font(.subheadline)
                             .foregroundStyle(.colorTextSecondary)
                     }
@@ -19,7 +19,7 @@ struct MockHeatmapRootView: View {
                     .listRowBackground(Color.gray850)
                 }
 
-                Section("계정 포지션 목업 경기") {
+                Section("포지션별 목업 경기") {
                     ForEach(store.match.players) { player in
                         NavigationLink(value: player.id) {
                             MockHeatmapRowView(player: player)

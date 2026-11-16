@@ -10,6 +10,8 @@ enum MockHeatmapGenerator {
     private static let mockSprintBaseSpeedMps = 7.35
     private static let mockSprintSpeedVariationMps = 0.55
     private static let maximumSpeedMps = 29.0 / 3.6
+    private static let outOfPositionProbability = 0.08
+    private static let outOfPositionDrift = 0.10
 
     private struct Anchor {
         let x: Double
@@ -191,7 +193,13 @@ enum MockHeatmapGenerator {
 
             let progress = Double(index) / Double(max(pointCount, 1))
             let fatigue = 1 - 0.12 * progress
-            let targetAngle = atan2(anchor.y - y, anchor.x - x)
+            let targetAnchor: Anchor
+            if random.unit() < outOfPositionProbability {
+                targetAnchor = roamingAnchor(from: anchor, random: &random)
+            } else {
+                targetAnchor = anchor
+            }
+            let targetAngle = atan2(targetAnchor.y - y, targetAnchor.x - x)
             let direction = targetAngle + random.normal(standardDeviation: 0.68)
             var desiredSpeed = profile.cruisingSpeedMps * (0.88 + 0.18 * fatigue)
             desiredSpeed += random.normal(standardDeviation: profile.movementNoise * 3.0)
@@ -229,6 +237,15 @@ enum MockHeatmapGenerator {
 
         let sprintSpeed = variedSprintSpeed(for: profile, random: &random)
         return addingAttackDirectionSprints(to: points, profile: profile, sprintSpeed: sprintSpeed)
+    }
+
+    /// 포지션 앵커 주변에서만 움직이지 않도록 약 8%의 포인트는 인접 구역을 향하게 한다.
+    private static func roamingAnchor(from anchor: Anchor, random: inout SeededRandom) -> Anchor {
+        Anchor(
+            x: clamp(anchor.x + random.normal(standardDeviation: outOfPositionDrift), 0.02, 0.98),
+            y: clamp(anchor.y + random.normal(standardDeviation: outOfPositionDrift), 0.02, 0.98),
+            weight: anchor.weight
+        )
     }
 
     /// 스프린트 속도를 경기/쿼터마다 조금씩 흔들되, 화면에 표시되는 최고 속도는 29km/h를 넘기지 않는다.

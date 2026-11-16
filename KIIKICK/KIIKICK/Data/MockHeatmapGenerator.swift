@@ -12,6 +12,7 @@ enum MockHeatmapGenerator {
     private static let maximumSpeedMps = 29.0 / 3.6
     private static let outOfPositionProbability = 0.08
     private static let outOfPositionDrift = 0.10
+    private static let anchorSpread = 0.045
     private static let minimumQuarterCount = 3
     private static let maximumQuarterCount = 5
 
@@ -188,8 +189,8 @@ enum MockHeatmapGenerator {
         random: inout SeededRandom
     ) -> [MockHeatmapPoint] {
         var anchor = weightedAnchor(from: profile.anchors, random: &random)
-        var x = clamp(anchor.x + random.normal(standardDeviation: 0.012), 0.02, 0.98)
-        var y = clamp(anchor.y + random.normal(standardDeviation: 0.012), 0.02, 0.98)
+        var x = clamp(anchor.x + random.normal(standardDeviation: anchorSpread), 0.02, 0.98)
+        var y = clamp(anchor.y + random.normal(standardDeviation: anchorSpread), 0.02, 0.98)
         var previousX = x
         var previousY = y
         var points: [MockHeatmapPoint] = []
@@ -206,7 +207,7 @@ enum MockHeatmapGenerator {
             if random.unit() < outOfPositionProbability {
                 targetAnchor = roamingAnchor(from: anchor, random: &random)
             } else {
-                targetAnchor = anchor
+                targetAnchor = broadenedAnchor(from: anchor, random: &random)
             }
             let targetAngle = atan2(targetAnchor.y - y, targetAnchor.x - x)
             let direction = targetAngle + random.normal(standardDeviation: 0.68)
@@ -253,6 +254,14 @@ enum MockHeatmapGenerator {
         Anchor(
             x: clamp(anchor.x + random.normal(standardDeviation: outOfPositionDrift), 0.02, 0.98),
             y: clamp(anchor.y + random.normal(standardDeviation: outOfPositionDrift), 0.02, 0.98),
+            weight: anchor.weight
+        )
+    }
+
+    private static func broadenedAnchor(from anchor: Anchor, random: inout SeededRandom) -> Anchor {
+        Anchor(
+            x: clamp(anchor.x + random.normal(standardDeviation: anchorSpread), 0.02, 0.98),
+            y: clamp(anchor.y + random.normal(standardDeviation: anchorSpread), 0.02, 0.98),
             weight: anchor.weight
         )
     }

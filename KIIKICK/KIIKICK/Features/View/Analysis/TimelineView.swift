@@ -26,6 +26,7 @@ struct TimelineView: View {
 
     @State private var playbackTime: TimeInterval
     @State private var isSprintPageSelected = false
+    @State private var selectedSprintIndex = 0
 
     init(dateTitle: String, quarter: AnalysisQuarter, focusOnSprint: Bool = false) {
         self.dateTitle = dateTitle
@@ -75,10 +76,11 @@ struct TimelineView: View {
 
     private var sprintSliderBinding: Binding<Double> {
         Binding(
-            get: { Double(nearestSprintIndex ?? 0) },
+            get: { Double(selectedSprintIndex) },
             set: { value in
                 let index = Int(value.rounded())
                 guard sprintEndElapsedTimes.indices.contains(index) else { return }
+                selectedSprintIndex = index
                 playbackTime = sprintEndElapsedTimes[index]
             }
         )
@@ -140,6 +142,7 @@ struct TimelineView: View {
                     onSprintSelectionChanged: focusOnSprint ? { isSprintSelected in
                         isSprintPageSelected = isSprintSelected
                         if isSprintSelected {
+                            selectedSprintIndex = nearestSprintIndex ?? 0
                             playbackTime = snappedPlaybackTime(playbackTime)
                         }
                     } : nil

@@ -6,6 +6,7 @@ struct MockHeatmapDetailView: View {
     @State private var selectedQuarterNumber = 1
     @State private var playbackTime: TimeInterval = TimelineWindow.length
     @State private var isSprintPageSelected = false
+    @State private var selectedSprintIndex = 0
 
     private var selectedQuarter: MockHeatmapQuarter {
         player.quarters.first(where: { $0.number == selectedQuarterNumber }) ?? player.quarters[0]
@@ -53,10 +54,11 @@ struct MockHeatmapDetailView: View {
 
     private var sprintSliderBinding: Binding<Double> {
         Binding(
-            get: { Double(nearestSprintIndex ?? 0) },
+            get: { Double(selectedSprintIndex) },
             set: { value in
                 let index = Int(value.rounded())
                 guard sprintEndElapsedTimes.indices.contains(index) else { return }
+                selectedSprintIndex = index
                 playbackTime = sprintEndElapsedTimes[index]
             }
         )
@@ -113,6 +115,7 @@ struct MockHeatmapDetailView: View {
                     onSprintSelectionChanged: { isSprintSelected in
                         isSprintPageSelected = isSprintSelected
                         if isSprintSelected {
+                            selectedSprintIndex = nearestSprintIndex ?? 0
                             playbackTime = snappedPlaybackTime(playbackTime)
                         }
                     }
@@ -170,6 +173,7 @@ struct MockHeatmapDetailView: View {
         .onChange(of: selectedQuarterNumber) { _, _ in
             playbackTime = min(TimelineWindow.length, max(0, analysisQuarter.duration))
             isSprintPageSelected = false
+            selectedSprintIndex = 0
         }
     }
 

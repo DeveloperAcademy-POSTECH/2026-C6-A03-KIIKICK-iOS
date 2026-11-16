@@ -10,8 +10,12 @@ struct TrackingMapPager: View {
 
     let field: Field?
     let points: [TrackPoint]
+    /// 히트맵과 별도로 표시할 스프린트 구간. nil이면 기존처럼 points를 사용한다.
+    var sprintPoints: [TrackPoint]? = nil
     var isAttackDirectionReversed = false
     var events: [AnalysisMatchEvent] = []
+    /// 타임라인이 맵 페이지에 맞춰 표시 구간을 바꿀 수 있도록 현재 페이지를 알린다.
+    var onSprintSelectionChanged: ((Bool) -> Void)? = nil
 
     @State private var selection: Page = .heatmap
 
@@ -24,7 +28,11 @@ struct TrackingMapPager: View {
                         .padding(.bottom, 28)
                         .accessibilityLabel("히트맵")
                         .tag(Page.heatmap)
-                    SprintMapView(field: field, points: points, isAttackDirectionReversed: isAttackDirectionReversed)
+                    SprintMapView(
+                        field: field,
+                        points: sprintPoints ?? points,
+                        isAttackDirectionReversed: isAttackDirectionReversed
+                    )
                         .overlay(TrackingMapEventsView(events: events, isAttackDirectionReversed: isAttackDirectionReversed))
                         .padding(.bottom, 28)
                         .accessibilityLabel("스프린트 맵, 시속 \(Int(SprintDetector.defaultSpeedThresholdKmh))킬로미터 초과, 이동거리 10미터 이상 구간")
@@ -46,6 +54,9 @@ struct TrackingMapPager: View {
                 // DESIGN-GAP: 페이지 컨트롤은 시스템 기본 표현. Figma의 민트색 도트와 색상 차이가 있다.
                 .tabViewStyle(.page(indexDisplayMode: .always))
                 .indexViewStyle(.page(backgroundDisplayMode: .never))
+                .onChange(of: selection) { _, newSelection in
+                    onSprintSelectionChanged?(newSelection == .sprint)
+                }
             } else {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.gray850)

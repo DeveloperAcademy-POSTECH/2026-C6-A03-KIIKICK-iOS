@@ -7,6 +7,8 @@
 //  타임라인(ListEventView)으로 구성된다.
 //
 //  슬라이더 시각까지의 최근 20초 포인트와 골/어시스트 핀을 지도에 표시한다.
+//  목업 스프린트 모드에서는 히트맵과 달리 선택된 스프린트 하나만 스프린트 맵에 표시하고,
+//  슬라이더를 스프린트 종료 시각에 스냅한다.
 //  이동거리와 칼로리는 시계열 샘플이 없어 쿼터 전체의 HealthKit 합계를 표시한다.
 //
 //  골/어시스트 핀은 node 735:11275처럼 맵 위 실제 좌표(AnalysisMatchEvent.position,
@@ -20,13 +22,62 @@ struct TimelineView: View {
 
     let dateTitle: String
     let quarter: AnalysisQuarter
+    let focusOnSprint: Bool
 
     @State private var playbackTime: TimeInterval
+    @State private var isSprintPageSelected = false
 
-    init(dateTitle: String, quarter: AnalysisQuarter) {
+    init(dateTitle: String, quarter: AnalysisQuarter, focusOnSprint: Bool = false) {
         self.dateTitle = dateTitle
         self.quarter = quarter
-        _playbackTime = State(initialValue: min(TimelineWindow.length, max(0, quarter.duration)))
+        self.focusOnSprint = focusOnSprint
+        _playbackTime = State(
+            initialValue: Self.initialPlaybackTime(for: quarter, focusOnSprint: focusOnSprint)
+        )
+    }
+
+    private var sprintSegments: [Sprint] {
+        SprintDetector().detect(in: quarter.points)
+    }
+
+    private var sprintEndElapsedTimes: [TimeInterval] {
+        guard let startDate = quarter.startDate else { return [] }
+        return sprintSegments.compactMap { sprint in
+            let elapsed = sprint.end.timestamp.timeIntervalSince(startDate)
+            guard elapsed >= 0, elapsed <= quarter.duration else { return nil }
+            return elapsed
+        }
+    }
+
+    private var selectedSprint: Sprint? {
+        guard focusOnSprint, isSprintPageSelected, !sprintSegments.isEmpty,
+              let startDate = quarter.startDate else { return nil }
+        return sprintSegments.min { lhs, rhs in
+            let lhsElapsed = lhs.end.timestamp.timeIntervalSince(startDate)
+            let rhsElapsed = rhs.end.timestamp.timeIntervalSince(startDate)
+            return abs(lhsElapsed - playbackTime) < abs(rhsElapsed - playbackTime)
+        }
+    }
+
+    private var playbackBinding: Binding<TimeInterval> {
+        Binding(
+            get: { playbackTime },
+            set: { playbackTime = snappedPlaybackTime($0) }
+        )
+    }
+
+    private func snappedPlaybackTime(_ value: TimeInterval) -> TimeInterval {
+        let clampedValue = min(max(0, value), max(quarter.duration, 1))
+        guard focusOnSprint, isSprintPageSelected, let nearest = sprintEndElapsedTimes.min(by: {
+            abs($0 - clampedValue) < abs($1 - clampedValue)
+        }) else {
+            return clampedValue
+        }
+        return nearest
+    }
+
+    private static func initialPlaybackTime(for quarter: AnalysisQuarter, focusOnSprint: Bool) -> TimeInterval {
+        return min(TimelineWindow.length, max(0, quarter.duration))
     }
 
     private var playbackTimeText: String {
@@ -56,6 +107,7 @@ struct TimelineView: View {
             TimelineWindow(quarterStart: $0, duration: quarter.duration, elapsed: playbackTime)
         }
         let visiblePoints = quarter.points.filter { window?.contains($0.timestamp) == true }
+        let visibleSprintPoints = selectedSprint?.points ?? []
         let visibleEvents = quarter.events.filter { window?.contains($0.timestamp) == true }
         let currentSpeedKmh = max(0, visiblePoints.max(by: { $0.timestamp < $1.timestamp })?.speed ?? 0) * 3.6
 
@@ -64,8 +116,15 @@ struct TimelineView: View {
                 TrackingMapPager(
                     field: quarter.field,
                     points: visiblePoints,
+                    sprintPoints: focusOnSprint && isSprintPageSelected ? visibleSprintPoints : nil,
                     isAttackDirectionReversed: quarter.isAttackDirectionReversed,
-                    events: visibleEvents
+                    events: visibleEvents,
+                    onSprintSelectionChanged: focusOnSprint ? { isSprintSelected in
+                        isSprintPageSelected = isSprintSelected
+                        if isSprintSelected {
+                            playbackTime = snappedPlaybackTime(playbackTime)
+                        }
+                    } : nil
                 )
                 .frame(height: 264)
 
@@ -73,12 +132,19 @@ struct TimelineView: View {
                     Text(playbackTimeText)
                         .font(.title2SB)
                         .foregroundStyle(.colorTextPrimary)
-                    Slider(value: $playbackTime, in: 0...max(quarter.duration, 1)) {
+                    Slider(value: playbackBinding, in: 0...max(quarter.duration, 1)) {
                         Text("재생 위치")
                     }
                         .tint(.mint500)
                         .disabled(quarter.startDate == nil || quarter.duration <= 0)
                         .accessibilityValue("\(playbackTimeText), 전체 \(quarter.durationText)")
+                        .accessibilityHint(focusOnSprint ? "스프린트 종료 구간 단위로 이동" : "")
+                    if focusOnSprint, !sprintSegments.isEmpty {
+                        Text("스프린트 종료 구간 단위로 이동")
+                            .font(.caption1M)
+                            .foregroundStyle(.colorTextSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     Text(quarter.durationText)
                         .font(.caption1M)
                         .foregroundStyle(.colorTextSecondary)

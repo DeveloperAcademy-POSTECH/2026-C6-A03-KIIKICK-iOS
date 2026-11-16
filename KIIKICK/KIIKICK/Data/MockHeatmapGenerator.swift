@@ -283,7 +283,9 @@ enum MockHeatmapGenerator {
         random: inout SeededRandom
     ) -> [MockHeatmapEvent] {
         guard !points.isEmpty else { return [] }
-        let eventCount = profile.goalsPerQuarter + profile.assistsPerQuarter
+        let goals = variedCount(around: profile.goalsPerQuarter, random: &random)
+        let assists = variedCount(around: profile.assistsPerQuarter, random: &random)
+        let eventCount = goals + assists
         let lowerBound = min(2, max(0, points.count - 1))
         let upperBound = max(lowerBound, points.count - 3)
         var indexes: Set<Int> = []
@@ -294,8 +296,8 @@ enum MockHeatmapGenerator {
         }
 
         let sortedIndexes = indexes.sorted()
-        let types = Array(repeating: MockHeatmapEventType.goal, count: profile.goalsPerQuarter) +
-            Array(repeating: MockHeatmapEventType.assist, count: profile.assistsPerQuarter)
+        let types = Array(repeating: MockHeatmapEventType.goal, count: goals) +
+            Array(repeating: MockHeatmapEventType.assist, count: assists)
         return sortedIndexes.enumerated().map { index, pointIndex in
             MockHeatmapEvent(
                 id: "\(profile.id)-q\(quarterNumber)-event\(index)",
@@ -304,6 +306,16 @@ enum MockHeatmapGenerator {
                 timestamp: points[pointIndex].timestamp
             )
         }
+    }
+
+    /// 프로필 수치는 쿼터당 평균값으로 사용하고, 실제 표시 이벤트 수는 쿼터마다 한 단계씩 흔든다.
+    /// 공격수 3골·미드필더 3어시 같은 패턴이 매 쿼터 반복되지 않도록 한다.
+    private static func variedCount(around target: Int, random: inout SeededRandom) -> Int {
+        guard target > 0 else { return 0 }
+        let roll = random.unit()
+        if roll < 0.30 { return max(0, target - 1) }
+        if roll > 0.70 { return target + 1 }
+        return target
     }
 
     private static func weightedAnchor(from anchors: [Anchor], random: inout SeededRandom) -> Anchor {

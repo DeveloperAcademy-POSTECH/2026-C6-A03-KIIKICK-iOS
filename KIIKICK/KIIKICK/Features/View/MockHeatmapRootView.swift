@@ -43,7 +43,8 @@ struct MockHeatmapRootView: View {
                    let quarter = player.quarters.first(where: { $0.number == route.quarterNumber }) {
                     TimelineView(
                         dateTitle: "목업 경기",
-                        quarter: MockHeatmapAnalysisAdapter.quarter(quarter)
+                        quarter: MockHeatmapAnalysisAdapter.quarter(quarter),
+                        focusOnSprint: true
                     )
                 } else {
                     ContentUnavailableView("타임라인 데이터를 찾을 수 없어요", systemImage: "clock.badge.questionmark")

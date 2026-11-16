@@ -10,6 +10,8 @@ struct MockHeatmapDetailView: View {
     }
 
     var body: some View {
+        let analysisQuarter = MockHeatmapAnalysisAdapter.quarter(selectedQuarter)
+
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
@@ -26,7 +28,17 @@ struct MockHeatmapDetailView: View {
                 }
                 .font(.subheadline)
                 .foregroundStyle(.colorTextSecondary)
-                MockHeatmapFieldView(points: selectedQuarter.points, showsTrail: true)
+                Text("좌우로 넘겨 히트맵과 스프린트를 확인하세요")
+                    .font(.caption1M)
+                    .foregroundStyle(.colorTextSecondary)
+                TrackingMapPager(
+                    field: analysisQuarter.field,
+                    points: analysisQuarter.points,
+                    sprintPoints: analysisQuarter.points,
+                    isAttackDirectionReversed: analysisQuarter.isAttackDirectionReversed,
+                    events: analysisQuarter.events
+                )
+                .frame(height: 264)
                 NavigationLink(value: MockHeatmapTimelineRoute(playerID: player.id, quarterNumber: selectedQuarter.number)) {
                     Label("기존 타임라인 보기", systemImage: "timeline.selection")
                         .frame(maxWidth: .infinity)

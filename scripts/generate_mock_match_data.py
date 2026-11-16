@@ -226,7 +226,9 @@ def generate_events(
     points: list[dict[str, float | int | str]],
     rng: DeterministicRNG,
 ) -> list[dict[str, float | int | str]]:
-    event_count = profile.goals_per_quarter + profile.assists_per_quarter
+    goals = varied_count(profile.goals_per_quarter, rng)
+    assists = varied_count(profile.assists_per_quarter, rng)
+    event_count = goals + assists
     if not points or event_count == 0:
         return []
 
@@ -234,7 +236,7 @@ def generate_events(
     upper = max(lower, len(points) - 3)
     count = min(event_count, upper - lower + 1)
     indexes = sorted(rng.sample(range(lower, upper + 1), count))
-    event_types = ["goal"] * profile.goals_per_quarter + ["assist"] * profile.assists_per_quarter
+    event_types = ["goal"] * goals + ["assist"] * assists
     return [
         {
             "id": f"{profile.key}-q{quarter_number}-event{index}",
@@ -246,6 +248,19 @@ def generate_events(
         }
         for index, point_index in enumerate(indexes)
     ]
+
+
+def varied_count(target: int, rng: DeterministicRNG) -> int:
+    """Use profile counts as averages while varying each quarter by one."""
+
+    if target <= 0:
+        return 0
+    roll = rng.random()
+    if roll < 0.30:
+        return max(0, target - 1)
+    if roll > 0.70:
+        return target + 1
+    return target
 
 
 def selected_profiles(player_keys: Iterable[str]) -> list[PlayerProfile]:

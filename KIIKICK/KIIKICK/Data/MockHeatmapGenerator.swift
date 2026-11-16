@@ -30,6 +30,8 @@ enum MockHeatmapGenerator {
         let movementNoise: Double
         let cruisingSpeedMps: Double
         let maxSpeedMps: Double
+        /// 기본 포지션 앵커를 공격 방향(+x)으로 당기는 정도(정규화 필드 좌표)
+        let attackDirectionBias: Double
         let restingHeartRate: Double
         let peakHeartRate: Double
         let goalsPerQuarter: Int
@@ -69,6 +71,7 @@ enum MockHeatmapGenerator {
             movementNoise: 0.026,
             cruisingSpeedMps: 1.85,
             maxSpeedMps: 8.8,
+            attackDirectionBias: 0,
             restingHeartRate: 118,
             peakHeartRate: 184,
             goalsPerQuarter: 3,
@@ -87,6 +90,7 @@ enum MockHeatmapGenerator {
             movementNoise: 0.022,
             cruisingSpeedMps: 1.70,
             maxSpeedMps: 8.0,
+            attackDirectionBias: 0,
             restingHeartRate: 114,
             peakHeartRate: 180,
             goalsPerQuarter: 1,
@@ -105,6 +109,7 @@ enum MockHeatmapGenerator {
             movementNoise: 0.016,
             cruisingSpeedMps: 1.45,
             maxSpeedMps: 7.5,
+            attackDirectionBias: 0.08,
             restingHeartRate: 108,
             peakHeartRate: 172,
             goalsPerQuarter: 0,
@@ -204,7 +209,10 @@ enum MockHeatmapGenerator {
         start: Date,
         random: inout SeededRandom
     ) -> [MockHeatmapPoint] {
-        var anchor = weightedAnchor(from: profile.anchors, random: &random)
+        var anchor = attackBiasedAnchor(
+            from: weightedAnchor(from: profile.anchors, random: &random),
+            profile: profile
+        )
         var x = clamp(anchor.x + random.normal(standardDeviation: anchorSpread), 0.02, 0.98)
         var y = clamp(anchor.y + random.normal(standardDeviation: anchorSpread), 0.02, 0.98)
         var previousX = x
@@ -214,7 +222,10 @@ enum MockHeatmapGenerator {
 
         for index in 0...pointCount {
             if random.unit() < 0.12 {
-                anchor = weightedAnchor(from: profile.anchors, random: &random)
+                anchor = attackBiasedAnchor(
+                    from: weightedAnchor(from: profile.anchors, random: &random),
+                    profile: profile
+                )
             }
 
             let progress = Double(index) / Double(max(pointCount, 1))
@@ -278,6 +289,16 @@ enum MockHeatmapGenerator {
         Anchor(
             x: clamp(anchor.x + random.normal(standardDeviation: anchorSpread), 0.02, 0.98),
             y: clamp(anchor.y + random.normal(standardDeviation: anchorSpread), 0.02, 0.98),
+            weight: anchor.weight
+        )
+    }
+
+    /// 센터백은 수비 진영을 기본으로 유지하되, 공격 전개 때 센터 라인 안쪽까지
+    /// 자연스럽게 올라올 수 있도록 포지션 앵커 자체를 공격 방향으로 조금 이동한다.
+    private static func attackBiasedAnchor(from anchor: Anchor, profile: Profile) -> Anchor {
+        Anchor(
+            x: clamp(anchor.x + profile.attackDirectionBias, 0.02, 0.98),
+            y: anchor.y,
             weight: anchor.weight
         )
     }

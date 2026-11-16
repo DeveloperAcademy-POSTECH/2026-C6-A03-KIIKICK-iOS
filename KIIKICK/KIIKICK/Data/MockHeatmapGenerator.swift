@@ -229,8 +229,10 @@ enum MockHeatmapGenerator {
     }
 
     /// 목업 타임라인의 스프린트 탭을 항상 확인할 수 있도록 쿼터마다 네 구간을 만든다.
-    /// x가 커지는 방향을 공격 방향으로 사용하고, 스프린트 사이에는 일반 속도 포인트를 둬
-    /// `SprintDetector`가 각각 별도 구간으로 인식하도록 한다.
+    /// 공격수는 공격 방향(x 증가)으로만 달리고, 미드필더·수비수는 전환/수비 복귀를
+    /// 표현하기 위해 절반의 구간을 반대 방향(x 감소)으로 달린다.
+    /// 스프린트 사이에는 일반 속도 포인트를 둬 `SprintDetector`가 각각 별도 구간으로
+    /// 인식하도록 한다.
     private static func addingAttackDirectionSprints(
         to points: [MockHeatmapPoint],
         profile: Profile
@@ -246,8 +248,15 @@ enum MockHeatmapGenerator {
             let endIndex = startIndex + 1
             let originalStart = points[startIndex]
             let originalEnd = points[endIndex]
-            let startX = clamp(originalStart.xMeters, 4, fieldLength - mockSprintDistanceMeters - 2)
-            let endX = startX + mockSprintDistanceMeters
+            let isReverseSprint = profile.id != MockHeatmapPosition.attacker.rawValue && sprintIndex.isMultiple(of: 2)
+            let direction = isReverseSprint ? -1.0 : 1.0
+            let startX: Double
+            if isReverseSprint {
+                startX = clamp(originalStart.xMeters, mockSprintDistanceMeters + 2, fieldLength - 4)
+            } else {
+                startX = clamp(originalStart.xMeters, 4, fieldLength - mockSprintDistanceMeters - 2)
+            }
+            let endX = startX + direction * mockSprintDistanceMeters
             let laneDrift = sprintIndex.isMultiple(of: 2) ? -2.5 : 2.5
             let startY = clamp(originalStart.yMeters, 3, fieldWidth - 3)
             let endY = clamp(startY + laneDrift, 3, fieldWidth - 3)

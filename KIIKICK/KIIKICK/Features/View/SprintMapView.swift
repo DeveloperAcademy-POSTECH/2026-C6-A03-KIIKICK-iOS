@@ -78,7 +78,7 @@ struct SprintMapView: View {
         var line = Path()
         line.move(to: start)
         line.addQuadCurve(to: end, control: control)
-        context.stroke(line, with: .color(.lime500), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+        context.stroke(line, with: .color(.orange500), style: StrokeStyle(lineWidth: 3, lineCap: .round))
         
         let angle = atan2(end.y - control.y, end.x - control.x)
         let arrowLength: CGFloat = 8
@@ -98,6 +98,6 @@ struct SprintMapView: View {
         head.addLine(to: end)
         head.addLine(to: right)
         head.closeSubpath()
-        context.fill(head, with: .color(.lime500))
+        context.fill(head, with: .color(.orange500))
     }
 }

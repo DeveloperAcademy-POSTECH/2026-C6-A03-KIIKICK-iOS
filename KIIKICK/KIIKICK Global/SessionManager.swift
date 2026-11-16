@@ -262,11 +262,7 @@ extension SessionManager: WCSessionDelegate {
                 -MockHeatmapGenerator.quarterDuration * Double(quarterCount - 1)
             )
         )
-        // 경기 생성 때 선택한 Field를 그대로 연결해 분석 카드에 실제 운동장 이름을
-        // 표시한다. 앱 재시작 등으로 참조가 사라졌지만 이름만 남은 경우에도 선택한
-        // 이름을 유지하고, 둘 다 없을 때만 일반적인 "운동장"으로 대체한다.
-        let fieldName = preparedFieldName.flatMap { $0.isEmpty ? nil : $0 } ?? "운동장"
-        let field = preparedField ?? MockHeatmapAnalysisAdapter.field(name: fieldName)
+        let field = MockHeatmapAnalysisAdapter.field()
         let records = MockHeatmapWorkoutRecordFactory.records(
             from: match,
             position: position,

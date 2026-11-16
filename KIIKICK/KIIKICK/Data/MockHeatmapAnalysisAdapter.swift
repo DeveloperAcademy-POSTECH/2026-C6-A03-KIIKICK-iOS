@@ -13,13 +13,13 @@ enum MockHeatmapAnalysisAdapter {
     /// 실제 워치 데이터의 샘플 주기와 무관하게 목업 화면에서 위치가 끊겨 보이지 않게 한다.
     private static let interpolationInterval: TimeInterval = 1
 
-    static func field(name: String = "운동장") -> Field {
+    static func field() -> Field {
         let topLatitude = centerLatitude + fieldWidth / 2 / metersPerLatitudeDegree
         let bottomLatitude = centerLatitude - fieldWidth / 2 / metersPerLatitudeDegree
         let leftLongitude = centerLongitude - fieldLength / 2 / metersPerLongitudeDegree
         let rightLongitude = centerLongitude + fieldLength / 2 / metersPerLongitudeDegree
         return Field(
-            name: name,
+            name: "풋살장",
             cornerA: FieldCorner(latitude: topLatitude, longitude: leftLongitude),
             cornerB: FieldCorner(latitude: topLatitude, longitude: rightLongitude),
             cornerC: FieldCorner(latitude: bottomLatitude, longitude: rightLongitude),

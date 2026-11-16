@@ -12,6 +12,8 @@ enum MockHeatmapGenerator {
     private static let maximumSpeedMps = 29.0 / 3.6
     private static let outOfPositionProbability = 0.08
     private static let outOfPositionDrift = 0.10
+    private static let minimumQuarterCount = 3
+    private static let maximumQuarterCount = 5
 
     private struct Anchor {
         let x: Double
@@ -117,6 +119,13 @@ enum MockHeatmapGenerator {
         return make(seed: seed, position: position, start: nil)
     }
 
+    /// 경기마다 3~5쿼터 중 하나를 결정해 동일한 시드에서는 같은 구성을 재현한다.
+    static func quarterCount(seed: Int) -> Int {
+        var random = SeededRandom(seed: seed ^ 0x51ED_2026)
+        let rangeSize = maximumQuarterCount - minimumQuarterCount + 1
+        return minimumQuarterCount + Int(random.unit() * Double(rangeSize))
+    }
+
     static func make(
         seed: Int,
         position: MockHeatmapPosition,
@@ -146,7 +155,7 @@ enum MockHeatmapGenerator {
     }
 
     private static func makePlayer(_ profile: Profile, seed: Int, start: Date) -> MockHeatmapPlayer {
-        let quarters = (1...4).map { quarterNumber in
+        let quarters = (1...quarterCount(seed: seed)).map { quarterNumber in
             let quarterStart = start.addingTimeInterval(Double(quarterNumber - 1) * quarterDuration)
             var random = SeededRandom(seed: seed + quarterNumber * 10_007)
             let points = makePoints(

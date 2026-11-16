@@ -38,6 +38,7 @@ struct AnalysisView: View {
     @State private var loadedUserID: UUID? = UserSession.userId
     @State private var isLoadingRemote = false
     @State private var loadError: String?
+    @State private var deleteError: String?
     @State private var year = 2026
     @State private var month = 10
 
@@ -106,6 +107,13 @@ struct AnalysisView: View {
                                     stats: entry.stats.map { CardSummaryView.Stat(label: $0.label, value: $0.value, unit: $0.unit) },
                                     action: { router.showAnalysis(entry, in: .analysis) }
                                 )
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        delete(entry)
+                                    } label: {
+                                        Label("삭제", systemImage: "trash")
+                                    }
+                                }
                             }
                         }
                         .padding(.horizontal, 16)
@@ -125,6 +133,9 @@ struct AnalysisView: View {
         .alert("경기 기록을 불러오지 못했어요", isPresented: Binding(
             get: { loadError != nil }, set: { if !$0 { loadError = nil } }
         )) { } message: { Text(loadError ?? "") }
+        .alert("경기 기록을 삭제하지 못했어요", isPresented: Binding(
+            get: { deleteError != nil }, set: { if !$0 { deleteError = nil } }
+        )) { } message: { Text(deleteError ?? "") }
         .onAppear {
             syncToLatestMonthIfNeeded()
             Task { await loadRemoteEntries() }
@@ -176,6 +187,23 @@ struct AnalysisView: View {
         guard entriesInSelectedMonth.isEmpty, let latest = availableYearMonths.sorted().last else { return }
         year = latest.year
         month = latest.month
+    }
+
+    /// 로컬 경기의 모든 쿼터와 서버 경기의 기기 캐시를 함께 지운다.
+    /// 서버에 경기 삭제 API가 아직 없어, 원격 데이터 자체는 삭제하지 않는다.
+    private func delete(_ entry: AnalysisEntry) {
+        entry.records.forEach(modelContext.delete)
+
+        for cachedMatch in cachedMatches where cachedMatch.matchID == entry.id {
+            modelContext.delete(cachedMatch)
+        }
+
+        do {
+            try modelContext.save()
+            syncToLatestMonthIfNeeded()
+        } catch {
+            deleteError = error.localizedDescription
+        }
     }
 }
 

@@ -14,6 +14,8 @@ enum UserSession {
     private static let userIdKey = "userId"
     private static let onboardingStatusKey = "onboardingStatus"
     private static let nicknameKey = "nickname"
+    private static let mockHeatmapThemeKeyPrefix = "mockHeatmapTheme."
+    private static let mockHeatmapThemeFallbackKey = "mockHeatmapTheme.default"
     static let avatarUrlKey = "profileAvatarUrl"
     static let avatarRevisionKey = "profileAvatarRevision"
     private static let tokenKey = "accessToken"
@@ -64,6 +66,27 @@ enum UserSession {
             UserDefaults.standard.set(newValue, forKey: nicknameKey)
             profileVersion += 1
         }
+    }
+
+    /// 목업 분석 테마는 서버 프로필과 분리해 계정별로 로컬 저장한다.
+    /// 같은 기기에서 계정을 바꿔도 이전 계정의 테마가 섞이지 않도록 userId를 키에 포함한다.
+    static var mockHeatmapTheme: MockHeatmapTheme {
+        get {
+            let key = mockHeatmapThemeKey(for: userId)
+            return UserDefaults.standard.string(forKey: key)
+                .flatMap(MockHeatmapTheme.init(rawValue:))
+                ?? .sonHeungMin
+        }
+        set {
+            let key = mockHeatmapThemeKey(for: userId)
+            UserDefaults.standard.set(newValue.rawValue, forKey: key)
+            profileVersion += 1
+        }
+    }
+
+    private static func mockHeatmapThemeKey(for ownerId: UUID?) -> String {
+        guard let ownerId else { return mockHeatmapThemeFallbackKey }
+        return "\(mockHeatmapThemeKeyPrefix)\(ownerId.uuidString)"
     }
 
     static var avatarUrl: String? {

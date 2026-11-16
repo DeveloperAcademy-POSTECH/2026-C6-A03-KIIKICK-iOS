@@ -4,15 +4,26 @@ import Observation
 @MainActor @Observable
 final class MockHeatmapStore {
     private(set) var match: MockHeatmapMatch
+    private(set) var theme: MockHeatmapTheme
     private(set) var statusMessage: String?
 
     init() {
-        match = MockHeatmapGenerator.make(seed: 102)
+        let currentTheme = UserSession.mockHeatmapTheme
+        theme = currentTheme
+        match = MockHeatmapGenerator.make(seed: 102, theme: currentTheme)
     }
 
     func regenerate() {
-        match = MockHeatmapGenerator.make(seed: match.seed + 1)
+        match = MockHeatmapGenerator.make(seed: match.seed + 1, theme: theme)
         statusMessage = "새 목업 데이터를 만들었습니다."
+    }
+
+    func syncTheme() {
+        let currentTheme = UserSession.mockHeatmapTheme
+        guard currentTheme != theme else { return }
+        theme = currentTheme
+        match = MockHeatmapGenerator.make(seed: match.seed, theme: theme)
+        statusMessage = "\(theme.displayName) 테마를 적용했습니다."
     }
 
     func save() {

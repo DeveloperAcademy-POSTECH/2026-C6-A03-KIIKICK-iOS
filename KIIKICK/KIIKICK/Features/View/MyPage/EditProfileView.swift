@@ -21,17 +21,22 @@ struct EditProfileView: View {
     @State private var selectedPhoto: Image?
     @State private var selectedPhotoData: Data?
     @State private var isLoadingPhoto = false
+    @State private var mockHeatmapTheme: MockHeatmapTheme
 
     @State private var originalNickname: String
+    @State private var originalMockHeatmapTheme: MockHeatmapTheme
 
     init() {
         let current = UserSession.nickname ?? ""
         _nickname = State(initialValue: current)
         _originalNickname = State(initialValue: current)
+        let currentTheme = UserSession.mockHeatmapTheme
+        _mockHeatmapTheme = State(initialValue: currentTheme)
+        _originalMockHeatmapTheme = State(initialValue: currentTheme)
     }
 
     private var hasUnsavedChanges: Bool {
-        nickname != originalNickname || selectedPhotoData != nil || isLoadingPhoto
+        nickname != originalNickname || mockHeatmapTheme != originalMockHeatmapTheme || selectedPhotoData != nil || isLoadingPhoto
     }
 
     private var validationError: String? {
@@ -93,6 +98,19 @@ struct EditProfileView: View {
                 .onChange(of: nickname) { saveErrorMessage = nil }
             }
 
+            VStack(alignment: .leading, spacing: 12) {
+                Text("분석 데이터 테마")
+                    .font(.body4R)
+                    .foregroundStyle(.gray400)
+                Text("이 계정의 목업 히트맵에는 선택한 포지션 데이터만 표시돼요.")
+                    .font(.caption1M)
+                    .foregroundStyle(.gray500)
+
+                VStack(spacing: 8) {
+                    ForEach(MockHeatmapTheme.allCases, content: themeRow)
+                }
+            }
+
             Spacer()
 
             CtaView(text: "저장", type: .primary, isActive: validationError == nil && !isSubmitting && !isLoadingPhoto) {
@@ -147,6 +165,46 @@ struct EditProfileView: View {
         }
     }
 
+    @ViewBuilder
+    private func themeRow(for theme: MockHeatmapTheme) -> some View {
+        let isSelected = mockHeatmapTheme == theme
+        Button {
+            mockHeatmapTheme = theme
+            saveErrorMessage = nil
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: theme.symbolName)
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? .mint500 : .gray400)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(theme.displayName)
+                        .font(.body1M)
+                        .foregroundStyle(.gray50)
+                    Text("\(theme.role) · \(theme.description)")
+                        .font(.caption1M)
+                        .foregroundStyle(.gray400)
+                }
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.mint500)
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 64)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.gray850, in: RoundedRectangle(cornerRadius: 12))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.mint500 : .clear, lineWidth: 1.5)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(theme.displayName), \(theme.role)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
     private func handleBack() {
         guard !isSubmitting else { return }
         if hasUnsavedChanges {
@@ -181,6 +239,8 @@ struct EditProfileView: View {
                 UserSession.saveAvatar(url: avatar.data.avatarUrl, for: ownerId, imageData: selectedPhotoData)
                 self.selectedPhotoData = nil
             }
+            UserSession.mockHeatmapTheme = mockHeatmapTheme
+            originalMockHeatmapTheme = mockHeatmapTheme
             dismiss()
         } catch let NetworkError.invalidHttpStatusCode(_, message) {
             saveErrorMessage = message ?? "프로필을 모두 저장하지 못했어요. 다시 시도해 주세요"

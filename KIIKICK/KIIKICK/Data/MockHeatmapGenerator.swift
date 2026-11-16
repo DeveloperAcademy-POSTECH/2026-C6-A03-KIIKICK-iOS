@@ -106,6 +106,10 @@ enum MockHeatmapGenerator {
     ]
 
     static func make(seed: Int) -> MockHeatmapMatch {
+        make(seed: seed, theme: UserSession.mockHeatmapTheme)
+    }
+
+    static func make(seed: Int, theme: MockHeatmapTheme) -> MockHeatmapMatch {
         let start = DateComponents(
             calendar: Calendar(identifier: .gregorian),
             timeZone: TimeZone(secondsFromGMT: 0),
@@ -115,9 +119,8 @@ enum MockHeatmapGenerator {
             hour: 10
         ).date ?? .now
 
-        let players = profiles.enumerated().map { index, profile in
-            makePlayer(profile, seed: seed + index * 100_003, start: start)
-        }
+        let profile = profiles.first(where: { $0.id == theme.rawValue }) ?? profiles[0]
+        let players = [makePlayer(profile, seed: seed, start: start)]
 
         return MockHeatmapMatch(
             id: "mock-match-\(seed)",

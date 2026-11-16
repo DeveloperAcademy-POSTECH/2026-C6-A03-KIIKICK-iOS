@@ -17,6 +17,8 @@ struct ShareImageView: View {
     @Environment(\.dismiss) private var dismiss
 
     let keyStats: [AnalysisStat]
+    /// AnalysisDetailView에서 공유 버튼을 누른 시점에 선택돼 있던 쿼터 — 카드 히트맵을 이 쿼터로 그린다.
+    let quarter: AnalysisQuarter?
 
     @State private var selectedLayout = 0
     @State private var saveState: SaveState = .idle
@@ -28,9 +30,9 @@ struct ShareImageView: View {
     var body: some View {
         VStack(spacing: 40) {
             TabView(selection: $selectedLayout) {
-                ShareCardView(keyStats: keyStats, orientation: .vertical)
+                card(.vertical)
                     .tag(0)
-                ShareCardView(keyStats: keyStats, orientation: .horizontal)
+                card(.horizontal)
                     .tag(1)
             }
             .tabViewStyle(.page)
@@ -71,6 +73,10 @@ struct ShareImageView: View {
         }
     }
 
+    private func card(_ orientation: ShareCardView.Orientation) -> ShareCardView {
+        ShareCardView(keyStats: keyStats, orientation: orientation, quarter: quarter)
+    }
+
     private var statusText: String {
         switch saveState {
         case .idle, .saving: "이미지 저장"
@@ -82,7 +88,7 @@ struct ShareImageView: View {
     @MainActor
     private func save() {
         let orientation: ShareCardView.Orientation = selectedLayout == 0 ? .vertical : .horizontal
-        let renderer = ImageRenderer(content: ShareCardView(keyStats: keyStats, orientation: orientation))
+        let renderer = ImageRenderer(content: card(orientation))
         renderer.scale = UIScreen.main.scale
         // 카드 자체가 배경을 안 칠해서 투명하다 — isOpaque를 꺼야 알파 채널이 살아남는다.
         renderer.isOpaque = false
@@ -118,7 +124,10 @@ struct ShareImageView: View {
 #if DEBUG
 #Preview {
     NavigationStack {
-        ShareImageView(keyStats: AnalysisEntry.previewSample.detail.keyStats)
+        ShareImageView(
+            keyStats: AnalysisEntry.previewSample.detail.keyStats,
+            quarter: AnalysisEntry.previewSample.detail.quarters.first
+        )
     }
 }
 #endif

@@ -35,13 +35,13 @@ struct IntervalView: View {
                     BtnSelectionView(text: lastQuarter.position?.uppercased ?? "-", style: .selected, action: {})
                 }
                 HStack {
-                    Image(systemName: "soccerball.inverse")
+                    ScoreType.goal.icon
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 24)
                     Text(verbatim: "\(lastQuarter.goalCount)")
                         .font(.body4R)
-                    Image(systemName: "shoe.running.and.shadow.fill")
+                    ScoreType.assist.icon
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 24)

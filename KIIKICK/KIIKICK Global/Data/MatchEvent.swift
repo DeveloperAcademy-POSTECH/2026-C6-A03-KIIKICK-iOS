@@ -29,6 +29,17 @@ enum MatchEventType: String, Codable, Hashable {
             Image("img_assist")
         }
     }
+    
+    var icon: Image {
+        switch self {
+        case .goal:
+            Image(systemName: "soccerball.inverse")
+        case .assist:
+            // ScoreType.icon과 같은 이유로 번들 에셋을 쓴다(SF Symbols 2026 심볼이라
+            // iOS 배포 타깃 18.6에서는 런타임에 없다).
+            Image("ic_assist_shoe")
+        }
+    }
 }
 
 struct MatchEvent: Codable {

@@ -46,7 +46,7 @@ struct MatchStatusHeaderView: View {
             case .inProgress:
                 InfoRow(
                     // DESIGN-GAP: 실제 ic/info 에셋 미다운로드, SF Symbol로 대체.
-                    icon: Image(systemName: "info.circle"),
+                    icon: Image(systemName: "info.circle.fill"),
                     text: "아직 경기를 진행 중이에요!\n이번 경기 분석을 보려면 Apple Watch에서\n경기를 종료해주세요",
                     font: .body3R,
                     alignment: .center
@@ -92,6 +92,7 @@ private struct InfoRow: View {
                         .foregroundStyle(.colorTextPrimary)
                         .multilineTextAlignment(.center)
                 }
+                .frame(maxWidth: .infinity, alignment: .center)
             default :
                 HStack(alignment: .top, spacing: 12) {
                     icon?.foregroundStyle(.colorTextPrimary)

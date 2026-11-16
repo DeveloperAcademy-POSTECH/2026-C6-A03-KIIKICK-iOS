@@ -10,27 +10,6 @@ import WatchKit
 
 struct PlayingView: View {
 
-    enum ScoreType: String {
-        case goal, assist
-
-        /// 득점과 어시스트를 화면을 보지 않고도 구분할 수 있는 기본 햅틱.
-        var hapticType: WKHapticType {
-            switch self {
-            case .goal: .success
-            case .assist: .directionUp
-            }
-        }
-
-        var icon: Image {
-            switch self {
-            case .goal:
-                Image(systemName: "soccerball.inverse")
-            case .assist:
-                Image(systemName: "shoe.running.and.shadow.fill")
-            }
-        }
-    }
-
     /// 지금 쿼터가 시작된 시각 — 라이브 타이머용.
     let quarterStartDate: Date
     /// 골/어시스트를 누른 순간의 위치를 기록하는 데 쓴다.

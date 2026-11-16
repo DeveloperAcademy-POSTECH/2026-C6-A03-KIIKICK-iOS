@@ -23,6 +23,8 @@ struct AnalysisDetailView: View {
     let friendNickname: String?
     let friendUserID: UUID?
     let friendMatchID: UUID?
+    
+    @State private var isShowComment: Bool = true
     @State private var commentsModel: MatchCommentsModel
 
     @State private var selectedQuarterIndex = 0
@@ -111,7 +113,13 @@ struct AnalysisDetailView: View {
             }
         }
         .navigationDestination(isPresented: $pushedShare) {
-            ShareImageView(keyStats: entry.detail.keyStats)
+            ShareImageView(keyStats: entry.detail.keyStats, quarter: currentQuarter)
+                .onAppear {
+                    isShowComment = false
+                }
+                .onDisappear {
+                    isShowComment = true
+                }
         }
         .onAppear {
             guard friendNickname == nil, entry.records.contains(where: { !$0.hasViewedAnalysis }) else { return }
@@ -122,7 +130,7 @@ struct AnalysisDetailView: View {
         // (Figma "sheet/collapsed", node 735:11489) — 접힌 상태에서도 "댓글 N" 헤더가
         // 보이고 끌어올리면 전체 목록이 보인다. 닫을 수 없는 permanent 시트라
         // isPresented를 상수 true로 고정했다.
-        .sheet(isPresented: .constant(true)) {
+        .sheet(isPresented: $isShowComment) {
             MatchCommentsSheet(model: commentsModel, isExpanded: commentSheetDetent == .large)
             .presentationDetents([.height(70), .large], selection: $commentSheetDetent)
             .presentationDragIndicator(.visible)

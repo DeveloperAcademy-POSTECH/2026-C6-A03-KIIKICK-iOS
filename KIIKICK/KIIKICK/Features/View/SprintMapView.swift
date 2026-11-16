@@ -24,20 +24,23 @@ struct SprintMapView: View {
     var body: some View {
         let mapper = FieldCoordinateMapper(field: field)
         let sprints = detector.detect(in: points)
-        let visibleSprints = sprints.compactMap { sprint -> (CGPoint, CGPoint)? in
+        let visibleSprints = sprints.compactMap { sprint -> (start: CGPoint, end: CGPoint, isAttackDirection: Bool)? in
             let positions = sprint.points.compactMap { normalizedPosition(for: $0, mapper: mapper) }
             guard let start = positions.first, let end = positions.last, start != end else { return nil }
-            return (start, end)
+            let deltaX = end.x - start.x
+            let isAttackDirection = isAttackDirectionReversed ? deltaX < 0 : deltaX > 0
+            return (start, end, isAttackDirection)
         }
         
         FieldCanvasView { context, size in
             if visibleSprints.isEmpty {
                 drawEmptyMessage(in: context, size: size)
             } else {
-                for (start, end) in visibleSprints {
+                for sprint in visibleSprints {
                     drawArrow(
-                        from: CGPoint(x: start.x * size.width, y: start.y * size.height),
-                        to: CGPoint(x: end.x * size.width, y: end.y * size.height),
+                        from: CGPoint(x: sprint.start.x * size.width, y: sprint.start.y * size.height),
+                        to: CGPoint(x: sprint.end.x * size.width, y: sprint.end.y * size.height),
+                        isAttackDirection: sprint.isAttackDirection,
                         in: context, size: size
                     )
                 }
@@ -70,7 +73,13 @@ struct SprintMapView: View {
         return display
     }
     
-    private func drawArrow(from start: CGPoint, to end: CGPoint, in context: GraphicsContext, size: CGSize) {
+    private func drawArrow(
+        from start: CGPoint,
+        to end: CGPoint,
+        isAttackDirection: Bool,
+        in context: GraphicsContext,
+        size: CGSize
+    ) {
         // DESIGN-GAP: Figma와 같은 A→B 곡선 표현. 정확한 곡률 수치는 미지정으로 설정값 사용.
         guard let curve = SprintArrowGeometry(start: start, end: end) else { return }
         let control = CGPoint(x: min(max(curve.control.x, 0), size.width),
@@ -78,7 +87,8 @@ struct SprintMapView: View {
         var line = Path()
         line.move(to: start)
         line.addQuadCurve(to: end, control: control)
-        context.stroke(line, with: .color(.orange500), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+        let arrowColor: Color = isAttackDirection ? .lime500 : .orange500
+        context.stroke(line, with: .color(arrowColor), style: StrokeStyle(lineWidth: 3, lineCap: .round))
         
         let angle = atan2(end.y - control.y, end.x - control.x)
         let arrowLength: CGFloat = 8
@@ -98,6 +108,6 @@ struct SprintMapView: View {
         head.addLine(to: end)
         head.addLine(to: right)
         head.closeSubpath()
-        context.fill(head, with: .color(.orange500))
+        context.fill(head, with: .color(arrowColor))
     }
 }

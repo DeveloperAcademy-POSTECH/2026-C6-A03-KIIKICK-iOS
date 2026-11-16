@@ -130,10 +130,6 @@ struct AnalysisDetailView: View {
             for record in entry.records { record.hasViewedAnalysis = true }
             try? modelContext.save()
         }
-        // 댓글은 세그먼트 전환이 아니라, 화면 아래 항상 떠 있는 바텀시트로 보여준다
-        // (Figma "sheet/collapsed", node 735:11489) — 접힌 상태에서도 "댓글 N" 헤더가
-        // 보이고 끌어올리면 전체 목록이 보인다. 닫을 수 없는 permanent 시트라
-        // isPresented를 상수 true로 고정했다.
         .sheet(isPresented: $isShowComment) {
             MatchCommentsSheet(model: commentsModel, isExpanded: commentSheetDetent == .large)
             .presentationDetents([.height(70), .large], selection: $commentSheetDetent)
@@ -233,6 +229,8 @@ private struct AnalysisTabContent: View {
                         .frame(maxWidth: .infinity, alignment: .center)
 
                 }
+                
+                Divider()
 
                 // node 742:11966 — "내 플레이 공유하기" 버튼이 있던 자리에 이제 "Key Stats"
                 // 제목이 들어간다(버튼이 아니라 그냥 텍스트). head1B(28pt Bold) + 단색
@@ -241,13 +239,19 @@ private struct AnalysisTabContent: View {
                     .font(.head1B)
                     .foregroundStyle(.mint500)
                     .frame(maxWidth: .infinity, alignment: .center)
-
+                
                 keyStatsSection
+                
                 goalAssistSection
+                    .padding(.top, 24)
 
                 ForEach(currentQuarter?.resultSections ?? detail.sections) { section in
                     sectionView(section)
                 }
+                .padding(.top, 64)
+                
+                Divider()
+                    .padding(.bottom, 84)
 
                 if isOwner { CtaView(text: "삭제하기", type: .destructive, size: .large) { } }
 
@@ -428,16 +432,8 @@ private struct AnalysisTabContent: View {
                         }
                     }
                     .padding(.vertical, 12)
-                    
-                    if row != section.rows.last {
-                        Rectangle()
-                            .fill(Color.gray850)
-                            .frame(height: 1)
-                    }
                 }
             }
-            .padding(16)
-            .background(Color.gray900, in: RoundedRectangle(cornerRadius: 16))
         }
     }
 }

@@ -11,27 +11,6 @@ struct RootView: View {
     @Environment(AppRouter.self) private var router
 
     var body: some View {
-        #if DEBUG
-        // 랜덤 목업 생성 검증을 위해 디버그 빌드에서는 목업 루트로 바로 진입한다.
-        MockHeatmapRootView()
-        #else
-        routedContent
-            .animation(.default, value: router.flow)
-            .dismissKeyboardOnTap()
-            .onAppear {
-                Task {
-                    // sleep(1)
-                    // 이슈 #63: accessToken이 만료됐으면 refreshToken으로 재인증한다 —
-                    // 실패(refreshToken도 무효)하면 세션이 지워진 채로 false가 돌아온다.
-                    let isLoggedIn = await UserSession.reauthenticateIfNeeded()
-                    router.finishSplash(isLoggedIn: isLoggedIn)
-                }
-            }
-        #endif
-    }
-
-    @ViewBuilder
-    private var routedContent: some View {
         Group {
             switch router.flow {
             case .splash:
@@ -45,6 +24,17 @@ struct RootView: View {
             case .main:
                 MainView()
                     .environment(SessionManager.shared)
+            }
+        }
+        .animation(.default, value: router.flow)
+        .dismissKeyboardOnTap()
+        .onAppear {
+            Task {
+                // sleep(1)
+                // 이슈 #63: accessToken이 만료됐으면 refreshToken으로 재인증한다 —
+                // 실패(refreshToken도 무효)하면 세션이 지워진 채로 false가 돌아온다.
+                let isLoggedIn = await UserSession.reauthenticateIfNeeded()
+                router.finishSplash(isLoggedIn: isLoggedIn)
             }
         }
     }

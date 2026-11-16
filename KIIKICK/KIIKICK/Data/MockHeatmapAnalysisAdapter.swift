@@ -49,8 +49,20 @@ enum MockHeatmapAnalysisAdapter {
                 )
             },
             totalDistanceKm: totalDistanceKm(quarter.points),
-            totalCaloriesKcal: quarter.duration / 60 * 9
+            totalCaloriesKcal: caloriesKcal(for: quarter)
         )
+    }
+
+    /// 생성된 이동 속도와 심박 강도를 반영해 쿼터별 소모 칼로리를 계산한다.
+    /// 같은 포지션이어도 시드가 달라지면 값이 조금씩 달라지도록 한다.
+    static func caloriesKcal(for quarter: MockHeatmapQuarter) -> Double {
+        guard !quarter.points.isEmpty else { return quarter.duration / 60 * 9 }
+
+        let averageHeartRate = quarter.points.map(\.heartRateBpm).reduce(0, +) / Double(quarter.points.count)
+        let averageSpeed = quarter.points.map(\.speedMps).reduce(0, +) / Double(quarter.points.count)
+        let heartRateIntensity = min(max((averageHeartRate - 95) / 100, 0), 1)
+        let caloriesPerMinute = 7.5 + heartRateIntensity * 2.6 + min(averageSpeed, 4) * 0.15
+        return (quarter.duration / 60 * caloriesPerMinute * 10).rounded() / 10
     }
 
     static func trackPoint(_ point: MockHeatmapPoint) -> TrackPoint {

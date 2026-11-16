@@ -28,7 +28,7 @@ enum MockHeatmapWorkoutRecordFactory {
                 heartRateSamples: quarter.points.map {
                     HeartRateSample(timestamp: $0.timestamp, bpm: $0.heartRateBpm)
                 },
-                totalCalories: quarter.duration / 60 * 9,
+                totalCalories: MockHeatmapAnalysisAdapter.caloriesKcal(for: quarter),
                 totalDistance: MockHeatmapAnalysisAdapter.totalDistanceMeters(quarter.points),
                 events: events,
                 position: position.workoutPosition

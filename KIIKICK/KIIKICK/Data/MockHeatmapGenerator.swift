@@ -7,7 +7,9 @@ enum MockHeatmapGenerator {
     private static let secondsPerPoint: TimeInterval = 5
     private static let mockSprintCount = 4
     private static let mockSprintDistanceMeters = 24.0
-    private static let mockSprintSpeedMps = 6.4
+    private static let mockSprintBaseSpeedMps = 7.35
+    private static let mockSprintSpeedVariationMps = 0.55
+    private static let maximumSpeedMps = 29.0 / 3.6
 
     private struct Anchor {
         let x: Double
@@ -225,7 +227,28 @@ enum MockHeatmapGenerator {
             previousY = y
         }
 
-        return addingAttackDirectionSprints(to: points, profile: profile)
+        let sprintSpeed = variedSprintSpeed(for: profile, random: &random)
+        return addingAttackDirectionSprints(to: points, profile: profile, sprintSpeed: sprintSpeed)
+    }
+
+    /// 스프린트 속도를 경기/쿼터마다 조금씩 흔들되, 화면에 표시되는 최고 속도는 29km/h를 넘기지 않는다.
+    private static func variedSprintSpeed(
+        for profile: Profile,
+        random: inout SeededRandom
+    ) -> Double {
+        let roleOffset: Double
+        switch profile.id {
+        case MockHeatmapPosition.attacker.rawValue:
+            roleOffset = 0.25
+        case MockHeatmapPosition.defender.rawValue:
+            roleOffset = -0.20
+        default:
+            roleOffset = 0
+        }
+        let speed = mockSprintBaseSpeedMps + roleOffset +
+            random.normal(standardDeviation: mockSprintSpeedVariationMps)
+        let profileMaximum = min(profile.maxSpeedMps, maximumSpeedMps)
+        return clamp(speed, 6.1, profileMaximum)
     }
 
     /// 목업 타임라인의 스프린트 탭을 항상 확인할 수 있도록 쿼터마다 네 구간을 만든다.
@@ -235,7 +258,8 @@ enum MockHeatmapGenerator {
     /// 인식하도록 한다.
     private static func addingAttackDirectionSprints(
         to points: [MockHeatmapPoint],
-        profile: Profile
+        profile: Profile,
+        sprintSpeed: Double
     ) -> [MockHeatmapPoint] {
         guard points.count > mockSprintCount * 3 else { return points }
 
@@ -260,7 +284,7 @@ enum MockHeatmapGenerator {
             let laneDrift = sprintIndex.isMultiple(of: 2) ? -2.5 : 2.5
             let startY = clamp(originalStart.yMeters, 3, fieldWidth - 3)
             let endY = clamp(startY + laneDrift, 3, fieldWidth - 3)
-            let speed = min(profile.maxSpeedMps, mockSprintSpeedMps)
+            let speed = min(profile.maxSpeedMps, sprintSpeed)
 
             result[startIndex] = sprintPoint(
                 basedOn: originalStart,

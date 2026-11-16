@@ -35,12 +35,6 @@ final class SessionManager: NSObject {
     /// .myPlay 알림을 맨 앞에 추가한다. 실제 서버/로컬 저장소가 없어서 앱을 다시 켜면
     /// 그동안 쌓인 알림도 같이 사라진다 — DESIGN-GAP.
     var notifications: [NotificationItem] = []
-    /// 이슈 #66: 경기 준비할 때 고른 실제 Field. preparedFieldName은 워치에 보여줄
-    /// "이름" 문자열만 들고 있어서, 쿼터가 도착할 때(didReceive(file:)) WorkoutRecord에
-    /// 그대로 이어줄 참조가 따로 필요했다. 경기가 "시작"될 때는(preparedFieldName과
-    /// 달리) 지우지 않는다 — 경기 종료 전까지 워치 연결 상태와 준비 화면에 사용한다.
-    /// 다음 경기를 준비하면 그냥 덮어써진다.
-    var preparedField: Field?
     #endif
 
     #if os(watchOS)
@@ -86,16 +80,13 @@ final class SessionManager: NSObject {
 
     #if os(iOS)
     /// 운동장을 골라 경기를 "생성"할 때 호출해서 워치에 알린다. `field`가 nil이면
-    /// "아직 준비 안 됨" — 워치 StartView가 대기 화면을 보여준다. 이름만 워치로
-    /// 보내고, Field 참조 자체는 preparedField로 들고 있다가 종료 후 목업 경기 생성에 사용한다.
+    /// "아직 준비 안 됨" — 워치 StartView가 대기 화면을 보여준다.
     func updateMatchPrepared(field: Field?) {
-        preparedField = field
         preparedFieldName = field?.name
         sendContextUpdate(["preparedFieldName": field?.name ?? ""])
     }
 
-    /// 경기가 시작돼서 워치 쪽 "준비됨" 표시만 되돌릴 때 쓴다. preparedField는 그대로
-    /// 둔다 — 종료 신호 전까지 워치 연결과 준비 상태에 사용한다.
+    /// 경기가 시작돼서 워치 쪽 "준비됨" 표시만 되돌릴 때 쓴다.
     func clearPreparedFieldDisplay() {
         preparedFieldName = nil
         sendContextUpdate(["preparedFieldName": ""])
@@ -262,7 +253,14 @@ extension SessionManager: WCSessionDelegate {
                 -MockHeatmapGenerator.quarterDuration * Double(quarterCount - 1)
             )
         )
-        let field = MockHeatmapAnalysisAdapter.field()
+        let fields = (try? modelContext.fetch(FetchDescriptor<Field>())) ?? []
+        let field: Field
+        if let existingField = fields.first(where: { $0.name == MockHeatmapAnalysisAdapter.defaultFieldName }) {
+            field = existingField
+        } else {
+            field = MockHeatmapAnalysisAdapter.field()
+            modelContext.insert(field)
+        }
         let records = MockHeatmapWorkoutRecordFactory.records(
             from: match,
             position: position,
@@ -270,7 +268,6 @@ extension SessionManager: WCSessionDelegate {
         )
         guard !records.isEmpty else { return }
 
-        modelContext.insert(field)
         records.forEach(modelContext.insert)
         try? modelContext.save()
 

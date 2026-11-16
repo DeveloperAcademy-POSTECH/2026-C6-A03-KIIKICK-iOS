@@ -12,6 +12,7 @@ enum MockHeatmapAnalysisAdapter {
     /// 목업 원본은 5초 간격으로 생성되지만, 타임라인 재생은 1초 간격으로 보간한다.
     /// 실제 워치 데이터의 샘플 주기와 무관하게 목업 화면에서 위치가 끊겨 보이지 않게 한다.
     private static let interpolationInterval: TimeInterval = 1
+    static let defaultFieldName = "풋살장"
 
     static func field() -> Field {
         let topLatitude = centerLatitude + fieldWidth / 2 / metersPerLatitudeDegree
@@ -19,7 +20,7 @@ enum MockHeatmapAnalysisAdapter {
         let leftLongitude = centerLongitude - fieldLength / 2 / metersPerLongitudeDegree
         let rightLongitude = centerLongitude + fieldLength / 2 / metersPerLongitudeDegree
         return Field(
-            name: "풋살장",
+            name: defaultFieldName,
             cornerA: FieldCorner(latitude: topLatitude, longitude: leftLongitude),
             cornerB: FieldCorner(latitude: topLatitude, longitude: rightLongitude),
             cornerC: FieldCorner(latitude: bottomLatitude, longitude: rightLongitude),

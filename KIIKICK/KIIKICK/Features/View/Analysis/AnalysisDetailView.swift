@@ -107,7 +107,11 @@ struct AnalysisDetailView: View {
         }
         .navigationDestination(isPresented: $pushedTimeline) {
             if let currentQuarter {
-                TimelineView(dateTitle: entry.detail.title, quarter: currentQuarter)
+                TimelineView(
+                    dateTitle: entry.detail.title,
+                    quarter: currentQuarter,
+                    focusOnSprint: true
+                )
             }
         }
         .navigationDestination(isPresented: $pushedShare) {

@@ -4,26 +4,26 @@ import Observation
 @MainActor @Observable
 final class MockHeatmapStore {
     private(set) var match: MockHeatmapMatch
-    private(set) var theme: MockHeatmapTheme
+    private(set) var position: MockHeatmapPosition
     private(set) var statusMessage: String?
 
     init() {
-        let currentTheme = UserSession.mockHeatmapTheme
-        theme = currentTheme
-        match = MockHeatmapGenerator.make(seed: 102, theme: currentTheme)
+        let currentPosition = UserSession.mockHeatmapPosition
+        position = currentPosition
+        match = MockHeatmapGenerator.make(seed: 102, position: currentPosition)
     }
 
     func regenerate() {
-        match = MockHeatmapGenerator.make(seed: match.seed + 1, theme: theme)
+        match = MockHeatmapGenerator.make(seed: match.seed + 1, position: position)
         statusMessage = "새 목업 데이터를 만들었습니다."
     }
 
-    func syncTheme() {
-        let currentTheme = UserSession.mockHeatmapTheme
-        guard currentTheme != theme else { return }
-        theme = currentTheme
-        match = MockHeatmapGenerator.make(seed: match.seed, theme: theme)
-        statusMessage = "\(theme.displayName) 테마를 적용했습니다."
+    func syncPosition() {
+        let currentPosition = UserSession.mockHeatmapPosition
+        guard currentPosition != position else { return }
+        position = currentPosition
+        match = MockHeatmapGenerator.make(seed: match.seed, position: position)
+        statusMessage = "\(position.displayName) 포지션을 적용했습니다."
     }
 
     func save() {

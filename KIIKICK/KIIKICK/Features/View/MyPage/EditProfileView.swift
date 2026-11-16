@@ -21,22 +21,22 @@ struct EditProfileView: View {
     @State private var selectedPhoto: Image?
     @State private var selectedPhotoData: Data?
     @State private var isLoadingPhoto = false
-    @State private var mockHeatmapTheme: MockHeatmapTheme
+    @State private var mockHeatmapPosition: MockHeatmapPosition
 
     @State private var originalNickname: String
-    @State private var originalMockHeatmapTheme: MockHeatmapTheme
+    @State private var originalMockHeatmapPosition: MockHeatmapPosition
 
     init() {
         let current = UserSession.nickname ?? ""
         _nickname = State(initialValue: current)
         _originalNickname = State(initialValue: current)
-        let currentTheme = UserSession.mockHeatmapTheme
-        _mockHeatmapTheme = State(initialValue: currentTheme)
-        _originalMockHeatmapTheme = State(initialValue: currentTheme)
+        let currentPosition = UserSession.mockHeatmapPosition
+        _mockHeatmapPosition = State(initialValue: currentPosition)
+        _originalMockHeatmapPosition = State(initialValue: currentPosition)
     }
 
     private var hasUnsavedChanges: Bool {
-        nickname != originalNickname || mockHeatmapTheme != originalMockHeatmapTheme || selectedPhotoData != nil || isLoadingPhoto
+        nickname != originalNickname || mockHeatmapPosition != originalMockHeatmapPosition || selectedPhotoData != nil || isLoadingPhoto
     }
 
     private var validationError: String? {
@@ -99,7 +99,7 @@ struct EditProfileView: View {
             }
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("분석 데이터 테마")
+                Text("분석 포지션")
                     .font(.body4R)
                     .foregroundStyle(.gray400)
                 Text("이 계정의 목업 히트맵에는 선택한 포지션 데이터만 표시돼요.")
@@ -107,7 +107,7 @@ struct EditProfileView: View {
                     .foregroundStyle(.gray500)
 
                 VStack(spacing: 8) {
-                    ForEach(MockHeatmapTheme.allCases, content: themeRow)
+                    ForEach(MockHeatmapPosition.allCases, content: positionRow)
                 }
             }
 
@@ -166,22 +166,22 @@ struct EditProfileView: View {
     }
 
     @ViewBuilder
-    private func themeRow(for theme: MockHeatmapTheme) -> some View {
-        let isSelected = mockHeatmapTheme == theme
+    private func positionRow(for position: MockHeatmapPosition) -> some View {
+        let isSelected = mockHeatmapPosition == position
         Button {
-            mockHeatmapTheme = theme
+            mockHeatmapPosition = position
             saveErrorMessage = nil
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: theme.symbolName)
+                Image(systemName: position.symbolName)
                     .font(.title3)
                     .foregroundStyle(isSelected ? .mint500 : .gray400)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(theme.displayName)
+                    Text(position.displayName)
                         .font(.body1M)
                         .foregroundStyle(.gray50)
-                    Text("\(theme.role) · \(theme.description)")
+                    Text(position.description)
                         .font(.caption1M)
                         .foregroundStyle(.gray400)
                 }
@@ -201,7 +201,7 @@ struct EditProfileView: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(theme.displayName), \(theme.role)")
+        .accessibilityLabel(position.displayName)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -239,8 +239,8 @@ struct EditProfileView: View {
                 UserSession.saveAvatar(url: avatar.data.avatarUrl, for: ownerId, imageData: selectedPhotoData)
                 self.selectedPhotoData = nil
             }
-            UserSession.mockHeatmapTheme = mockHeatmapTheme
-            originalMockHeatmapTheme = mockHeatmapTheme
+            UserSession.mockHeatmapPosition = mockHeatmapPosition
+            originalMockHeatmapPosition = mockHeatmapPosition
             dismiss()
         } catch let NetworkError.invalidHttpStatusCode(_, message) {
             saveErrorMessage = message ?? "프로필을 모두 저장하지 못했어요. 다시 시도해 주세요"

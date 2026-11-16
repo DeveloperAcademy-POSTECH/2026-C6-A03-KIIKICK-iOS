@@ -4,13 +4,68 @@ struct MockHeatmapDetailView: View {
     let player: MockHeatmapPlayer
 
     @State private var selectedQuarterNumber = 1
+    @State private var playbackTime: TimeInterval = TimelineWindow.length
+    @State private var isSprintPageSelected = false
 
     private var selectedQuarter: MockHeatmapQuarter {
         player.quarters.first(where: { $0.number == selectedQuarterNumber }) ?? player.quarters[0]
     }
 
+    private var analysisQuarter: AnalysisQuarter {
+        MockHeatmapAnalysisAdapter.quarter(selectedQuarter)
+    }
+
+    private var sprintSegments: [Sprint] {
+        SprintDetector().detect(in: analysisQuarter.points)
+    }
+
+    private var sprintEndElapsedTimes: [TimeInterval] {
+        guard let startDate = analysisQuarter.startDate else { return [] }
+        return sprintSegments.compactMap { sprint in
+            let elapsed = sprint.end.timestamp.timeIntervalSince(startDate)
+            guard elapsed >= 0, elapsed <= analysisQuarter.duration else { return nil }
+            return elapsed
+        }
+    }
+
+    private var selectedSprint: Sprint? {
+        guard isSprintPageSelected, let startDate = analysisQuarter.startDate else { return nil }
+        return sprintSegments.min { lhs, rhs in
+            let lhsElapsed = lhs.end.timestamp.timeIntervalSince(startDate)
+            let rhsElapsed = rhs.end.timestamp.timeIntervalSince(startDate)
+            return abs(lhsElapsed - playbackTime) < abs(rhsElapsed - playbackTime)
+        }
+    }
+
+    private var playbackBinding: Binding<TimeInterval> {
+        Binding(
+            get: { playbackTime },
+            set: { playbackTime = snappedPlaybackTime($0) }
+        )
+    }
+
+    private func snappedPlaybackTime(_ value: TimeInterval) -> TimeInterval {
+        let clampedValue = min(max(0, value), max(analysisQuarter.duration, 1))
+        guard isSprintPageSelected, let nearest = sprintEndElapsedTimes.min(by: {
+            abs($0 - clampedValue) < abs($1 - clampedValue)
+        }) else {
+            return clampedValue
+        }
+        return nearest
+    }
+
+    private var playbackTimeText: String {
+        let seconds = max(0, Int(playbackTime))
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+
     var body: some View {
-        let analysisQuarter = MockHeatmapAnalysisAdapter.quarter(selectedQuarter)
+        let window = analysisQuarter.startDate.map {
+            TimelineWindow(quarterStart: $0, duration: analysisQuarter.duration, elapsed: playbackTime)
+        }
+        let visiblePoints = analysisQuarter.points.filter { window?.contains($0.timestamp) == true }
+        let visibleSprintPoints = selectedSprint?.points ?? []
+        let visibleEvents = analysisQuarter.events.filter { window?.contains($0.timestamp) == true }
 
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -33,12 +88,42 @@ struct MockHeatmapDetailView: View {
                     .foregroundStyle(.colorTextSecondary)
                 TrackingMapPager(
                     field: analysisQuarter.field,
-                    points: analysisQuarter.points,
-                    sprintPoints: analysisQuarter.points,
+                    points: visiblePoints,
+                    sprintPoints: isSprintPageSelected ? visibleSprintPoints : nil,
                     isAttackDirectionReversed: analysisQuarter.isAttackDirectionReversed,
-                    events: analysisQuarter.events
+                    events: visibleEvents,
+                    onSprintSelectionChanged: { isSprintSelected in
+                        isSprintPageSelected = isSprintSelected
+                        if isSprintSelected {
+                            playbackTime = snappedPlaybackTime(playbackTime)
+                        }
+                    }
                 )
                 .frame(height: 264)
+                .id(selectedQuarterNumber)
+
+                VStack(spacing: 4) {
+                    Text(playbackTimeText)
+                        .font(.title2SB)
+                        .foregroundStyle(.colorTextPrimary)
+                    Slider(value: playbackBinding, in: 0...max(analysisQuarter.duration, 1)) {
+                        Text("재생 위치")
+                    }
+                    .tint(.mint500)
+                    .disabled(analysisQuarter.startDate == nil || analysisQuarter.duration <= 0)
+                    .accessibilityValue("\(playbackTimeText), 전체 \(analysisQuarter.durationText)")
+                    .accessibilityHint(isSprintPageSelected ? "스프린트 종료 구간 단위로 이동" : "최근 20초 구간 표시")
+                    if isSprintPageSelected, !sprintSegments.isEmpty {
+                        Text("스프린트 종료 구간 단위로 이동")
+                            .font(.caption1M)
+                            .foregroundStyle(.colorTextSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Text(analysisQuarter.durationText)
+                        .font(.caption1M)
+                        .foregroundStyle(.colorTextSecondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
                 NavigationLink(value: MockHeatmapTimelineRoute(playerID: player.id, quarterNumber: selectedQuarter.number)) {
                     Label("기존 타임라인 보기", systemImage: "timeline.selection")
                         .frame(maxWidth: .infinity)
@@ -52,6 +137,10 @@ struct MockHeatmapDetailView: View {
         .background(Color.gray950)
         .navigationTitle("히트맵 상세")
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: selectedQuarterNumber) { _, _ in
+            playbackTime = min(TimelineWindow.length, max(0, analysisQuarter.duration))
+            isSprintPageSelected = false
+        }
     }
 
     private var header: some View {

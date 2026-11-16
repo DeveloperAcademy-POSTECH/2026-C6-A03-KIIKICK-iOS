@@ -40,4 +40,12 @@ enum MockHeatmapPosition: String, CaseIterable, Codable, Hashable, Identifiable 
         case .defender: "shield.fill"
         }
     }
+
+    var workoutPosition: Position {
+        switch self {
+        case .attacker: .st
+        case .midfielder: .cm
+        case .defender: .cb
+        }
+    }
 }

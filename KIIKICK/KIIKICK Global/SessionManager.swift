@@ -28,17 +28,18 @@ final class SessionManager: NSObject {
 
     #if os(iOS)
     var modelContext: ModelContext?
-    /// 워치가 가장 최근에 보내온 기록. didReceive(file:)에서 .myPlay 알림을 만드는 데 쓴다.
+    private var hasActiveWatchMatch = false
+    /// 종료 신호 후 생성한 목업 경기의 첫 쿼터. .myPlay 알림의 진입 기록으로 쓴다.
     var justArrivedRecord: WorkoutRecord?
-    /// 알림 목록 — 비어서 시작하고, 경기 분석 결과가 도착하면(아래 didReceive(file:))
+    /// 알림 목록 — 비어서 시작하고, 목업 경기 생성이 끝나면
     /// .myPlay 알림을 맨 앞에 추가한다. 실제 서버/로컬 저장소가 없어서 앱을 다시 켜면
     /// 그동안 쌓인 알림도 같이 사라진다 — DESIGN-GAP.
     var notifications: [NotificationItem] = []
     /// 이슈 #66: 경기 준비할 때 고른 실제 Field. preparedFieldName은 워치에 보여줄
     /// "이름" 문자열만 들고 있어서, 쿼터가 도착할 때(didReceive(file:)) WorkoutRecord에
     /// 그대로 이어줄 참조가 따로 필요했다. 경기가 "시작"될 때는(preparedFieldName과
-    /// 달리) 지우지 않는다 — 쿼터들은 경기가 진행 중일 때 하나씩 도착하므로 그때까지
-    /// 들고 있어야 한다. 다음 경기를 준비하면 그냥 덮어써진다.
+    /// 달리) 지우지 않는다 — 경기 종료 전까지 워치 연결 상태와 준비 화면에 사용한다.
+    /// 다음 경기를 준비하면 그냥 덮어써진다.
     var preparedField: Field?
     #endif
 
@@ -86,8 +87,7 @@ final class SessionManager: NSObject {
     #if os(iOS)
     /// 운동장을 골라 경기를 "생성"할 때 호출해서 워치에 알린다. `field`가 nil이면
     /// "아직 준비 안 됨" — 워치 StartView가 대기 화면을 보여준다. 이름만 워치로
-    /// 보내고, Field 참조 자체는 preparedField로 들고 있다가 쿼터가 도착하면
-    /// WorkoutRecord.field로 이어준다(이슈 #66).
+    /// 보내고, Field 참조 자체는 preparedField로 들고 있다가 종료 후 목업 경기 생성에 사용한다.
     func updateMatchPrepared(field: Field?) {
         preparedField = field
         preparedFieldName = field?.name
@@ -95,8 +95,7 @@ final class SessionManager: NSObject {
     }
 
     /// 경기가 시작돼서 워치 쪽 "준비됨" 표시만 되돌릴 때 쓴다. preparedField는 그대로
-    /// 둔다 — 쿼터들이 경기 진행 중에 하나씩 도착하므로(didReceive(file:)) 그때까지
-    /// Field 참조가 필요하다.
+    /// 둔다 — 종료 신호 전까지 워치 연결과 준비 상태에 사용한다.
     func clearPreparedFieldDisplay() {
         preparedFieldName = nil
         sendContextUpdate(["preparedFieldName": ""])
@@ -197,28 +196,10 @@ extension SessionManager: WCSessionDelegate {
     
     func session(_ session: WCSession, didReceive file: WCSessionFile) {
         #if os(iOS)
-        guard let data = try? Data(contentsOf: file.fileURL),
-              let payload = try? JSONDecoder().decode(WorkoutPayload.self, from: data) else {
-            #if DEBUG
-            print("[SessionManager] 수신 파일 디코딩 실패")
-            #endif
-            return
-        }
-        let record = WorkoutRecord(payload: payload)
-        DispatchQueue.main.async {
-            // 이슈 #66: 경기 준비할 때 고른 Field를 이 쿼터에도 그대로 이어준다 —
-            // 전에는 아무도 WorkoutRecord.field를 세팅하지 않아서(WorkoutDetailView의
-            // 수동 선택 말고는) workout-submissions에 보낼 field가 항상 비어 있었다.
-            record.field = self.preparedField
-            self.modelContext?.insert(record)
-            try? self.modelContext?.save()
-            self.justArrivedRecord = record
-            // 홈 화면에 배너를 따로 띄우지 않고, 알림으로만 "분석 결과가 도착했어요"를 알린다.
-            self.notifications.insert(
-                NotificationItem(date: Date(), kind: .myPlay(record: record), isRead: false),
-                at: 0
-            )
-        }
+        // 워치의 쿼터 payload는 목업 경기 생성으로 대체하므로 로컬에 저장하지 않는다.
+        #if DEBUG
+        print("[SessionManager] 워치 payload 수신 - 목업 경기로 대체")
+        #endif
         #endif
     }
 
@@ -237,6 +218,15 @@ extension SessionManager: WCSessionDelegate {
                 print("[SessionManager] isMatchInProgress 수신 - \(isInProgress)")
                 #endif
                 self.isMatchInProgress = isInProgress
+                #if os(iOS)
+                let wasActive = self.hasActiveWatchMatch
+                if isInProgress {
+                    self.hasActiveWatchMatch = true
+                } else if wasActive {
+                    self.hasActiveWatchMatch = false
+                    self.generateMockMatchAfterTermination()
+                }
+                #endif
             }
         }
         if let fieldName = payload["preparedFieldName"] as? String {
@@ -256,6 +246,40 @@ extension SessionManager: WCSessionDelegate {
             }
         }
     }
+
+    #if os(iOS)
+    /// 워치가 경기를 종료하면 워치 payload 대신 현재 계정 포지션의 목업 경기 4쿼터를 만든다.
+    private func generateMockMatchAfterTermination() {
+        guard let modelContext else { return }
+
+        let seed = Int(Date().timeIntervalSince1970)
+        let position = UserSession.mockHeatmapPosition
+        let match = MockHeatmapGenerator.make(
+            seed: seed,
+            position: position,
+            start: Date().addingTimeInterval(-MockHeatmapGenerator.quarterDuration * 3)
+        )
+        let field = MockHeatmapAnalysisAdapter.field()
+        let records = MockHeatmapWorkoutRecordFactory.records(
+            from: match,
+            position: position,
+            field: field
+        )
+        guard !records.isEmpty else { return }
+
+        modelContext.insert(field)
+        records.forEach(modelContext.insert)
+        try? modelContext.save()
+
+        if let firstRecord = records.first {
+            justArrivedRecord = firstRecord
+            notifications.insert(
+                NotificationItem(date: Date(), kind: .myPlay(record: firstRecord), isRead: false),
+                at: 0
+            )
+        }
+    }
+    #endif
 
     #if os(watchOS)
     func session(_ session: WCSession,

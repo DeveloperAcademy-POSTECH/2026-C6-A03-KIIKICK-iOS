@@ -3,7 +3,7 @@ import Foundation
 enum MockHeatmapGenerator {
     private static let fieldLength = 105.0
     private static let fieldWidth = 68.0
-    private static let quarterDuration: TimeInterval = 15 * 60
+    static let quarterDuration: TimeInterval = 15 * 60
     private static let secondsPerPoint: TimeInterval = 5
     private static let mockSprintCount = 4
     private static let mockSprintDistanceMeters = 24.0
@@ -110,7 +110,15 @@ enum MockHeatmapGenerator {
     }
 
     static func make(seed: Int, position: MockHeatmapPosition) -> MockHeatmapMatch {
-        let start = DateComponents(
+        return make(seed: seed, position: position, start: nil)
+    }
+
+    static func make(
+        seed: Int,
+        position: MockHeatmapPosition,
+        start: Date?
+    ) -> MockHeatmapMatch {
+        let defaultStart = DateComponents(
             calendar: Calendar(identifier: .gregorian),
             timeZone: TimeZone(secondsFromGMT: 0),
             year: 2026,
@@ -118,6 +126,7 @@ enum MockHeatmapGenerator {
             day: 16,
             hour: 10
         ).date ?? .now
+        let start = start ?? defaultStart
 
         let profile = profiles.first(where: { $0.id == position.rawValue }) ?? profiles[0]
         let players = [makePlayer(profile, seed: seed, start: start)]

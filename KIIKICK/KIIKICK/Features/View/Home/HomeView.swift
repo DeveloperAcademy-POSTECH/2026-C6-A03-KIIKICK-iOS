@@ -56,8 +56,8 @@ struct HomeView: View {
         if sessionManager.isMatchInProgress {
             return .inProgress
         }
-        // 경기가 막 도착했을 때도 더 이상 배너를 안 띄운다 — 그 이벤트는 알림으로 간다
-        // (SessionManager.didReceive(file:) 참고). 바로 다음 상태로 넘어간다.
+        // 경기가 막 끝났을 때도 더 이상 배너를 안 띄운다 — 목업 경기 생성 이벤트는
+        // 알림으로 간다. 바로 다음 상태로 넘어간다.
         if let preparedField {
             return .prepared(fieldName: preparedField.name)
         }
@@ -163,7 +163,7 @@ struct HomeView: View {
                     isSelectingField = false
                     // 워치에 경기가 준비됐다고 알린다 — StartView가 대기 화면 대신
                     // "경기 시작" 버튼을 보여주게 된다. sessionManager가 Field 참조도
-                    // 들고 있다가(이슈 #66) 쿼터가 도착하면 WorkoutRecord.field로 이어준다.
+                    // 들고 있다가(이슈 #66) 경기 종료 후 생성되는 기록의 Field로 사용한다.
                     sessionManager.updateMatchPrepared(field: field)
                 })
             }
@@ -233,8 +233,8 @@ struct HomeView: View {
             .padding(.horizontal, 12)
             
             // 이슈 #42 "Remind" 댓글 — 안 읽은 알림이 있으면 벨 아이콘이 바뀐다.
-            // sessionManager.notifications가 공용 저장소라서 경기 분석 결과가 도착하면
-            // (SessionManager.didReceive(file:)) 바로 반영된다. 분석/댓글 셀 진입 시 로컬 읽음
+            // sessionManager.notifications가 공용 저장소라서 목업 경기 생성이 끝나면
+            // 바로 반영된다. 분석/댓글 셀 진입 시 로컬 읽음
             // 상태를 갱신한다. 서버 읽음 상태 동기화·영속화는 별도 작업이다.
             Button { router.showNotifications(in: .home) } label: {
                 if hasUnreadNotifications {

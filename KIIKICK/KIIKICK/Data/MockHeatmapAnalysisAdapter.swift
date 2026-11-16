@@ -53,7 +53,7 @@ enum MockHeatmapAnalysisAdapter {
         )
     }
 
-    private static func trackPoint(_ point: MockHeatmapPoint) -> TrackPoint {
+    static func trackPoint(_ point: MockHeatmapPoint) -> TrackPoint {
         let latitude = centerLatitude + (fieldWidth / 2 - point.yMeters) / metersPerLatitudeDegree
         let longitude = centerLongitude + (point.xMeters - fieldLength / 2) / metersPerLongitudeDegree
         return TrackPoint(
@@ -128,14 +128,17 @@ enum MockHeatmapAnalysisAdapter {
         )
     }
 
-    private static func totalDistanceKm(_ points: [MockHeatmapPoint]) -> Double {
+    static func totalDistanceMeters(_ points: [MockHeatmapPoint]) -> Double {
         guard points.count > 1 else { return 0 }
-        let distance = zip(points, points.dropFirst()).reduce(0.0) { partialResult, pair in
+        return zip(points, points.dropFirst()).reduce(0.0) { partialResult, pair in
             let dx = (pair.1.xMeters - pair.0.xMeters)
             let dy = (pair.1.yMeters - pair.0.yMeters)
             return partialResult + hypot(dx, dy)
         }
-        return distance / 1_000
+    }
+
+    private static func totalDistanceKm(_ points: [MockHeatmapPoint]) -> Double {
+        totalDistanceMeters(points) / 1_000
     }
 
     private static func durationText(_ duration: TimeInterval) -> String {

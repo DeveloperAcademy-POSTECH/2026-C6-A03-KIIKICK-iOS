@@ -11,9 +11,6 @@ struct RootView: View {
     @Environment(AppRouter.self) private var router
 
     var body: some View {
-#if DEBUG
-        MockHeatmapRootView()
-#else
         Group {
             switch router.flow {
             case .splash:
@@ -40,7 +37,6 @@ struct RootView: View {
                 router.finishSplash(isLoggedIn: isLoggedIn)
             }
         }
-#endif
     }
 }
 

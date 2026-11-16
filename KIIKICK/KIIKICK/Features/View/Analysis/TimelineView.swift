@@ -66,6 +66,24 @@ struct TimelineView: View {
         )
     }
 
+    private var nearestSprintIndex: Int? {
+        guard focusOnSprint, isSprintPageSelected, !sprintEndElapsedTimes.isEmpty else { return nil }
+        return sprintEndElapsedTimes.enumerated().min { lhs, rhs in
+            abs(lhs.element - playbackTime) < abs(rhs.element - playbackTime)
+        }?.offset
+    }
+
+    private var sprintSliderBinding: Binding<Double> {
+        Binding(
+            get: { Double(nearestSprintIndex ?? 0) },
+            set: { value in
+                let index = Int(value.rounded())
+                guard sprintEndElapsedTimes.indices.contains(index) else { return }
+                playbackTime = sprintEndElapsedTimes[index]
+            }
+        )
+    }
+
     private func snappedPlaybackTime(_ value: TimeInterval) -> TimeInterval {
         let clampedValue = min(max(0, value), max(quarter.duration, 1))
         guard focusOnSprint, isSprintPageSelected, let nearest = sprintEndElapsedTimes.min(by: {
@@ -132,8 +150,20 @@ struct TimelineView: View {
                     Text(playbackTimeText)
                         .font(.title2SB)
                         .foregroundStyle(.colorTextPrimary)
-                    Slider(value: playbackBinding, in: 0...max(quarter.duration, 1)) {
-                        Text("재생 위치")
+                    Group {
+                        if focusOnSprint, isSprintPageSelected, sprintEndElapsedTimes.count >= 2 {
+                            Slider(
+                                value: sprintSliderBinding,
+                                in: 0...Double(sprintEndElapsedTimes.count - 1),
+                                step: 1
+                            ) {
+                                Text("스프린트 구간")
+                            }
+                        } else {
+                            Slider(value: playbackBinding, in: 0...max(quarter.duration, 1)) {
+                                Text("재생 위치")
+                            }
+                        }
                     }
                         .tint(.mint500)
                         .disabled(quarter.startDate == nil || quarter.duration <= 0)

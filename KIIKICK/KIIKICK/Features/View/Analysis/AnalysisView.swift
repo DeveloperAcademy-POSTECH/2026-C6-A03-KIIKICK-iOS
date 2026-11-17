@@ -37,6 +37,7 @@ struct AnalysisView: View {
 
     @State private var loadedUserID: UUID? = UserSession.userId
     @State private var isLoadingRemote = false
+    @State private var isDeleting = false
     @State private var loadError: String?
     @State private var deleteError: String?
     @State private var year = 2026
@@ -113,6 +114,7 @@ struct AnalysisView: View {
                                     } label: {
                                         Label("삭제", systemImage: "trash")
                                     }
+                                    .disabled(isDeleting)
                                 }
                             }
                         }
@@ -189,9 +191,40 @@ struct AnalysisView: View {
         month = latest.month
     }
 
-    /// 로컬 경기의 모든 쿼터와 서버 경기의 기기 캐시를 함께 지운다.
-    /// 서버에 경기 삭제 API가 아직 없어, 원격 데이터 자체는 삭제하지 않는다.
+    /// 서버 경기 삭제가 성공한 뒤 로컬 쿼터와 기기 캐시를 함께 지운다.
     private func delete(_ entry: AnalysisEntry) {
+        guard !isDeleting else { return }
+        Task { await deleteEntry(entry) }
+    }
+
+    private func deleteEntry(_ entry: AnalysisEntry) async {
+        guard !isDeleting else { return }
+        isDeleting = true
+        defer { isDeleting = false }
+
+        if UserSession.token != nil {
+            guard await UserSession.reauthenticateIfNeeded() else {
+                router.didLogOut()
+                return
+            }
+
+            let matchID = entry.records.first?.matchId ?? entry.id
+            do {
+                try await NetworkService.provider.requestWithoutResponse(
+                    with: MatchEndpoints.delete(matchId: matchID)
+                )
+            } catch NetworkError.invalidHttpStatusCode(404, _) {
+                // 목업 기록이거나 이미 서버에서 삭제된 경기면 로컬 정리를 계속한다.
+            } catch {
+                deleteError = error.localizedDescription
+                return
+            }
+        }
+
+        deleteLocalData(for: entry)
+    }
+
+    private func deleteLocalData(for entry: AnalysisEntry) {
         entry.records.forEach(modelContext.delete)
 
         for cachedMatch in cachedMatches where cachedMatch.matchID == entry.id {

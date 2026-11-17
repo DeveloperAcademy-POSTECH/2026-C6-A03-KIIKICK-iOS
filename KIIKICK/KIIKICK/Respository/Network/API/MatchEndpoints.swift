@@ -58,6 +58,15 @@ enum MatchEndpoints {
         Endpoint(path: "/api/v1/matches/\(matchId.uuidString.lowercased())", method: .get, headers: bearerHeaders())
     }
 
+    /// 경기 삭제
+    static func delete(matchId: UUID, idempotencyKey: UUID = UUID()) -> Endpoint<Void> {
+        Endpoint(
+            path: "/api/v1/matches/\(matchId.uuidString.lowercased())",
+            method: .delete,
+            headers: idempotencyHeaders(idempotencyKey).merging(bearerHeaders()) { _, bearer in bearer }
+        )
+    }
+
     /// SET-09 경기 설정 수정
     static func update(
         matchId: UUID,

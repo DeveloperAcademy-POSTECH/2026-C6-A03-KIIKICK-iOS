@@ -210,8 +210,14 @@ struct AnalysisView: View {
 
             let matchID = entry.records.first?.matchId ?? entry.id
             do {
+                let detail: Envelope<MatchResponse> = try await NetworkService.provider.request(
+                    with: MatchEndpoints.detail(matchId: matchID)
+                )
                 try await NetworkService.provider.requestWithoutResponse(
-                    with: MatchEndpoints.delete(matchId: matchID)
+                    with: MatchEndpoints.delete(
+                        matchId: matchID,
+                        ifMatch: "\"\(detail.data.version)\""
+                    )
                 )
             } catch NetworkError.invalidHttpStatusCode(404, _) {
                 // 목업 기록이거나 이미 서버에서 삭제된 경기면 로컬 정리를 계속한다.

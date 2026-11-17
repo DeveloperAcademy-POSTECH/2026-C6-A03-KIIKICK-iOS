@@ -36,6 +36,7 @@ enum MockHeatmapWorkoutRecordFactory {
             let record = WorkoutRecord(payload: payload)
             record.field = field
             record.position = position.workoutPosition
+            record.isAttackDirectionReversed = quarter.isAttackDirectionReversed
             record.matchId = matchID
             return record
         }

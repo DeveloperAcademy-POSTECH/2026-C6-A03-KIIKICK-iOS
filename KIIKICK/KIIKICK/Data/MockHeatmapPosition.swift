@@ -43,9 +43,24 @@ enum MockHeatmapPosition: String, CaseIterable, Codable, Hashable, Identifiable 
 
     var workoutPosition: Position {
         switch self {
-        case .attacker: .st
-        case .midfielder: .cm
+        case .attacker: .lw
+        case .midfielder: .rm
         case .defender: .cb
         }
+    }
+
+    /// 3쿼터에서 선택 포지션과 다르게 보이게 만들 검증용 히트맵 포지션.
+    /// 실제 WorkoutRecord의 선택 포지션은 `workoutPosition`을 유지하고,
+    /// 위치 데이터 생성에만 이 값을 사용한다.
+    var intentionallyWrongHeatmapPosition: Position {
+        switch self {
+        case .attacker: .st
+        case .midfielder: .lm
+        case .defender: .rb
+        }
+    }
+
+    func heatmapPosition(for quarterNumber: Int) -> Position {
+        quarterNumber == 3 ? intentionallyWrongHeatmapPosition : workoutPosition
     }
 }

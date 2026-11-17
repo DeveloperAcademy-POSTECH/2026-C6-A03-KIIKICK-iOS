@@ -31,7 +31,7 @@ enum MockHeatmapAnalysisAdapter {
     static func quarter(_ quarter: MockHeatmapQuarter) -> AnalysisQuarter {
         let startDate = quarter.points.first?.timestamp
         let interpolatedPoints = interpolate(quarter.points, interval: interpolationInterval)
-        return AnalysisQuarter(
+        var result = AnalysisQuarter(
             quarterNumber: quarter.number,
             durationText: durationText(quarter.duration),
             startDate: startDate,
@@ -52,6 +52,8 @@ enum MockHeatmapAnalysisAdapter {
             totalDistanceKm: totalDistanceKm(quarter.points),
             totalCaloriesKcal: caloriesKcal(for: quarter)
         )
+        result.isAttackDirectionReversed = quarter.isAttackDirectionReversed
+        return result
     }
 
     /// 생성된 이동 속도와 심박 강도를 반영해 쿼터별 소모 칼로리를 계산한다.

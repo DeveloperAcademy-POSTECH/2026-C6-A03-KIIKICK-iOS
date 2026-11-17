@@ -239,7 +239,7 @@ extension SessionManager: WCSessionDelegate {
     }
 
     #if os(iOS)
-    /// 워치가 경기를 종료하면 워치 payload 대신 현재 계정 포지션의 목업 경기(3~5쿼터)를 만든다.
+    /// 워치가 경기를 종료하면 워치 payload 대신 현재 계정 포지션의 4쿼터 목업 경기를 만든다.
     private func generateMockMatchAfterTermination() {
         guard let modelContext else { return }
 

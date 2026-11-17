@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 enum MockHeatmapGenerator {
     private static let fieldLength = 105.0
@@ -13,8 +14,7 @@ enum MockHeatmapGenerator {
     private static let outOfPositionProbability = 0.08
     private static let outOfPositionDrift = 0.10
     private static let anchorSpread = 0.045
-    private static let minimumQuarterCount = 3
-    private static let maximumQuarterCount = 5
+    private static let fixedQuarterCount = 4
 
     private struct Anchor {
         let x: Double
@@ -63,10 +63,11 @@ enum MockHeatmapGenerator {
             displayName: "손흥민 (공격수 스타일 목업)",
             role: "전방·측면 공격수",
             anchors: [
-                Anchor(x: 0.74, y: 0.29, weight: 0.28),
-                Anchor(x: 0.84, y: 0.50, weight: 0.42),
-                Anchor(x: 0.72, y: 0.73, weight: 0.20),
-                Anchor(x: 0.59, y: 0.40, weight: 0.10),
+                // 정상 포지션은 LW. 공격수 기본 박스를 화면 좌측(공격 방향 기준 뒤쪽)으로 둔다.
+                Anchor(x: 0.58, y: 0.29, weight: 0.28),
+                Anchor(x: 0.66, y: 0.50, weight: 0.42),
+                Anchor(x: 0.56, y: 0.73, weight: 0.20),
+                Anchor(x: 0.46, y: 0.40, weight: 0.10),
             ],
             movementNoise: 0.026,
             cruisingSpeedMps: 1.85,
@@ -138,11 +139,26 @@ enum MockHeatmapGenerator {
         )
     }
 
-    /// 경기마다 3~5쿼터 중 하나를 결정해 동일한 시드에서는 같은 구성을 재현한다.
+    /// 이슈 #102 시연 시나리오에 맞춰 항상 4쿼터를 생성한다.
     static func quarterCount(seed: Int) -> Int {
-        var random = SeededRandom(seed: seed ^ 0x51ED_2026)
-        let rangeSize = maximumQuarterCount - minimumQuarterCount + 1
-        return minimumQuarterCount + Int(random.unit() * Double(rangeSize))
+        fixedQuarterCount
+    }
+
+    /// 임시 앵커 검증 뷰에서 사용할 포지션 중심 박스.
+    /// 실제 생성 앵커를 감싸도록 여백을 조금 더한 정규화 좌표(0...1)를 반환한다.
+    static func anchorRect(for position: Position) -> CGRect? {
+        guard let anchors = anchors(for: position), let first = anchors.first else { return nil }
+
+        let padding = 0.06
+        let minX = anchors.map(\.x).min() ?? first.x
+        let maxX = anchors.map(\.x).max() ?? first.x
+        let minY = anchors.map(\.y).min() ?? first.y
+        let maxY = anchors.map(\.y).max() ?? first.y
+        let lowerX = max(0, minX - padding)
+        let lowerY = max(0, minY - padding)
+        let upperX = min(1, maxX + padding)
+        let upperY = min(1, maxY + padding)
+        return CGRect(x: lowerX, y: lowerY, width: upperX - lowerX, height: upperY - lowerY)
     }
 
     static func make(
@@ -180,19 +196,30 @@ enum MockHeatmapGenerator {
         let quarters = (1...quarterCount(seed: seed)).map { quarterNumber in
             let quarterStart = start.addingTimeInterval(Double(quarterNumber - 1) * quarterDuration)
             var random = SeededRandom(seed: seed + quarterNumber * 10_007)
-            let points = makePoints(
+            let selectedPosition = MockHeatmapPosition(rawValue: profile.id) ?? .defender
+            let quarterProfile = profileForQuarter(
                 profile,
+                heatmapPosition: selectedPosition.heatmapPosition(for: quarterNumber)
+            )
+            let points = makePoints(
+                quarterProfile,
                 quarterNumber: quarterNumber,
                 start: quarterStart,
                 random: &random
             )
             let events = makeEvents(
-                profile,
+                quarterProfile,
                 quarterNumber: quarterNumber,
                 points: points,
                 random: &random
             )
-            return MockHeatmapQuarter(number: quarterNumber, duration: quarterDuration, points: points, events: events)
+            return MockHeatmapQuarter(
+                number: quarterNumber,
+                duration: quarterDuration,
+                points: points,
+                events: events,
+                isAttackDirectionReversed: quarterNumber == 4
+            )
         }
 
         return MockHeatmapPlayer(
@@ -201,6 +228,78 @@ enum MockHeatmapGenerator {
             role: profile.role,
             quarters: quarters
         )
+    }
+
+    /// 선택 포지션별로 치우친 히트맵 박스를 만들고, 3쿼터에는 의도적으로
+    /// 다른 포지션의 박스를 사용한다. 선택값 자체(WorkoutRecord.position)는
+    /// 별도로 유지하므로 분석 준비 화면에서 사용자가 잘못된 히트맵을 교정할 수 있다.
+    private static func profileForQuarter(_ profile: Profile, heatmapPosition: Position) -> Profile {
+        guard let anchors = anchors(for: heatmapPosition) else { return profile }
+        return Profile(
+            id: profile.id,
+            displayName: profile.displayName,
+            role: profile.role,
+            anchors: anchors,
+            movementNoise: profile.movementNoise,
+            cruisingSpeedMps: profile.cruisingSpeedMps,
+            maxSpeedMps: profile.maxSpeedMps,
+            attackDirectionBias: profile.attackDirectionBias,
+            restingHeartRate: profile.restingHeartRate,
+            peakHeartRate: profile.peakHeartRate,
+            goalsPerQuarter: profile.goalsPerQuarter,
+            assistsPerQuarter: profile.assistsPerQuarter
+        )
+    }
+
+    /// 필드 위에서 포지션이 뚜렷하게 보이도록 각 포지션의 중심 박스를 분리한다.
+    /// x는 공격 방향(좌→우), y는 화면 상하 방향이다.
+    private static func anchors(for position: Position) -> [Anchor]? {
+        switch position {
+        case .cb:
+            return [
+                Anchor(x: 0.20 - 0.1, y: 0.38, weight: 0.35),
+                Anchor(x: 0.29 - 0.1, y: 0.55, weight: 0.40),
+                Anchor(x: 0.22, y: 0.72, weight: 0.15),
+                Anchor(x: 0.40 - 0.1, y: 0.50, weight: 0.10),
+            ]
+        case .rb:
+            return [
+                Anchor(x: 0.27 - 0.1, y: 0.66, weight: 0.30),
+                Anchor(x: 0.36 - 0.2, y: 0.82, weight: 0.40),
+                Anchor(x: 0.45, y: 0.70 + 0.2, weight: 0.20),
+                Anchor(x: 0.40, y: 0.58 + 0.2, weight: 0.10),
+            ]
+        case .rm:
+            return [
+                Anchor(x: 0.48 - 0.1, y: 0.62 + 0.1, weight: 0.24),
+                Anchor(x: 0.62 - 0.1, y: 0.76 + 0.1, weight: 0.34),
+                Anchor(x: 0.72, y: 0.61 + 0.1, weight: 0.24),
+                Anchor(x: 0.55, y: 0.70 + 0.1, weight: 0.18),
+            ]
+        case .lm:
+            return [
+                Anchor(x: 0.48, y: 0.38 - 0.1, weight: 0.24),
+                Anchor(x: 0.62, y: 0.24 - 0.1, weight: 0.34),
+                Anchor(x: 0.72, y: 0.39 - 0.1, weight: 0.24),
+                Anchor(x: 0.55, y: 0.30 - 0.1, weight: 0.18),
+            ]
+        case .lw:
+            return [
+                Anchor(x: 0.46 + 0.1, y: 0.22 - 0.1, weight: 0.28),
+                Anchor(x: 0.58 + 0.1, y: 0.30 - 0.1, weight: 0.42),
+                Anchor(x: 0.66 + 0.2, y: 0.42 - 0.1, weight: 0.20),
+                Anchor(x: 0.50 + 0.2, y: 0.36 - 0.1, weight: 0.10),
+            ]
+        case .st:
+            return [
+                Anchor(x: 0.68, y: 0.42, weight: 0.28),
+                Anchor(x: 0.80, y: 0.50, weight: 0.42),
+                Anchor(x: 0.88, y: 0.58, weight: 0.20),
+                Anchor(x: 0.74, y: 0.62, weight: 0.10),
+            ]
+        default:
+            return nil
+        }
     }
 
     private static func makePoints(
@@ -447,5 +546,13 @@ enum MockHeatmapGenerator {
 
     private static func clamp(_ value: Double, _ lower: Double, _ upper: Double) -> Double {
         max(lower, min(upper, value))
+    }
+}
+
+import SwiftUI
+
+#Preview("포지션별 앵커 박스") {
+    NavigationStack {
+        MockHeatmapAnchorPreviewView()
     }
 }

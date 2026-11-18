@@ -1,5 +1,6 @@
 import SwiftUI
 import Photos
+import CoreLocation
 
 /// GK를 제외한 9개 포지션의 목업 히트맵을 그리드로 미리 보고, 고해상도 PNG로
 /// 사진앱에 저장해 확대 품질을 확인하는 임시 검증 뷰.
@@ -127,8 +128,76 @@ private struct HeatmapExportDetailView: View {
         }
     }
 
+    // SprintMapView를 그대로 쓰지 않는 이유: 그 화살표 두께/길이는 화면 표시 폭(약 345pt)
+    // 기준 고정값이라, artwork 해상도(1536pt)로 내보내면 필드 대비 화살표가 가늘고
+    // 작아 보인다. 저장 전용으로 같은 로직을 재구성하되 캔버스 폭에 비례해 굵게 그린다.
     private var sprintCard: some View {
-        SprintMapView(field: MockHeatmapAnalysisAdapter.field(), points: trackPoints)
+        let mapper = FieldCoordinateMapper(field: MockHeatmapAnalysisAdapter.field())
+        let visibleSprints = SprintDetector().detect(in: trackPoints).compactMap { sprint -> (start: CGPoint, end: CGPoint, isAttackDirection: Bool)? in
+            let positions = sprint.points.compactMap { point -> CGPoint? in
+                let coordinate = CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)
+                guard CLLocationCoordinate2DIsValid(coordinate) else { return nil }
+                let normalized = mapper.normalize(coordinate)
+                guard normalized.x.isFinite, normalized.y.isFinite,
+                      (0...1).contains(normalized.x), (0...1).contains(normalized.y) else { return nil }
+                return normalized
+            }
+            guard let start = positions.first, let end = positions.last, start != end else { return nil }
+            return (start, end, end.x - start.x > 0)
+        }
+
+        return FieldCanvasView { context, size in
+            // SprintMapView가 345pt 표시 폭 기준으로 lineWidth 3 / 화살표 길이 8을 쓰므로,
+            // 실제 캔버스 폭에 비례해 그만큼 키운다.
+            let scale = size.width / 345
+            for sprint in visibleSprints {
+                Self.drawExportArrow(
+                    from: CGPoint(x: sprint.start.x * size.width, y: sprint.start.y * size.height),
+                    to: CGPoint(x: sprint.end.x * size.width, y: sprint.end.y * size.height),
+                    isAttackDirection: sprint.isAttackDirection,
+                    scale: scale,
+                    in: context, size: size
+                )
+            }
+        }
+    }
+
+    private static func drawExportArrow(
+        from start: CGPoint,
+        to end: CGPoint,
+        isAttackDirection: Bool,
+        scale: CGFloat,
+        in context: GraphicsContext,
+        size: CGSize
+    ) {
+        guard let curve = SprintArrowGeometry(start: start, end: end) else { return }
+        let control = CGPoint(x: min(max(curve.control.x, 0), size.width),
+                              y: min(max(curve.control.y, 0), size.height))
+        var line = Path()
+        line.move(to: start)
+        line.addQuadCurve(to: end, control: control)
+        let arrowColor: Color = isAttackDirection ? .lime500 : .orange500
+        context.stroke(line, with: .color(arrowColor), style: StrokeStyle(lineWidth: 3 * scale, lineCap: .round))
+
+        let angle = atan2(end.y - control.y, end.x - control.x)
+        let arrowLength = 8 * scale
+        let arrowAngle: CGFloat = .pi / 7
+
+        let left = CGPoint(
+            x: end.x - arrowLength * cos(angle - arrowAngle),
+            y: end.y - arrowLength * sin(angle - arrowAngle)
+        )
+        let right = CGPoint(
+            x: end.x - arrowLength * cos(angle + arrowAngle),
+            y: end.y - arrowLength * sin(angle + arrowAngle)
+        )
+
+        var head = Path()
+        head.move(to: left)
+        head.addLine(to: end)
+        head.addLine(to: right)
+        head.closeSubpath()
+        context.fill(head, with: .color(arrowColor))
     }
 
     private var statusText: String {

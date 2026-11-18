@@ -181,6 +181,24 @@ enum MockHeatmapGenerator {
         )
     }
 
+    /// GK를 제외한 임의 포지션 1개의 샘플 히트맵 포인트(1쿼터분)를 만든다.
+    /// 히트맵 내보내기 검증 화면에서만 사용한다.
+    static func makeSamplePoints(seed: Int, position: Position) -> [MockHeatmapPoint] {
+        let basis: Profile
+        switch position {
+        case .lw, .st, .rw:
+            basis = profiles[0]
+        case .lm, .cm, .rm:
+            basis = profiles[1]
+        case .lb, .cb, .rb, .gk:
+            basis = profiles[2]
+        }
+        let profile = profileForQuarter(basis, heatmapPosition: position)
+        let positionOffset = Position.allCases.firstIndex(of: position) ?? 0
+        var random = SeededRandom(seed: seed + positionOffset * 10_007)
+        return makePoints(profile, quarterNumber: 1, start: defaultStartDate(), random: &random)
+    }
+
     private static func defaultStartDate() -> Date {
         DateComponents(
             calendar: Calendar(identifier: .gregorian),
@@ -269,6 +287,14 @@ enum MockHeatmapGenerator {
                 Anchor(x: 0.45, y: 0.70 + 0.2, weight: 0.20),
                 Anchor(x: 0.40, y: 0.58 + 0.2, weight: 0.10),
             ]
+        case .lb:
+            // rb를 y축 기준으로 미러.
+            return [
+                Anchor(x: 0.17, y: 0.34, weight: 0.30),
+                Anchor(x: 0.16, y: 0.18, weight: 0.40),
+                Anchor(x: 0.45, y: 0.10, weight: 0.20),
+                Anchor(x: 0.40, y: 0.22, weight: 0.10),
+            ]
         case .rm:
             return [
                 Anchor(x: 0.48 - 0.1, y: 0.62 + 0.1, weight: 0.24),
@@ -296,6 +322,14 @@ enum MockHeatmapGenerator {
                 Anchor(x: 0.58 + 0.1, y: 0.30 - 0.1, weight: 0.42),
                 Anchor(x: 0.66 + 0.2, y: 0.42 - 0.1, weight: 0.20),
                 Anchor(x: 0.50 + 0.2, y: 0.36 - 0.1, weight: 0.10),
+            ]
+        case .rw:
+            // lw를 y축 기준으로 미러(좌우 대칭 — lm/rm 쌍과 같은 규칙).
+            return [
+                Anchor(x: 0.56, y: 0.88, weight: 0.28),
+                Anchor(x: 0.68, y: 0.80, weight: 0.42),
+                Anchor(x: 0.86, y: 0.68, weight: 0.20),
+                Anchor(x: 0.70, y: 0.74, weight: 0.10),
             ]
         case .st:
             return [

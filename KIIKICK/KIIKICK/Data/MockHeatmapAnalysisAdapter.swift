@@ -56,10 +56,10 @@ enum MockHeatmapAnalysisAdapter {
         return result
     }
 
-    /// 쿼터별 소모 칼로리는 500kcal 안팎(±30)으로 보여준다. 같은 포지션이어도
+    /// 쿼터별 소모 칼로리는 80kcal 안팎(±30)으로 보여준다. 같은 포지션이어도
     /// 쿼터마다 편차가 보이도록 포인트 좌표 기반 결정적 편차를 더한다.
     static func caloriesKcal(for quarter: MockHeatmapQuarter) -> Double {
-        let baseline = 500.0
+        let baseline = 80.0
         let variation = variation(for: quarter, range: -30...30, salt: 17.3)
         return (baseline + variation).rounded()
     }

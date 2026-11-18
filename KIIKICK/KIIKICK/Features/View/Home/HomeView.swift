@@ -19,11 +19,13 @@ struct HomeView: View {
     @Environment(AppRouter.self) private var router
     @Environment(SessionManager.self) private var sessionManager
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
-    
+    @Query(sort: \CachedAnalysisMatch.savedAt, order: .reverse) private var cachedMatches: [CachedAnalysisMatch]
+
     @State private var preparedField: Field?
     @State private var isSelectingField = false
     @State private var selectedMetric: PerformanceMetric = .overall
-    
+    @State private var loadedUserID: UUID? = UserSession.userId
+
     @State private var remoteMatches: [HomeSyncedMatch]?
     @State private var isSyncing = false
     @State private var didAuthenticate = false
@@ -32,20 +34,37 @@ struct HomeView: View {
         WorkoutMatchGrouping.groups(from: records)
     }
 
-    /// 로컬에 있는 경기는 로컬 값을 사용하고, 다른 기기에서 올린 경기만 서버 값으로 보탠다.
+    /// Analysis 탭에서 이미 캐시해 둔 서버 경기(CachedAnalysisMatch) — 로컬에 없는, 현재
+    /// 계정 소유분만 쓴다. remoteMatches와 같은 서버 출처를 공유하므로 Ovr에 중복으로
+    /// 집계되지 않도록 additionalRemoteMatches에서 이 매치들은 제외한다.
+    private var ownCachedMatches: [CachedAnalysisMatch] {
+        let localIDs = Set(localGroups.compactMap { $0.first?.matchId })
+        return cachedMatches.filter { $0.ownerID == loadedUserID && !localIDs.contains($0.matchID) }
+    }
+
+    private var cachedWorkouts: [OverallWorkout] {
+        ownCachedMatches.compactMap(\.entry).flatMap { entry in
+            entry.detail.quarters.compactMap { OverallWorkoutInput(quarter: $0)?.workout() }
+        }
+    }
+
+    /// 로컬에 있는 경기는 로컬 값을 사용하고, 캐시된 경기도 아닌 다른 기기 경기만 서버
+    /// 값으로 보탠다.
     private var additionalRemoteMatches: [HomeSyncedMatch] {
         let localIDs = Set(localGroups.compactMap { $0.first?.matchId })
-        return (remoteMatches ?? []).filter { $0.status == .completed && !localIDs.contains($0.id) }
+        let cachedIDs = Set(ownCachedMatches.map(\.matchID))
+        let excludedIDs = localIDs.union(cachedIDs)
+        return (remoteMatches ?? []).filter { $0.status == .completed && !excludedIDs.contains($0.id) }
     }
 
     private var overallHistory: OverallHistory {
         let local = records.compactMap { OverallWorkoutInput(record: $0).workout() }
         let remote = additionalRemoteMatches.flatMap(\.workouts)
-        return OverallCalculator.history(from: local + remote)
+        return OverallCalculator.history(from: local + cachedWorkouts + remote)
     }
 
     private var matchCount: Int {
-        localGroups.count + additionalRemoteMatches.count
+        localGroups.count + ownCachedMatches.count + additionalRemoteMatches.count
     }
 
     private var overallStat: OverallStat {
@@ -72,14 +91,16 @@ struct HomeView: View {
     
     private var totalDistanceKm: Double {
         (records.reduce(0) { $0 + $1.totalDistance }
+            + cachedWorkouts.reduce(0) { $0 + $1.distanceMeters }
             + additionalRemoteMatches.reduce(0) { $0 + $1.totalDistanceMeters }) / 1000
     }
 
     private var avgCalories: Int {
         let remoteQuarters = additionalRemoteMatches.reduce(0) { $0 + $1.quarterCount }
-        let count = records.count + remoteQuarters
+        let count = records.count + cachedWorkouts.count + remoteQuarters
         guard count > 0 else { return 0 }
         let total = records.reduce(0) { $0 + $1.totalCalories }
+            + cachedWorkouts.reduce(0) { $0 + $1.calories }
             + additionalRemoteMatches.reduce(0) { $0 + $1.totalCalories }
         return Int(total / Double(count))
     }

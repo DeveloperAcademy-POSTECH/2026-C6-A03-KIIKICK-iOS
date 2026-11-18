@@ -49,7 +49,7 @@ enum MockHeatmapAnalysisAdapter {
                     position: UnitPoint(x: point.normalizedX, y: point.normalizedY)
                 )
             },
-            totalDistanceKm: totalDistanceKm(quarter.points),
+            totalDistanceKm: totalDistanceKm(for: quarter),
             totalCaloriesKcal: caloriesKcal(for: quarter)
         )
         result.isAttackDirectionReversed = quarter.isAttackDirectionReversed
@@ -57,7 +57,7 @@ enum MockHeatmapAnalysisAdapter {
     }
 
     /// 생성된 이동 속도와 심박 강도를 반영해 쿼터별 소모 칼로리를 계산한다.
-    /// 같은 포지션이어도 시드가 달라지면 값이 조금씩 달라지도록 한다.
+    /// 실제 경기처럼 같은 포지션이어도 쿼터마다 편차가 보이도록 최대 20kcal를 더한다.
     static func caloriesKcal(for quarter: MockHeatmapQuarter) -> Double {
         guard !quarter.points.isEmpty else { return quarter.duration / 60 * 9 }
 
@@ -65,7 +65,9 @@ enum MockHeatmapAnalysisAdapter {
         let averageSpeed = quarter.points.map(\.speedMps).reduce(0, +) / Double(quarter.points.count)
         let heartRateIntensity = min(max((averageHeartRate - 95) / 100, 0), 1)
         let caloriesPerMinute = 7.5 + heartRateIntensity * 2.6 + min(averageSpeed, 4) * 0.15
-        return (quarter.duration / 60 * caloriesPerMinute * 10).rounded() / 10
+        let baseline = quarter.duration / 60 * caloriesPerMinute * 10
+        let variation = variation(for: quarter, range: -20...20, salt: 17.3)
+        return max(0, (baseline + variation) * 10).rounded() / 10
     }
 
     static func trackPoint(_ point: MockHeatmapPoint) -> TrackPoint {
@@ -143,7 +145,13 @@ enum MockHeatmapAnalysisAdapter {
         )
     }
 
-    static func totalDistanceMeters(_ points: [MockHeatmapPoint]) -> Double {
+    static func totalDistanceMeters(_ quarter: MockHeatmapQuarter) -> Double {
+        let baseline = rawTotalDistanceMeters(quarter.points)
+        let variation = variation(for: quarter, range: -500...500, salt: 41.7)
+        return max(0, baseline + variation)
+    }
+
+    private static func rawTotalDistanceMeters(_ points: [MockHeatmapPoint]) -> Double {
         guard points.count > 1 else { return 0 }
         return zip(points, points.dropFirst()).reduce(0.0) { partialResult, pair in
             let dx = (pair.1.xMeters - pair.0.xMeters)
@@ -152,8 +160,26 @@ enum MockHeatmapAnalysisAdapter {
         }
     }
 
-    private static func totalDistanceKm(_ points: [MockHeatmapPoint]) -> Double {
-        totalDistanceMeters(points) / 1_000
+    private static func totalDistanceKm(for quarter: MockHeatmapQuarter) -> Double {
+        totalDistanceMeters(quarter) / 1_000
+    }
+
+    /// 포인트에 포함된 좌표를 기반으로 한 결정적 편차다. 같은 목업을 화면과
+    /// WorkoutRecord에서 각각 변환해도 동일한 값이 나오고, 시드/쿼터가 달라지면 값도 달라진다.
+    private static func variation(
+        for quarter: MockHeatmapQuarter,
+        range: ClosedRange<Double>,
+        salt: Double
+    ) -> Double {
+        guard let first = quarter.points.first, let last = quarter.points.last else { return 0 }
+        let signal = first.xMeters * 12.9898
+            + first.yMeters * 78.233
+            + last.xMeters * 37.719
+            + last.yMeters * 11.131
+            + Double(quarter.number) * 19.193
+            + salt
+        let normalized = sin(signal) * 0.5 + 0.5
+        return range.lowerBound + normalized * (range.upperBound - range.lowerBound)
     }
 
     private static func durationText(_ duration: TimeInterval) -> String {

@@ -107,9 +107,12 @@ struct HomeView: View {
     }
 
     private var trendAxisValues: [Double] {
-        let maximum = trendPoints.map(\.value).max() ?? 0
-        let ceiling = max(1, (maximum / 4).rounded(.up)) * 4
-        return (0...4).map { Double($0) * ceiling / 4 }
+        let values = trendPoints.map(\.value)
+        guard let minimum = values.min(), let maximum = values.max() else { return [0, 1] }
+        let range = maximum - minimum
+        let lower = range > 0 ? minimum : minimum - max(1, abs(minimum) * 0.05)
+        let upper = range > 0 ? maximum : maximum + max(1, abs(maximum) * 0.05)
+        return (0...4).map { lower + (upper - lower) * Double($0) / 4 }
     }
 
     private var hasUnreadNotifications: Bool {

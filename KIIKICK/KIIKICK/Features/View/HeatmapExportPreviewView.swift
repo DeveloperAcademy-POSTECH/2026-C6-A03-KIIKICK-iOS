@@ -3,6 +3,8 @@ import Photos
 
 /// GK를 제외한 9개 포지션의 목업 히트맵을 그리드로 미리 보고, 고해상도 PNG로
 /// 사진앱에 저장해 확대 품질을 확인하는 임시 검증 뷰.
+/// 상세 화면에서는 `TrackingMapPager`로 히트맵과 스프린트를 좌우로 넘겨 함께 확인할 수 있다
+/// (저장은 히트맵 한 장만 내보낸다 — 요구사항이 "히트맵을 사진으로"였다).
 /// 앱의 일반 플로우에는 연결하지 않고, RootView의 `#if DEBUG` 블록에서만 띄운다.
 struct HeatmapExportPreviewView: View {
     private struct Item: Identifiable {
@@ -80,8 +82,12 @@ private struct HeatmapExportDetailView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            heatmapCard
-                .padding(.horizontal, 16)
+            TrackingMapPager(
+                field: MockHeatmapAnalysisAdapter.field(),
+                points: points.map(MockHeatmapAnalysisAdapter.trackPoint)
+            )
+            .frame(height: 264)
+            .padding(.horizontal, 16)
 
             Text(statusText)
                 .font(.title2SB)

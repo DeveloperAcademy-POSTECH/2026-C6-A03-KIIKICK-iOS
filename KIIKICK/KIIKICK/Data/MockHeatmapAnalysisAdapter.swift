@@ -56,18 +56,12 @@ enum MockHeatmapAnalysisAdapter {
         return result
     }
 
-    /// 생성된 이동 속도와 심박 강도를 반영해 쿼터별 소모 칼로리를 계산한다.
-    /// 실제 경기처럼 같은 포지션이어도 쿼터마다 편차가 보이도록 최대 20kcal를 더한다.
+    /// 쿼터별 소모 칼로리는 500kcal 안팎(±30)으로 보여준다. 같은 포지션이어도
+    /// 쿼터마다 편차가 보이도록 포인트 좌표 기반 결정적 편차를 더한다.
     static func caloriesKcal(for quarter: MockHeatmapQuarter) -> Double {
-        guard !quarter.points.isEmpty else { return quarter.duration / 60 * 9 }
-
-        let averageHeartRate = quarter.points.map(\.heartRateBpm).reduce(0, +) / Double(quarter.points.count)
-        let averageSpeed = quarter.points.map(\.speedMps).reduce(0, +) / Double(quarter.points.count)
-        let heartRateIntensity = min(max((averageHeartRate - 95) / 100, 0), 1)
-        let caloriesPerMinute = 7.5 + heartRateIntensity * 2.6 + min(averageSpeed, 4) * 0.15
-        let baseline = quarter.duration / 60 * caloriesPerMinute * 10
-        let variation = variation(for: quarter, range: -20...20, salt: 17.3)
-        return max(0, (baseline + variation) * 10).rounded() / 10
+        let baseline = 500.0
+        let variation = variation(for: quarter, range: -30...30, salt: 17.3)
+        return (baseline + variation).rounded()
     }
 
     static func trackPoint(_ point: MockHeatmapPoint) -> TrackPoint {

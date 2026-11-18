@@ -3,8 +3,8 @@ import Photos
 
 /// GK를 제외한 9개 포지션의 목업 히트맵을 그리드로 미리 보고, 고해상도 PNG로
 /// 사진앱에 저장해 확대 품질을 확인하는 임시 검증 뷰.
-/// 상세 화면에서는 `TrackingMapPager`로 히트맵과 스프린트를 좌우로 넘겨 함께 확인할 수 있다
-/// (저장은 히트맵 한 장만 내보낸다 — 요구사항이 "히트맵을 사진으로"였다).
+/// 상세 화면에서는 `TrackingMapPager`로 히트맵과 스프린트를 좌우로 넘겨 함께 확인할 수 있고,
+/// 저장 버튼은 그 중 현재 보고 있는 페이지를 그대로 내보낸다.
 /// 앱의 일반 플로우에는 연결하지 않고, RootView의 `#if DEBUG` 블록에서만 띄운다.
 struct HeatmapExportPreviewView: View {
     private struct Item: Identifiable {
@@ -75,16 +75,22 @@ private struct HeatmapExportDetailView: View {
     let points: [MockHeatmapPoint]
 
     @State private var saveState: SaveState = .idle
+    @State private var isSprintSelected = false
 
     private enum SaveState: Equatable {
         case idle, saving, success, failure(String)
+    }
+
+    private var trackPoints: [TrackPoint] {
+        points.map(MockHeatmapAnalysisAdapter.trackPoint)
     }
 
     var body: some View {
         VStack(spacing: 24) {
             TrackingMapPager(
                 field: MockHeatmapAnalysisAdapter.field(),
-                points: points.map(MockHeatmapAnalysisAdapter.trackPoint)
+                points: trackPoints,
+                onSprintSelectionChanged: { isSprintSelected = $0 }
             )
             .frame(height: 264)
             .padding(.horizontal, 16)
@@ -121,6 +127,10 @@ private struct HeatmapExportDetailView: View {
         }
     }
 
+    private var sprintCard: some View {
+        SprintMapView(field: MockHeatmapAnalysisAdapter.field(), points: trackPoints)
+    }
+
     private var statusText: String {
         switch saveState {
         case .idle, .saving: "고해상도 이미지 저장"
@@ -131,7 +141,9 @@ private struct HeatmapExportDetailView: View {
 
     @MainActor
     private func save() {
-        let exportCard = heatmapCard
+        // 현재 TrackingMapPager에서 보고 있는 페이지(히트맵/스프린트)를 그대로 내보낸다.
+        let card = isSprintSelected ? AnyView(sprintCard) : AnyView(heatmapCard)
+        let exportCard = card
             .frame(width: FieldArtworkLayout.artworkSize.width, height: FieldArtworkLayout.artworkSize.height)
 
         let renderer = ImageRenderer(content: exportCard)

@@ -102,7 +102,11 @@ struct AddFriendView: View {
                                 Button {
                                     pushedProfile = user
                                 } label: {
-                                    ListFriendView(name: user.nickname, isWaiting: user.status == .requestSent)
+                                    ListFriendView(
+                                        name: user.nickname,
+                                        avatarURL: user.avatarUrl,
+                                        isWaiting: user.status == .requestSent
+                                    )
                                 }
                                 .buttonStyle(.plain)
                             }

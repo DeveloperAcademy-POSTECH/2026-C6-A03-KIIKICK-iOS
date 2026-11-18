@@ -142,15 +142,19 @@ final class QueuedSession: URLSessionable {
 
         let commentsSession = QueuedSession()
         let comments = MatchCommentsModel(matchID: match, provider: ProviderImpl(session: commentsSession))
-        commentsSession.replies = [(200, try data("comments")), (200, try data("profile"))]
+        let emptyReplies = try JSONSerialization.data(withJSONObject: [
+            "data": [],
+            "meta": (fixtures["comments"] as! [String: Any])["meta"]!
+        ], options: .sortedKeys)
+        commentsSession.replies = [(200, try data("comments")), (200, try data("profile")), (200, emptyReplies)]
         await comments.loadInitial()
         precondition(comments.comments.count == 1, "중복 댓글 ID를 제거한다")
         precondition(comments.displayedComments[0].authorNickname == "친구")
-        precondition(commentsSession.requests.count == 2, "작성자 프로필은 중복 조회하지 않는다")
+        precondition(commentsSession.requests.count == 3, "작성자 프로필은 중복 조회하지 않는다")
         comments.draft = String(repeating: "a", count: 1001)
         precondition(!comments.canSend && comments.validationMessage != nil)
         await comments.send()
-        precondition(commentsSession.requests.count == 2)
+        precondition(commentsSession.requests.count == 3)
         comments.draft = "좋은 경기였어!"
         commentsSession.replies = [(503, Data(#"{"error":{"code":"SERVICE_UNAVAILABLE","message":"retry"}}"#.utf8)), (201, try data("created"))]
         await comments.send()
@@ -161,6 +165,25 @@ final class QueuedSession: URLSessionable {
         precondition(posts.count == 2 && posts[0].httpBody == posts[1].httpBody)
         let key = posts[0].value(forHTTPHeaderField: "Idempotency-Key")!
         precondition(UUID(uuidString: key) != nil && key == posts[1].value(forHTTPHeaderField: "Idempotency-Key"))
+
+        // 답글은 부모 ID를 본문에 포함하고, 성공 시 해당 스레드에 즉시 표시한다.
+        let parentID = comments.comments[0].id
+        comments.beginReply(to: comments.displayedComments[0])
+        comments.draft = "답글 남겨요"
+        let replyResponse = try modified("created") { object in
+            var value = object["data"] as! [String: Any]
+            value["id"] = "00000000-0000-4000-8000-000000000007"
+            value["parentCommentId"] = parentID.uuidString
+            value["content"] = "답글 남겨요"
+            object["data"] = value
+        }
+        commentsSession.replies = [(201, replyResponse)]
+        await comments.send()
+        precondition(comments.displayedComments[0].replies.count == 1)
+        precondition(comments.displayedComments[0].replies[0].content == "답글 남겨요")
+        let replyPost = commentsSession.requests.last!
+        let replyBody = try JSONSerialization.jsonObject(with: replyPost.httpBody!) as! [String: Any]
+        precondition(replyBody["parentCommentId"] as? String == parentID.uuidString)
         let delete = try MatchCommentEndpoints.delete(matchID: match, commentID: comments.comments[0].id, idempotencyKey: UUID()).getUrlRequest()
         precondition(delete.httpMethod == "DELETE" && delete.httpBody == nil)
         print("PASS: 친구 결과·집계 히트맵 디코딩·공개 조건·페이지 처리·권한 상실·작성자·댓글 중복/길이/실패 재시도·삭제 API 계약")

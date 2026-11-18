@@ -283,6 +283,13 @@ enum MockHeatmapGenerator {
                 Anchor(x: 0.72, y: 0.39 - 0.1, weight: 0.24),
                 Anchor(x: 0.55, y: 0.30 - 0.1, weight: 0.18),
             ]
+        case .cm:
+            return [
+                Anchor(x: 0.42, y: 0.34, weight: 0.24),
+                Anchor(x: 0.56, y: 0.50, weight: 0.34),
+                Anchor(x: 0.68, y: 0.66, weight: 0.24),
+                Anchor(x: 0.45, y: 0.64, weight: 0.18),
+            ]
         case .lw:
             return [
                 Anchor(x: 0.46 + 0.1, y: 0.22 - 0.1, weight: 0.28),

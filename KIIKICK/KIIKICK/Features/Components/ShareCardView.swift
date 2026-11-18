@@ -60,8 +60,6 @@ struct ShareCardView: View {
                 .padding(32)
             }
         }
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray700, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var statsColumn: some View {

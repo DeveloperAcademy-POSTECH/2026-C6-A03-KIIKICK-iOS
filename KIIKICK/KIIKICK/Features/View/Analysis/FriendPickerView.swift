@@ -47,7 +47,7 @@ struct FriendPickerView: View {
                             Button {
                                 Task { await select(friend) }
                             } label: {
-                                ListFriendView(name: friend.nickname)
+                                ListFriendView(name: friend.nickname, avatarURL: friend.avatarUrl)
                                     .overlay {
                                         if selectedFriendID == friend.id {
                                             ProgressView().tint(.mint500)

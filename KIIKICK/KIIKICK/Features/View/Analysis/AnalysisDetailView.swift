@@ -388,10 +388,24 @@ private struct AnalysisTabContent: View {
 
     private var goalAssistSection: some View {
         HStack(spacing: 24) {
-            statBadge(.goal, count: isOwner ? detail.goalCount : currentQuarter?.resultGoals)
-            statBadge(.assist, count: isOwner ? detail.assistCount : currentQuarter?.resultAssists)
+            statBadge(.goal, count: currentQuarterGoalCount)
+            statBadge(.assist, count: currentQuarterAssistCount)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// Detail의 골/어시스트는 경기 전체 합산이 아니라 현재 선택한 쿼터의 기록을 표시한다.
+    /// 서버 분석 결과는 resultGoals/resultAssists를 우선 사용하고, 로컬 기록은 events에서 계산한다.
+    private var currentQuarterGoalCount: Int? {
+        guard let currentQuarter else { return nil }
+        return currentQuarter.resultGoals
+            ?? currentQuarter.events.filter { $0.type == .goal }.count
+    }
+
+    private var currentQuarterAssistCount: Int? {
+        guard let currentQuarter else { return nil }
+        return currentQuarter.resultAssists
+            ?? currentQuarter.events.filter { $0.type == .assist }.count
     }
     
     private func statBadge(_ type: MatchEventType, count: Int?) -> some View {

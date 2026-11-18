@@ -55,7 +55,7 @@ enum MockHeatmapPosition: String, CaseIterable, Codable, Hashable, Identifiable 
     var intentionallyWrongHeatmapPosition: Position {
         switch self {
         case .attacker: .st
-        case .midfielder: .lm
+        case .midfielder: .cm
         case .defender: .rb
         }
     }

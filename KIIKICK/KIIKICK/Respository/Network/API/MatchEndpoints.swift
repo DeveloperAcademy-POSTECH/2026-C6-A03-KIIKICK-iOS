@@ -58,6 +58,21 @@ enum MatchEndpoints {
         Endpoint(path: "/api/v1/matches/\(matchId.uuidString.lowercased())", method: .get, headers: bearerHeaders())
     }
 
+    /// 경기 삭제. 서버의 낙관적 잠금 계약에 따라 최신 version을 If-Match로 보낸다.
+    static func delete(
+        matchId: UUID,
+        ifMatch: String,
+        idempotencyKey: UUID = UUID()
+    ) -> Endpoint<Void> {
+        Endpoint(
+            path: "/api/v1/matches/\(matchId.uuidString.lowercased())",
+            method: .delete,
+            headers: idempotencyHeaders(idempotencyKey)
+                .merging(["If-Match": ifMatch]) { _, value in value }
+                .merging(bearerHeaders()) { _, bearer in bearer }
+        )
+    }
+
     /// SET-09 경기 설정 수정
     static func update(
         matchId: UUID,

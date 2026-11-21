@@ -7,7 +7,7 @@ struct MatchCommentsSheet: View {
     var body: some View {
         VStack(spacing: 20) {
             VStack { }.frame(height: 4)
-            Text("댓글 \(model.comments.count)\(model.hasNext ? "+" : "")")
+            Text("댓글 \(model.commentCount)\(model.hasNext ? "+" : "")")
                 .font(.title3M)
                 .foregroundStyle(.colorTextPrimary)
                 .padding(.top, 8)
@@ -15,8 +15,11 @@ struct MatchCommentsSheet: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     ForEach(model.displayedComments) { comment in
-                        // DESIGN-GAP: 대댓글 API가 없어 서버 댓글에는 동작하지 않는 답글 버튼을 표시하지 않는다.
-                        CommentThreadView(comment: comment, allowsReplies: false)
+                        CommentThreadView(
+                            comment: comment,
+                            allowsReplies: isExpanded,
+                            onReply: model.beginReply(to:)
+                        )
                     }
                     if model.isLoading { ProgressView() }
                     if model.hasNext || model.errorMessage != nil {
@@ -31,6 +34,19 @@ struct MatchCommentsSheet: View {
                 Text(message).textStyle(.caption1M).foregroundStyle(.red500).padding(.horizontal, 24)
             }
             if isExpanded {
+                if let replyTarget = model.replyTarget {
+                    HStack(spacing: 8) {
+                        Text("\(replyTarget.authorNickname)님에게 답글")
+                            .font(.caption1M)
+                            .foregroundStyle(.colorTextSecondary)
+                        Spacer()
+                        Button("취소", action: model.cancelReply)
+                            .font(.caption1M)
+                            .foregroundStyle(.colorTextSecondary)
+                            .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 24)
+                }
                 CommentComposerView(text: $model.draft, isActive: model.canSend, isSubmitting: model.isSending) {
                     Task { await model.send() }
                 }

@@ -9,6 +9,7 @@ import SwiftUI
 
 struct MyPageView: View {
     @AppStorage("nickname") private var nickname = ""
+    @State private var mockHeatmapPosition = UserSession.mockHeatmapPosition
     @State private var profileError: String?
 
     var body: some View {
@@ -27,9 +28,14 @@ struct MyPageView: View {
                                 .frame(width: 56, height: 56)
                                 .clipShape(Circle())
 
-                            Text(nickname)
-                                .font(.title2SB)
-                                .foregroundStyle(.gray50)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(nickname)
+                                    .font(.title2SB)
+                                    .foregroundStyle(.gray50)
+                                Text("분석 포지션 · \(mockHeatmapPosition.displayName)")
+                                    .font(.caption1M)
+                                    .foregroundStyle(.gray400)
+                            }
 
                             Spacer()
 
@@ -94,7 +100,11 @@ struct MyPageView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.gray950)
         .navigationTitle("마이페이지")
-        .task { await loadProfile() }
+        .task {
+            mockHeatmapPosition = UserSession.mockHeatmapPosition
+            await loadProfile()
+        }
+        .onAppear { mockHeatmapPosition = UserSession.mockHeatmapPosition }
         .alert("프로필을 불러오지 못했어요", isPresented: Binding(
             get: { profileError != nil },
             set: { if !$0 { profileError = nil } }

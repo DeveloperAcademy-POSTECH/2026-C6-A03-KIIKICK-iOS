@@ -111,24 +111,33 @@ struct PerformanceTrendsView: View {
             }
         }
         .chartXAxis(.hidden)
+        .chartYScale(domain: yAxisDomain)
         .chartYAxis {
             AxisMarks(position: .leading, values: yAxisValues) { value in
                 AxisGridLine().foregroundStyle(Color.gray800)
                 AxisValueLabel {
                     if let d = value.as(Double.self) {
-                        Text(verbatim: "\(Int(d))")
+                        Text(verbatim: axisLabel(for: d))
                             .font(.caption2SB)
                             .foregroundStyle(.gray400)
                     }
                 }
             }
         }
-        .overlay(alignment: .topLeading) {
-            Text(unit)
-                .font(.caption2SB)
-                .foregroundStyle(.gray400)
-        }
         .frame(height: 150)
+    }
+
+    private var yAxisDomain: ClosedRange<Double> {
+        let minimum = yAxisValues.min() ?? 0
+        let maximum = yAxisValues.max() ?? 1
+        return minimum < maximum ? minimum...maximum : (minimum - 1)...(maximum + 1)
+    }
+
+    private func axisLabel(for value: Double) -> String {
+        switch unit {
+        case "OVR", "kcal": String(format: "%.0f", value)
+        default: String(format: "%.2f", value)
+        }
     }
 
     private var rangeIndicator: some View {

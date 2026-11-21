@@ -37,7 +37,7 @@ struct DevAuthView: View {
             }
             .buttonStyle(.bordered)
 
-            // 이슈 #66: SessionManager.preparedField 연결 전에 기록된 WorkoutRecord는
+            // 이슈 #66: 운동장 연결 전에 기록된 WorkoutRecord는
             // field가 계속 nil이라 workout-submissions가 "field 없음"으로 거부한다.
             // 이미 등록된 "c5" Field를 그런 레코드에 수동으로 이어준다(1회성 데이터 보정).
             Button("field 없는 레코드 → \"c5\"로 연결") {

@@ -19,11 +19,13 @@ struct HomeView: View {
     @Environment(AppRouter.self) private var router
     @Environment(SessionManager.self) private var sessionManager
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
-    
+    @Query(sort: \CachedAnalysisMatch.savedAt, order: .reverse) private var cachedMatches: [CachedAnalysisMatch]
+
     @State private var preparedField: Field?
     @State private var isSelectingField = false
     @State private var selectedMetric: PerformanceMetric = .overall
-    
+    @State private var loadedUserID: UUID? = UserSession.userId
+
     @State private var remoteMatches: [HomeSyncedMatch]?
     @State private var isSyncing = false
     @State private var didAuthenticate = false
@@ -32,20 +34,37 @@ struct HomeView: View {
         WorkoutMatchGrouping.groups(from: records)
     }
 
-    /// 로컬에 있는 경기는 로컬 값을 사용하고, 다른 기기에서 올린 경기만 서버 값으로 보탠다.
+    /// Analysis 탭에서 이미 캐시해 둔 서버 경기(CachedAnalysisMatch) — 로컬에 없는, 현재
+    /// 계정 소유분만 쓴다. remoteMatches와 같은 서버 출처를 공유하므로 Ovr에 중복으로
+    /// 집계되지 않도록 additionalRemoteMatches에서 이 매치들은 제외한다.
+    private var ownCachedMatches: [CachedAnalysisMatch] {
+        let localIDs = Set(localGroups.compactMap { $0.first?.matchId })
+        return cachedMatches.filter { $0.ownerID == loadedUserID && !localIDs.contains($0.matchID) }
+    }
+
+    private var cachedWorkouts: [OverallWorkout] {
+        ownCachedMatches.compactMap(\.entry).flatMap { entry in
+            entry.detail.quarters.compactMap { OverallWorkoutInput(quarter: $0)?.workout() }
+        }
+    }
+
+    /// 로컬에 있는 경기는 로컬 값을 사용하고, 캐시된 경기도 아닌 다른 기기 경기만 서버
+    /// 값으로 보탠다.
     private var additionalRemoteMatches: [HomeSyncedMatch] {
         let localIDs = Set(localGroups.compactMap { $0.first?.matchId })
-        return (remoteMatches ?? []).filter { $0.status == .completed && !localIDs.contains($0.id) }
+        let cachedIDs = Set(ownCachedMatches.map(\.matchID))
+        let excludedIDs = localIDs.union(cachedIDs)
+        return (remoteMatches ?? []).filter { $0.status == .completed && !excludedIDs.contains($0.id) }
     }
 
     private var overallHistory: OverallHistory {
         let local = records.compactMap { OverallWorkoutInput(record: $0).workout() }
         let remote = additionalRemoteMatches.flatMap(\.workouts)
-        return OverallCalculator.history(from: local + remote)
+        return OverallCalculator.history(from: local + cachedWorkouts + remote)
     }
 
     private var matchCount: Int {
-        localGroups.count + additionalRemoteMatches.count
+        localGroups.count + ownCachedMatches.count + additionalRemoteMatches.count
     }
 
     private var overallStat: OverallStat {
@@ -56,8 +75,8 @@ struct HomeView: View {
         if sessionManager.isMatchInProgress {
             return .inProgress
         }
-        // 경기가 막 도착했을 때도 더 이상 배너를 안 띄운다 — 그 이벤트는 알림으로 간다
-        // (SessionManager.didReceive(file:) 참고). 바로 다음 상태로 넘어간다.
+        // 경기가 막 끝났을 때도 더 이상 배너를 안 띄운다 — 목업 경기 생성 이벤트는
+        // 알림으로 간다. 바로 다음 상태로 넘어간다.
         if let preparedField {
             return .prepared(fieldName: preparedField.name)
         }
@@ -72,14 +91,16 @@ struct HomeView: View {
     
     private var totalDistanceKm: Double {
         (records.reduce(0) { $0 + $1.totalDistance }
+            + cachedWorkouts.reduce(0) { $0 + $1.distanceMeters }
             + additionalRemoteMatches.reduce(0) { $0 + $1.totalDistanceMeters }) / 1000
     }
 
     private var avgCalories: Int {
         let remoteQuarters = additionalRemoteMatches.reduce(0) { $0 + $1.quarterCount }
-        let count = records.count + remoteQuarters
+        let count = records.count + cachedWorkouts.count + remoteQuarters
         guard count > 0 else { return 0 }
         let total = records.reduce(0) { $0 + $1.totalCalories }
+            + cachedWorkouts.reduce(0) { $0 + $1.calories }
             + additionalRemoteMatches.reduce(0) { $0 + $1.totalCalories }
         return Int(total / Double(count))
     }
@@ -107,9 +128,12 @@ struct HomeView: View {
     }
 
     private var trendAxisValues: [Double] {
-        let maximum = trendPoints.map(\.value).max() ?? 0
-        let ceiling = max(1, (maximum / 4).rounded(.up)) * 4
-        return (0...4).map { Double($0) * ceiling / 4 }
+        let values = trendPoints.map(\.value)
+        guard let minimum = values.min(), let maximum = values.max() else { return [0, 1] }
+        let range = maximum - minimum
+        let lower = range > 0 ? minimum : minimum - max(1, abs(minimum) * 0.05)
+        let upper = range > 0 ? maximum : maximum + max(1, abs(maximum) * 0.05)
+        return (0...4).map { lower + (upper - lower) * Double($0) / 4 }
     }
 
     private var hasUnreadNotifications: Bool {
@@ -163,7 +187,7 @@ struct HomeView: View {
                     isSelectingField = false
                     // 워치에 경기가 준비됐다고 알린다 — StartView가 대기 화면 대신
                     // "경기 시작" 버튼을 보여주게 된다. sessionManager가 Field 참조도
-                    // 들고 있다가(이슈 #66) 쿼터가 도착하면 WorkoutRecord.field로 이어준다.
+                    // 들고 있다가(이슈 #66) 경기 종료 후 생성되는 기록의 Field로 사용한다.
                     sessionManager.updateMatchPrepared(field: field)
                 })
             }
@@ -233,8 +257,8 @@ struct HomeView: View {
             .padding(.horizontal, 12)
             
             // 이슈 #42 "Remind" 댓글 — 안 읽은 알림이 있으면 벨 아이콘이 바뀐다.
-            // sessionManager.notifications가 공용 저장소라서 경기 분석 결과가 도착하면
-            // (SessionManager.didReceive(file:)) 바로 반영된다. 분석/댓글 셀 진입 시 로컬 읽음
+            // sessionManager.notifications가 공용 저장소라서 목업 경기 생성이 끝나면
+            // 바로 반영된다. 분석/댓글 셀 진입 시 로컬 읽음
             // 상태를 갱신한다. 서버 읽음 상태 동기화·영속화는 별도 작업이다.
             Button { router.showNotifications(in: .home) } label: {
                 if hasUnreadNotifications {

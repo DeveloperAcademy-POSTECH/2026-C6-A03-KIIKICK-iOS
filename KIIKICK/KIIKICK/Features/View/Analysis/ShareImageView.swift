@@ -14,8 +14,6 @@ import Photos
 import SwiftUI
 
 struct ShareImageView: View {
-    @Environment(\.dismiss) private var dismiss
-
     let keyStats: [AnalysisStat]
     /// AnalysisDetailView에서 공유 버튼을 누른 시점에 선택돼 있던 쿼터 — 카드 히트맵을 이 쿼터로 그린다.
     let quarter: AnalysisQuarter?
@@ -59,12 +57,10 @@ struct ShareImageView: View {
         .padding(.top, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.gray950)
-        .navigationBarBackButtonHidden(true)
+        // 시스템 뒤로가기 버튼 하나만 사용하고, 네비게이션 tint만 흰색으로 지정한다.
+        .tint(.colorTextPrimary)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { dismiss() } label: { Image(systemName: "chevron.backward") }
-            }
             ToolbarItem(placement: .principal) {
                 Text("공유하기")
                     .font(.head3B)

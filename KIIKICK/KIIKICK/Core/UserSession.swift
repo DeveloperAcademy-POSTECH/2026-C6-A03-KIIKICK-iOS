@@ -14,6 +14,10 @@ enum UserSession {
     private static let userIdKey = "userId"
     private static let onboardingStatusKey = "onboardingStatus"
     private static let nicknameKey = "nickname"
+    private static let mockHeatmapPositionKeyPrefix = "mockHeatmapPosition."
+    private static let mockHeatmapPositionFallbackKey = "mockHeatmapPosition.default"
+    private static let legacyMockHeatmapThemeKeyPrefix = "mockHeatmapTheme."
+    private static let legacyMockHeatmapThemeFallbackKey = "mockHeatmapTheme.default"
     static let avatarUrlKey = "profileAvatarUrl"
     static let avatarRevisionKey = "profileAvatarRevision"
     private static let tokenKey = "accessToken"
@@ -64,6 +68,33 @@ enum UserSession {
             UserDefaults.standard.set(newValue, forKey: nicknameKey)
             profileVersion += 1
         }
+    }
+
+    /// 목업 분석 포지션은 서버 프로필과 분리해 계정별로 로컬 저장한다.
+    /// 같은 기기에서 계정을 바꿔도 이전 계정의 포지션이 섞이지 않도록 userId를 키에 포함한다.
+    static var mockHeatmapPosition: MockHeatmapPosition {
+        get {
+            let key = mockHeatmapPositionKey(for: userId)
+            let legacyKey = legacyMockHeatmapThemeKey(for: userId)
+            return (UserDefaults.standard.string(forKey: key) ?? UserDefaults.standard.string(forKey: legacyKey))
+                .flatMap(MockHeatmapPosition.init(rawValue:))
+                ?? .attacker
+        }
+        set {
+            let key = mockHeatmapPositionKey(for: userId)
+            UserDefaults.standard.set(newValue.rawValue, forKey: key)
+            profileVersion += 1
+        }
+    }
+
+    private static func mockHeatmapPositionKey(for ownerId: UUID?) -> String {
+        guard let ownerId else { return mockHeatmapPositionFallbackKey }
+        return "\(mockHeatmapPositionKeyPrefix)\(ownerId.uuidString)"
+    }
+
+    private static func legacyMockHeatmapThemeKey(for ownerId: UUID?) -> String {
+        guard let ownerId else { return legacyMockHeatmapThemeFallbackKey }
+        return "\(legacyMockHeatmapThemeKeyPrefix)\(ownerId.uuidString)"
     }
 
     static var avatarUrl: String? {

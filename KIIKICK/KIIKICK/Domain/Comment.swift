@@ -12,13 +12,22 @@ struct CommentReply: Identifiable, Hashable {
     let id: UUID
     let authorNickname: String
     let avatarImageName: String?
+    let avatarURL: String?
     let content: String
     let timestamp: String
 
-    init(id: UUID = UUID(), authorNickname: String, avatarImageName: String? = nil, content: String, timestamp: String) {
+    init(
+        id: UUID = UUID(),
+        authorNickname: String,
+        avatarImageName: String? = nil,
+        avatarURL: String? = nil,
+        content: String,
+        timestamp: String
+    ) {
         self.id = id
         self.authorNickname = authorNickname
         self.avatarImageName = avatarImageName
+        self.avatarURL = avatarURL
         self.content = content
         self.timestamp = timestamp
     }

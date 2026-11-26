@@ -23,7 +23,24 @@ struct NaverMapView: UIViewRepresentable {
         let mapView = NMFMapView()
         mapView.mapType = .satellite
         mapView.touchDelegate = context.coordinator
-        mapView.positionMode = .direction
+
+        let existingPins = pins
+        if existingPins.count == 4 {
+            // 기존 경기장을 수정하는 경우: 내 위치로 따라가지 않고, 등록된 네 꼭짓점이
+            // 다 보이도록 한 번만 카메라를 맞춘다.
+            mapView.positionMode = .normal
+            let bounds = NMGLatLngBounds(latLngs: existingPins.map { NMGLatLng(lat: $0.latitude, lng: $0.longitude) })
+            Task { @MainActor in
+                await mapView.moveCamera(NMFCameraUpdate(fit: bounds, padding: 60))
+            }
+        } else {
+            // 새로 등록하는 경우: 사용자 위치로 이동해 따라간다. positionMode만
+            // 설정해서는 카메라가 움직이지 않는다 — NMFMapView는 CoreLocation을 직접
+            // 구독하지 않고, 별도 싱글턴인 NMFLocationManager가 위치 업데이트를
+            // 시작해야 locationOverlay/카메라가 따라온다.
+            mapView.positionMode = .direction
+            NMFLocationManager.sharedInstance().startUpdatingLocation()
+        }
 
         let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         pan.delegate = context.coordinator
@@ -31,6 +48,10 @@ struct NaverMapView: UIViewRepresentable {
 
         context.coordinator.mapView = mapView
         return mapView
+    }
+
+    static func dismantleUIView(_ uiView: NMFMapView, coordinator: Coordinator) {
+        NMFLocationManager.sharedInstance().stopUpdatingLocation()
     }
 
     func updateUIView(_ mapView: NMFMapView, context: Context) {

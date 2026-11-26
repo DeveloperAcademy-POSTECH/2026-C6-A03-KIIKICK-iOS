@@ -98,7 +98,9 @@ DerivedData/
 .build/
 .swiftpm/
 Packages/
-Package.resolved
+# Package.resolved는 커밋한다 — 앱 프로젝트에서 안 올리면 기기마다 SPM이 다른
+# 버전으로 resolve될 수 있다(실제로 네이버 지도 SDK에서 이 문제로 API가
+# 달라 보이는 빌드 에러가 났었다).
 
 # ========================
 # CocoaPods (사용 시)

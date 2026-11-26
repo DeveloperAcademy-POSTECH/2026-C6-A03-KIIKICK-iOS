@@ -220,8 +220,8 @@ struct NaverMapView: UIViewRepresentable {
         /// 아니면 첫 업데이트 콜백에서) 한 번 명시적으로 이동시켜준다.
         func moveToCurrentLocationIfAvailable() {
             guard !hasMovedToInitialLocation, let mapView else { return }
-            let current = NMFLocationManager.sharedInstance().currentLatLng()
-            guard current.lat != 0 || current.lng != 0 else { return }
+            guard let current = NMFLocationManager.sharedInstance().currentLatLng(),
+                  current.lat != 0 || current.lng != 0 else { return }
             hasMovedToInitialLocation = true
             Task { @MainActor in
                 await mapView.moveCamera(NMFCameraUpdate(scrollTo: current))

@@ -1,6 +1,6 @@
 #if DEBUG
 import SwiftUI
-import MapKit
+import CoreLocation
 
 /// Debug 전용: 원본 GPS와 정규화 축을 비교하는 위성사진 페이지.
 struct TrackingSatelliteDebugView: View {
@@ -10,7 +10,6 @@ struct TrackingSatelliteDebugView: View {
     @State private var image: UIImage?
     @State private var projectedPoints: [CGPoint] = []
     @State private var projectedCorners: [CGPoint] = []
-    @State private var snapshotter: MKMapSnapshotter?
     @State private var errorMessage: String?
 
     var body: some View {
@@ -64,13 +63,11 @@ struct TrackingSatelliteDebugView: View {
                 .foregroundStyle(.colorTextSecondary)
         }
         .background(Color.gray950)
-        .onDisappear { snapshotter?.cancel() }
     }
 
     @MainActor
     private func loadSnapshot(size: CGSize) async {
         guard size.width > 1, size.height > 1 else { return }
-        snapshotter?.cancel()
         image = nil
         errorMessage = nil
         let coordinates = points.compactMap { point -> CLLocationCoordinate2D? in
@@ -80,36 +77,23 @@ struct TrackingSatelliteDebugView: View {
         let corners = field.map { FieldCoordinateMapper(field: $0).orderedCorners } ?? []
         // 운동장이 선택돼 있으면 그 경계에 맞춘다. 멀리 떨어진 GPS 이상치가 축척을 망치지 않게 한다.
         let bounds = corners.isEmpty ? coordinates : corners
-        guard let first = bounds.first else {
+        guard !bounds.isEmpty else {
             errorMessage = "표시할 좌표가 없어요"
             return
         }
-        var minLat = first.latitude, maxLat = first.latitude
-        var minLon = first.longitude, maxLon = first.longitude
-        for coordinate in bounds {
-            minLat = min(minLat, coordinate.latitude); maxLat = max(maxLat, coordinate.latitude)
-            minLon = min(minLon, coordinate.longitude); maxLon = max(maxLon, coordinate.longitude)
-        }
-        let options = MKMapSnapshotter.Options()
-        options.size = size
-        options.mapType = .satellite
-        options.region = MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLon + maxLon) / 2),
-            span: MKCoordinateSpan(latitudeDelta: max((maxLat - minLat) * 1.4, 0.0005),
-                                   longitudeDelta: max((maxLon - minLon) * 1.4, 0.0005)))
-        let request = MKMapSnapshotter(options: options)
-        snapshotter = request
-        do {
-            let snapshot = try await request.start()
-            guard !Task.isCancelled else { return }
-            projectedPoints = coordinates.map { snapshot.point(for: $0) }.filter {
-                $0.x.isFinite && $0.y.isFinite && CGRect(origin: .zero, size: size).contains($0)
-            }
-            projectedCorners = corners.map { snapshot.point(for: $0) }
-            image = snapshot.image
-        } catch {
-            guard !Task.isCancelled else { return }
+        guard let result = await NaverMapSnapshotter.renderSnapshotWithProjection(
+            cameraBounds: bounds,
+            projecting: corners + coordinates,
+            size: size
+        ) else {
             errorMessage = "위성사진을 불러오지 못했어요"
+            return
+        }
+        guard !Task.isCancelled else { return }
+        image = result.image
+        projectedCorners = corners.count == 4 ? Array(result.points.prefix(4)) : []
+        projectedPoints = Array(result.points.suffix(coordinates.count)).filter {
+            $0.x.isFinite && $0.y.isFinite && CGRect(origin: .zero, size: size).contains($0)
         }
     }
 }

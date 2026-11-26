@@ -42,7 +42,7 @@ struct NaverMapView: UIViewRepresentable {
             // 이미 알고 있는 위치가 있으면 즉시 한 번 옮기고(moveToCurrentLocationIfAvailable),
             // 아직 없으면 첫 위치 업데이트 콜백에서 옮긴다.
             mapView.positionMode = .direction
-            NMFLocationManager.sharedInstance().addDelegate(context.coordinator)
+            NMFLocationManager.sharedInstance().add(context.coordinator)
             NMFLocationManager.sharedInstance().startUpdatingLocation()
             context.coordinator.mapView = mapView
             context.coordinator.moveToCurrentLocationIfAvailable()
@@ -66,7 +66,7 @@ struct NaverMapView: UIViewRepresentable {
 
     static func dismantleUIView(_ uiView: NMFMapView, coordinator: Coordinator) {
         NMFLocationManager.sharedInstance().stopUpdatingLocation()
-        NMFLocationManager.sharedInstance().removeDelegate(coordinator)
+        NMFLocationManager.sharedInstance().remove(coordinator)
     }
 
     func updateUIView(_ mapView: NMFMapView, context: Context) {

@@ -56,6 +56,14 @@ enum NaverMapSnapshotter {
         mapView.mapType = .satellite
         mapView.isNightModeEnabled = false
 
+        // NMFMapView는 GPU 렌더러라 실제 UIWindow에 붙어 있어야 화면 갱신 루프가 돌고
+        // NMFMapViewRenderDelegate 콜백이 호출된다. 윈도우 밖에 띄워두기만 하면(옛
+        // MKMapSnapshotter는 윈도우 없이도 동작했지만) 영영 콜백이 오지 않아 무한
+        // 로딩으로 보인다 — 그래서 화면 밖(음수 좌표)에 숨긴 전용 윈도우에 붙여둔다.
+        let host = OffscreenWindowHost(size: size)
+        host.attach(mapView)
+        defer { host.detach() }
+
         let boundsLatLngs = cameraBounds.map { NMGLatLng(lat: $0.latitude, lng: $0.longitude) }
         let bounds = NMGLatLngBounds(latLngs: boundsLatLngs)
         let padding = max(size.width, size.height) * 0.18
@@ -67,17 +75,67 @@ enum NaverMapSnapshotter {
         return (image, points)
     }
 
+    /// 렌더 완료 콜백을 기다리되, 인증 실패 등으로 콜백이 영영 안 올 수도 있으므로
+    /// 타임아웃을 둬서 무한 로딩 대신 nil(= 기존 placeholder)로 빠지게 한다.
     @MainActor
     private static func waitForRenderedImage(mapView: NMFMapView, size: CGSize) async -> UIImage? {
         await withCheckedContinuation { continuation in
+            var didResume = false
+            let resumeOnce: (UIImage?) -> Void = { image in
+                guard !didResume else { return }
+                didResume = true
+                continuation.resume(returning: image)
+            }
+
             let observer = RenderCompletionObserver(mapView: mapView) {
                 let image = UIGraphicsImageRenderer(size: size).image { _ in
                     mapView.drawHierarchy(in: mapView.bounds, afterScreenUpdates: true)
                 }
-                continuation.resume(returning: image)
+                resumeOnce(image)
             }
             observer.start()
+
+            Task {
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                observer.cancel()
+                resumeOnce(nil)
+            }
         }
+    }
+}
+
+/// 화면 밖(음수 좌표)에 둔 전용 윈도우. GPU 기반 뷰가 렌더 루프를 돌리려면 실제
+/// 윈도우 계층에 붙어 있어야 해서, 보이지 않게 치워둔 채로 그 역할만 한다.
+@MainActor
+private final class OffscreenWindowHost {
+    private let window: UIWindow?
+
+    init(size: CGSize) {
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive } ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first
+
+        guard let scene else {
+            window = nil
+            return
+        }
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: -10_000, y: -10_000, width: size.width, height: size.height)
+        window.windowLevel = .normal - 1000
+        window.isUserInteractionEnabled = false
+        window.isHidden = false
+        self.window = window
+    }
+
+    func attach(_ view: UIView) {
+        window?.addSubview(view)
+    }
+
+    func detach() {
+        window?.subviews.forEach { $0.removeFromSuperview() }
+        window?.isHidden = true
     }
 }
 
@@ -96,6 +154,12 @@ private final class RenderCompletionObserver: NSObject, NMFMapViewRenderDelegate
 
     func start() {
         mapView.addRenderDelegate(delegate: self)
+    }
+
+    func cancel() {
+        guard !hasFired else { return }
+        hasFired = true
+        mapView.removeRenderDelegate(delegate: self)
     }
 
     func mapViewDidFinishRenderingFrame(_ mapView: NMFMapView, fully: Bool, stable: Bool) {

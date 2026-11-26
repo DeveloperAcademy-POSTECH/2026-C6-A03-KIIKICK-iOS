@@ -8,7 +8,7 @@
 //  홈 알림 버튼에서 AppRouter의 홈 스택에 push한다.
 //
 //  목록 자체는 로컬 @State가 아니라 SessionManager.notifications(공용 저장소)를 그대로
-//  쓴다 — 경기 분석 결과가 도착하면(SessionManager.didReceive(file:)) 홈 화면 벨 아이콘과
+//  쓴다 — 경기 종료 후 목업 분석 결과가 생성되면 홈 화면 벨 아이콘과
 //  이 목록이 같은 데이터를 보고 즉시 같이 반영돼야 하기 때문이다.
 //
 

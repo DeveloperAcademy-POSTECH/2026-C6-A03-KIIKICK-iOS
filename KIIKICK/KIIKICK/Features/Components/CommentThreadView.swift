@@ -44,6 +44,7 @@ struct CommentThreadView: View {
                         .foregroundStyle(.gray700)
                     row(
                         avatarImageName: reply.avatarImageName,
+                        avatarURL: reply.avatarURL,
                         nickname: reply.authorNickname,
                         content: reply.content,
                         timestamp: reply.timestamp

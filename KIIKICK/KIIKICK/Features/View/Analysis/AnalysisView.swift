@@ -37,7 +37,9 @@ struct AnalysisView: View {
 
     @State private var loadedUserID: UUID? = UserSession.userId
     @State private var isLoadingRemote = false
+    @State private var isDeleting = false
     @State private var loadError: String?
+    @State private var deleteError: String?
     @State private var year = 2026
     @State private var month = 10
 
@@ -106,6 +108,14 @@ struct AnalysisView: View {
                                     stats: entry.stats.map { CardSummaryView.Stat(label: $0.label, value: $0.value, unit: $0.unit) },
                                     action: { router.showAnalysis(entry, in: .analysis) }
                                 )
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        delete(entry)
+                                    } label: {
+                                        Label("삭제", systemImage: "trash")
+                                    }
+                                    .disabled(isDeleting)
+                                }
                             }
                         }
                         .padding(.horizontal, 16)
@@ -125,6 +135,9 @@ struct AnalysisView: View {
         .alert("경기 기록을 불러오지 못했어요", isPresented: Binding(
             get: { loadError != nil }, set: { if !$0 { loadError = nil } }
         )) { } message: { Text(loadError ?? "") }
+        .alert("경기 기록을 삭제하지 못했어요", isPresented: Binding(
+            get: { deleteError != nil }, set: { if !$0 { deleteError = nil } }
+        )) { } message: { Text(deleteError ?? "") }
         .onAppear {
             syncToLatestMonthIfNeeded()
             Task { await loadRemoteEntries() }
@@ -176,6 +189,60 @@ struct AnalysisView: View {
         guard entriesInSelectedMonth.isEmpty, let latest = availableYearMonths.sorted().last else { return }
         year = latest.year
         month = latest.month
+    }
+
+    /// 서버 경기 삭제가 성공한 뒤 로컬 쿼터와 기기 캐시를 함께 지운다.
+    private func delete(_ entry: AnalysisEntry) {
+        guard !isDeleting else { return }
+        Task { await deleteEntry(entry) }
+    }
+
+    private func deleteEntry(_ entry: AnalysisEntry) async {
+        guard !isDeleting else { return }
+        isDeleting = true
+        defer { isDeleting = false }
+
+        if UserSession.token != nil {
+            guard await UserSession.reauthenticateIfNeeded() else {
+                router.didLogOut()
+                return
+            }
+
+            let matchID = entry.records.first?.matchId ?? entry.id
+            do {
+                let detail: Envelope<MatchResponse> = try await NetworkService.provider.request(
+                    with: MatchEndpoints.detail(matchId: matchID)
+                )
+                try await NetworkService.provider.requestWithoutResponse(
+                    with: MatchEndpoints.delete(
+                        matchId: matchID,
+                        ifMatch: "\"\(detail.data.version)\""
+                    )
+                )
+            } catch NetworkError.invalidHttpStatusCode(404, _) {
+                // 목업 기록이거나 이미 서버에서 삭제된 경기면 로컬 정리를 계속한다.
+            } catch {
+                deleteError = error.localizedDescription
+                return
+            }
+        }
+
+        deleteLocalData(for: entry)
+    }
+
+    private func deleteLocalData(for entry: AnalysisEntry) {
+        entry.records.forEach(modelContext.delete)
+
+        for cachedMatch in cachedMatches where cachedMatch.matchID == entry.id {
+            modelContext.delete(cachedMatch)
+        }
+
+        do {
+            try modelContext.save()
+            syncToLatestMonthIfNeeded()
+        } catch {
+            deleteError = error.localizedDescription
+        }
     }
 }
 

@@ -137,3 +137,8 @@ GoogleService-Info.plist
 # ========================
 NETWORK.md
 .claude/worktrees/
+
+# ========================
+# 임시 검증용 캡처 이미지 (이슈 #102 히트맵 내보내기 검증)
+# ========================
+docs/heatmap & sprint images/

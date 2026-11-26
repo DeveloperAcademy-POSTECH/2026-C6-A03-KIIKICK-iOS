@@ -33,7 +33,9 @@ struct FieldListView: View {
     @State private var isPresentingRegistration = false
     @State private var selectedField: Field?
     @State private var isSynchronizing = false
+    @State private var isDeletingField = false
     @State private var synchronizationError: String?
+    @State private var deletionError: String?
     var onFieldPrepared: ((Field) -> Void)? = nil
     /// 분석 준비 중 기존 기록에 운동장을 연결할 때는 경기 준비 화면을 거치지 않는다.
     var onFieldSelected: ((Field) -> Void)? = nil
@@ -47,7 +49,7 @@ struct FieldListView: View {
                     text: "새 경기장 등록하기",
                     type: .secondary,
                     size: .large,
-                    isActive: !isSynchronizing
+                    isActive: !isSynchronizing && !isDeletingField
                 ) {
                     isPresentingRegistration = true
                 }
@@ -68,6 +70,14 @@ struct FieldListView: View {
                     LazyVStack(spacing: 16) {
                         ForEach(activeFields) { field in
                             fieldRow(field)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        Task { await deleteField(field) }
+                                    } label: {
+                                        Label("삭제", systemImage: "trash")
+                                    }
+                                    .disabled(isDeletingField)
+                                }
                         }
                     }
                 }
@@ -85,6 +95,9 @@ struct FieldListView: View {
         }
         .task { await synchronizeFields() }
         .refreshable { await synchronizeFields() }
+        .alert("경기장을 삭제하지 못했어요", isPresented: Binding(
+            get: { deletionError != nil }, set: { if !$0 { deletionError = nil } }
+        )) { } message: { Text(deletionError ?? "") }
         .navigationDestination(item: $selectedField) { field in
             ReadyForMatchView(
                 field: field,
@@ -118,7 +131,7 @@ struct FieldListView: View {
             NaviRowView(text: field.name, textStyle: .title3M)
         }
         .buttonStyle(.plain)
-        .disabled(isSynchronizing)
+        .disabled(isSynchronizing || isDeletingField)
     }
 
     private var directFieldSaveHandler: ((Field) -> Void)? {
@@ -190,6 +203,27 @@ struct FieldListView: View {
         } catch {
             guard !Task.isCancelled else { return }
             synchronizationError = "경기장 목록을 동기화하지 못했어요.\n로컬 경기장은 그대로 사용할 수 있어요."
+        }
+    }
+
+    private func deleteField(_ field: Field) async {
+        guard !isDeletingField else { return }
+        isDeletingField = true
+        defer { isDeletingField = false }
+
+        do {
+            try await VenueStore.archive(
+                field,
+                idempotencyKey: UUID(),
+                context: modelContext
+            )
+        } catch {
+            guard !Task.isCancelled else { return }
+            if case let NetworkError.invalidHttpStatusCode(_, message) = error {
+                deletionError = message ?? "경기장을 삭제하지 못했어요. 다시 시도해 주세요"
+            } else {
+                deletionError = "경기장을 삭제하지 못했어요. 다시 시도해 주세요"
+            }
         }
     }
 }

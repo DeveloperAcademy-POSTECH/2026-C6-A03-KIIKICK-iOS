@@ -7,4 +7,6 @@ struct MatchCommentResponse: Decodable, Identifiable {
     let authorId: UUID
     let content: String
     let createdAt: Date
+    /// 답글인 경우에만 포함되는 부모 댓글 ID.
+    let parentCommentId: UUID?
 }

@@ -41,12 +41,11 @@ struct NaverMapView: UIViewRepresentable {
             Task { @MainActor in
                 await mapView.moveCamera(NMFCameraUpdate(scrollTo: mapView.locationOverlay.location))
             }
-        } else if context.coordinator.shouldFitCamera(for: pins) {
-            let bounds = NMGLatLngBounds(latLngs: pins.map { NMGLatLng(lat: $0.latitude, lng: $0.longitude) })
-            Task { @MainActor in
-                await mapView.moveCamera(NMFCameraUpdate(fit: bounds, padding: 60))
-            }
         }
+        // 핀 4개를 다 찍어도 카메라를 자동으로 움직이지 않는다 — fit-bounds 카메라
+        // 업데이트가 heading을 북쪽으로 되돌리고 positionMode도 .direction에서
+        // .normal로 풀어버려서, 사용자가 보던 각도/내 위치 추종이 끊기는 부작용이
+        // 있었다(#105 후속 피드백). 전체 보기가 필요하면 사용자가 직접 핀치줌한다.
     }
 
     func makeCoordinator() -> Coordinator {
@@ -61,7 +60,6 @@ struct NaverMapView: UIViewRepresentable {
         weak var mapView: NMFMapView?
         private var markers: [NMFMarker] = []
         private var polyline: NMFPolylineOverlay?
-        private var lastPinCount = -1
         var lastRecenterTrigger = false
         private var draggingMarkerIndex: Int?
 
@@ -73,11 +71,6 @@ struct NaverMapView: UIViewRepresentable {
             self.pins = pins
             self.draggingIndex = draggingIndex
             self.onTapEmptyMap = onTapEmptyMap
-        }
-
-        func shouldFitCamera(for pins: [CLLocationCoordinate2D]) -> Bool {
-            defer { lastPinCount = pins.count }
-            return pins.count == 4 && lastPinCount != 4
         }
 
         /// 마커/폴리라인을 pins 배열과 동기화한다. SwiftUI의 선언적 모델을 NMFMapView의

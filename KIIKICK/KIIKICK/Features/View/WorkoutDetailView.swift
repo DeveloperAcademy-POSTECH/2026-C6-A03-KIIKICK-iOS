@@ -4,7 +4,6 @@
 //
 
 import SwiftUI
-import MapKit
 import Charts
 import SwiftData
 
@@ -82,24 +81,6 @@ struct WorkoutDetailView: View {
         } catch {
             sendState = .failure("전송에 실패했습니다.")
         }
-    }
-    
-    private var region: MKCoordinateRegion {
-        let lats = record.points.map(\.latitude)
-        let lngs = record.points.map(\.longitude)
-        guard let minLat = lats.min(), let maxLat = lats.max(),
-              let minLng = lngs.min(), let maxLng = lngs.max() else {
-            return MKCoordinateRegion(
-                center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
-                span: MKCoordinateSpan(latitudeDelta: 1, longitudeDelta: 1)
-            )
-        }
-        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLng + maxLng) / 2)
-        let span = MKCoordinateSpan(
-            latitudeDelta: max(maxLat - minLat, 0.0006) * 1.2,
-            longitudeDelta: max(maxLng - minLng, 0.0006) * 1.2
-        )
-        return MKCoordinateRegion(center: center, span: span)
     }
     
     var body: some View {

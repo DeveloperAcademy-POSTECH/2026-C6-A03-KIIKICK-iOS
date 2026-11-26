@@ -2,7 +2,7 @@
 //  FieldThumbnailView.swift
 //  KIIKICK
 //
-//  네 꼭짓점이 모두 보이는 영역을 지도 스냅샷(MKMapSnapshotter)으로 렌더링하고 그 위에
+//  네 꼭짓점이 모두 보이는 영역을 지도 스냅샷(NaverMapSnapshotter)으로 렌더링하고 그 위에
 //  운동장 경계선을 겹쳐 그린다. "selected field" 카드(Figma node 563:5728 "newfield_03",
 //  241:1779/544:4049 "ready")에서 공통으로 쓴다 — Figma 목업 자체는 범용 축구장
 //  일러스트를 썼지만(정적 목업이라 실제 지오데이터를 못 담음), 실제 등록된 좌표로 렌더링한
@@ -10,7 +10,6 @@
 //
 
 import CoreLocation
-import MapKit
 import SwiftUI
 
 struct FieldThumbnailView: View {
@@ -38,48 +37,7 @@ struct FieldThumbnailView: View {
         // .padding(24)
         .background(Color.gray900, in: RoundedRectangle(cornerRadius: 12))
         .task(id: coordinates) {
-            snapshotImage = await Self.renderSnapshot(for: coordinates, size: Self.size)
-        }
-    }
-
-    private static func renderSnapshot(for coordinates: [CLLocationCoordinate2D], size: CGSize) async -> UIImage? {
-        guard coordinates.count == 4 else { return nil }
-
-        let lats = coordinates.map(\.latitude)
-        let lons = coordinates.map(\.longitude)
-        let center = CLLocationCoordinate2D(
-            latitude: (lats.min()! + lats.max()!) / 2,
-            longitude: (lons.min()! + lons.max()!) / 2
-        )
-        let paddingFactor = 2.2
-        let span = MKCoordinateSpan(
-            latitudeDelta: max((lats.max()! - lats.min()!) * paddingFactor, 0.0012),
-            longitudeDelta: max((lons.max()! - lons.min()!) * paddingFactor, 0.0012)
-        )
-
-        let options = MKMapSnapshotter.Options()
-        options.region = MKCoordinateRegion(center: center, span: span)
-        options.size = size
-        options.mapType = .satellite
-        options.showsBuildings = true
-
-        guard let snapshot = try? await MKMapSnapshotter(options: options).start() else { return nil }
-
-        return UIGraphicsImageRenderer(size: size).image { _ in
-            snapshot.image.draw(at: .zero)
-
-            let points = coordinates.map { snapshot.point(for: $0) }
-            guard let first = points.first else { return }
-            let path = UIBezierPath()
-            path.move(to: first)
-            points.dropFirst().forEach { path.addLine(to: $0) }
-            path.close()
-
-            UIColor.white.withAlphaComponent(0.2).setFill()
-            path.fill()
-            UIColor.white.setStroke()
-            path.lineWidth = 3
-            path.stroke()
+            snapshotImage = await NaverMapSnapshotter.renderSnapshot(for: coordinates, size: Self.size)
         }
     }
 }

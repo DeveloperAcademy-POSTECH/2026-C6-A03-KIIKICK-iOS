@@ -20,7 +20,6 @@
 //
 
 import CoreLocation
-import MapKit
 import SwiftData
 import SwiftUI
 

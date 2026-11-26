@@ -66,7 +66,11 @@ enum NaverMapSnapshotter {
 
         let boundsLatLngs = cameraBounds.map { NMGLatLng(lat: $0.latitude, lng: $0.longitude) }
         let bounds = NMGLatLngBounds(latLngs: boundsLatLngs)
-        let padding = max(size.width, size.height) * 0.18
+        // NMFCameraUpdate의 padding은 뷰 크기에 대한 비율이 아니라 "점" 단위 여백이다.
+        // 뷰 크기에 비례(0.18)하게 잡았더니 작은 썸네일(354x138)에서 여백이 짧은 변의
+        // 거의 절반을 먹어버려 경기장이 과하게 작게 보였다 — 고정값으로 바꿔 더 확대해서
+        // 보여준다.
+        let padding: CGFloat = 16
         await mapView.moveCamera(NMFCameraUpdate(fit: bounds, padding: padding))
 
         guard let image = await waitForRenderedImage(mapView: mapView, size: size) else { return nil }

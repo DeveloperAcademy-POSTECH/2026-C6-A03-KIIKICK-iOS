@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		C0C941DC308F9F48006E6711 /* KIIKICK Watch App Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C0C941D2308F9F48006E6711 /* KIIKICK Watch App Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C62ADE70F05840628372BF03 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 6F5F3C9B255A403EB94E89C5 /* Lottie */; };
+		E5F60718293847566A7B8C9D /* NMapsMap in Frameworks */ = {isa = PBXBuildFile; productRef = C3D4E5F60718293847566A7B /* NMapsMap */; };
+		F60718293847566A7B8C9DE0 /* NMapsGeometry in Frameworks */ = {isa = PBXBuildFile; productRef = D4E5F60718293847566A7B8C /* NMapsGeometry */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,6 +87,8 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				C62ADE70F05840628372BF03 /* Lottie in Frameworks */,
+				E5F60718293847566A7B8C9D /* NMapsMap in Frameworks */,
+				F60718293847566A7B8C9DE0 /* NMapsGeometry in Frameworks */,
 			);
 		};
 		C0C941CF308F9F48006E6711 /* Frameworks */ = {
@@ -139,6 +143,8 @@
 			name = KIIKICK;
 			packageProductDependencies = (
 				6F5F3C9B255A403EB94E89C5 /* Lottie */,
+				C3D4E5F60718293847566A7B /* NMapsMap */,
+				D4E5F60718293847566A7B8C /* NMapsGeometry */,
 			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* KIIKICK.app */;
@@ -192,6 +198,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				95C5C117CF6C4A90957F9490 /* XCRemoteSwiftPackageReference "lottie-ios" */,
+				A1B2C3D4E5F6071829384756 /* XCRemoteSwiftPackageReference "SPM-NMapsMap" */,
+				B2C3D4E5F60718293847566A /* XCRemoteSwiftPackageReference "SPM-NMapsGeometry" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -582,6 +590,22 @@
 				minimumVersion = 4.4.0;
 			};
 		};
+		A1B2C3D4E5F6071829384756 /* XCRemoteSwiftPackageReference "SPM-NMapsMap" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/navermaps/SPM-NMapsMap";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.24.1;
+			};
+		};
+		B2C3D4E5F60718293847566A /* XCRemoteSwiftPackageReference "SPM-NMapsGeometry" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/navermaps/SPM-NMapsGeometry";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -589,6 +613,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 95C5C117CF6C4A90957F9490 /* XCRemoteSwiftPackageReference "lottie-ios" */;
 			productName = Lottie;
+		};
+		C3D4E5F60718293847566A7B /* NMapsMap */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D4E5F6071829384756 /* XCRemoteSwiftPackageReference "SPM-NMapsMap" */;
+			productName = NMapsMap;
+		};
+		D4E5F60718293847566A7B8C /* NMapsGeometry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B2C3D4E5F60718293847566A /* XCRemoteSwiftPackageReference "SPM-NMapsGeometry" */;
+			productName = NMapsGeometry;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

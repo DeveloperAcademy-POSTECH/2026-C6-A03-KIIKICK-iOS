@@ -37,14 +37,28 @@ struct NaverMapView: UIViewRepresentable {
             // 새로 등록하는 경우: 사용자 위치로 이동해 따라간다. positionMode만
             // 설정해서는 카메라가 움직이지 않는다 — NMFMapView는 CoreLocation을 직접
             // 구독하지 않고, 별도 싱글턴인 NMFLocationManager가 위치 업데이트를
-            // 시작해야 locationOverlay/카메라가 따라온다.
+            // 시작해야 locationOverlay/카메라가 따라온다. positionMode의 "따라가기"는
+            // 이후 위치가 갱신될 때부터 작동하고 첫 진입 시 바로 이동시켜주진 않아서,
+            // 이미 알고 있는 위치가 있으면 즉시 한 번 옮기고(moveToCurrentLocationIfAvailable),
+            // 아직 없으면 첫 위치 업데이트 콜백에서 옮긴다.
             mapView.positionMode = .direction
+            NMFLocationManager.sharedInstance().addDelegate(context.coordinator)
             NMFLocationManager.sharedInstance().startUpdatingLocation()
+            context.coordinator.mapView = mapView
+            context.coordinator.moveToCurrentLocationIfAvailable()
         }
 
         let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         pan.delegate = context.coordinator
         mapView.addGestureRecognizer(pan)
+
+        // 지도 자체의 내장 팬 제스처가 마커 드래그와 동시에 인식되면 배경 지도까지
+        // 같이 움직여버린다. 내 제스처가 마커 근처가 아니면 shouldReceive에서 바로
+        // 거절해 즉시 실패하므로, 지도의 팬 제스처가 "내 제스처가 먼저 실패하길"
+        // 기다리게 해도(require(toFail:)) 체감 딜레이는 없다.
+        mapView.gestureRecognizers?
+            .filter { $0 !== pan && $0 is UIPanGestureRecognizer }
+            .forEach { $0.require(toFail: pan) }
 
         context.coordinator.mapView = mapView
         return mapView
@@ -52,6 +66,7 @@ struct NaverMapView: UIViewRepresentable {
 
     static func dismantleUIView(_ uiView: NMFMapView, coordinator: Coordinator) {
         NMFLocationManager.sharedInstance().stopUpdatingLocation()
+        NMFLocationManager.sharedInstance().removeDelegate(coordinator)
     }
 
     func updateUIView(_ mapView: NMFMapView, context: Context) {
@@ -74,7 +89,7 @@ struct NaverMapView: UIViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, NMFMapViewTouchDelegate, UIGestureRecognizerDelegate {
+    final class Coordinator: NSObject, NMFMapViewTouchDelegate, NMFLocationManagerDelegate, UIGestureRecognizerDelegate {
         private var pins: Binding<[CLLocationCoordinate2D]>
         private var draggingIndex: Binding<Int?>
         private let onTapEmptyMap: (CLLocationCoordinate2D) -> Void
@@ -83,6 +98,7 @@ struct NaverMapView: UIViewRepresentable {
         private var polyline: NMFPolylineOverlay?
         var lastRecenterTrigger = false
         private var draggingMarkerIndex: Int?
+        private var hasMovedToInitialLocation = false
 
         init(
             pins: Binding<[CLLocationCoordinate2D]>,
@@ -196,14 +212,41 @@ struct NaverMapView: UIViewRepresentable {
             onTapEmptyMap(CLLocationCoordinate2D(latitude: latlng.lat, longitude: latlng.lng))
         }
 
+        // MARK: - NMFLocationManagerDelegate
+
+        /// positionMode = .direction는 "위치가 갱신될 때부터" 카메라를 따라가게 할 뿐,
+        /// 아직 한 번도 위치가 없던 상태에서 처음 진입했을 땐 그 전까지 카메라가 가만히
+        /// 있는다 — 그래서 위치를 쓸 수 있게 되는 첫 순간(이미 알고 있었으면 즉시,
+        /// 아니면 첫 업데이트 콜백에서) 한 번 명시적으로 이동시켜준다.
+        func moveToCurrentLocationIfAvailable() {
+            guard !hasMovedToInitialLocation, let mapView else { return }
+            let current = NMFLocationManager.sharedInstance().currentLatLng()
+            guard current.lat != 0 || current.lng != 0 else { return }
+            hasMovedToInitialLocation = true
+            Task { @MainActor in
+                await mapView.moveCamera(NMFCameraUpdate(scrollTo: current))
+            }
+        }
+
+        nonisolated func locationManager(_ locationManager: NMFLocationManager, didUpdateLocations locations: [Any]) {
+            Task { @MainActor in
+                self.moveToCurrentLocationIfAvailable()
+            }
+        }
+
         // MARK: - UIGestureRecognizerDelegate
 
         nonisolated func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
-            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+            shouldReceive touch: UITouch
         ) -> Bool {
-            // 마커를 드래그 중일 땐 지도 자체의 팬(이동)과 동시에 인식되면 안 된다.
-            MainActor.assumeIsolated { self.draggingMarkerIndex == nil }
+            // 터치가 마커 근처에서 시작할 때만 내 드래그 제스처가 받는다 — 그 외엔
+            // 이 제스처가 즉시 실패해서(require(toFail:)) 지도 자체의 팬이 정상 동작한다.
+            MainActor.assumeIsolated {
+                guard let mapView else { return false }
+                let location = touch.location(in: mapView)
+                return self.nearestMarkerIndex(to: location, within: 28) != nil
+            }
         }
     }
 }
